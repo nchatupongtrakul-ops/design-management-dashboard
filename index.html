@@ -418,7 +418,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 
   <div class="chart-grid g2">
     <div class="card"><h3>Team Workload per Month (Internal vs External)</h3><canvas id="chartTeamWorkloadMonth"></canvas></div>
-    <div class="card"><h3>Workload by Team Member</h3><canvas id="chartWorkloadByMember"></canvas></div>
+    <div class="card"><div class="card-title-row"><h3>Workload by Team Member</h3><div class="chart-filter-wrap"><button class="chart-filter-btn" onclick="toggleFilterDropdown('chartWorkloadByMember',event)">Filter &#9662;</button><div class="chart-filter-dropdown" id="dropdown-chartWorkloadByMember"></div></div></div><canvas id="chartWorkloadByMember"></canvas></div>
   </div>
 
   <div class="chart-grid g1">
@@ -761,11 +761,30 @@ function renderTeamWorkloadMonth(projects) {
   });
 }
 
+let wbmExcluded = new Set();
+let wbmLastProjects = null;
+
+function toggleWbmEngineer(e) {
+  if (wbmExcluded.has(e)) wbmExcluded.delete(e);
+  else wbmExcluded.add(e);
+  if (wbmExcluded.size === DATA.engineers.length) wbmExcluded.delete(e); // prevent empty chart
+  if (wbmLastProjects) renderWorkloadByMember(wbmLastProjects);
+}
+
 function renderWorkloadByMember(projects) {
   const canvasId = 'chartWorkloadByMember';
+  wbmLastProjects = projects;
   if (charts[canvasId]) charts[canvasId].destroy();
 
-  const engineers = DATA.engineers;
+  // Build engineer filter dropdown (same pattern as donut filters)
+  const dropdown = document.getElementById('dropdown-' + canvasId);
+  dropdown.innerHTML = DATA.engineers.map(e => {
+    const checked = !wbmExcluded.has(e);
+    const n = projects.filter(p => p.engineer === e).length;
+    return `<label><input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleWbmEngineer('${e}')"> ${dName(e)} (${n})</label>`;
+  }).join('');
+
+  const engineers = DATA.engineers.filter(e => !wbmExcluded.has(e));
   const intCounts = engineers.map(e => projects.filter(p => p.engineer === e && p.projectType === 'Internal').length);
   const extCounts = engineers.map(e => projects.filter(p => p.engineer === e && p.projectType === 'External').length);
 
