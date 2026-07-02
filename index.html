@@ -761,7 +761,7 @@ function renderTeamWorkloadMonth(projects) {
   });
 }
 
-let wbmExcluded = new Set();
+let wbmExcluded = new Set(['Game', 'Guess', 'Phob']); // default: show only Natchapol, Kantapat, Thanatorn
 let wbmLastProjects = null;
 
 function toggleWbmEngineer(e) {
