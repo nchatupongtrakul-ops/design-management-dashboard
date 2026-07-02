@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Management Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F7F5;
+  --card-bg: #FFFFFF;
+  --border: #E3E2DE;
+  --text: #37352F;
+  --text-secondary: #787774;
+  --blue: #2383E2;
+  --red: #D44C47;
+  --purple: #6940A5;
+  --green: #448361;
+  --orange: #CB912F;
+  --gray: #9B9A97;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.btn {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: opacity .15s;
+}
+.btn:hover { opacity: .85; }
+.btn:active { opacity: .7; }
+.btn.loading { opacity: .5; pointer-events: none; }
+
+.tabs {
+  display: flex;
+  gap: 0;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .15s;
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.page { display: none; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.filter-bar label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+.filter-bar select {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  text-align: center;
+}
+
+.kpi-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.kpi-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.chart-grid {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-grid.g2x2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.g4 { grid-template-columns: repeat(4, 1fr); }
+.chart-grid.g1 { grid-template-columns: 1fr; }
+.chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+
+@media (max-width: 900px) {
+  .chart-grid.g2x2, .chart-grid.g4, .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
+  .page { padding: 16px; }
+  .header { padding: 12px 16px; }
+  .tabs { padding: 0 16px; }
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.card canvas { max-height: 320px; }
+.chart-grid.g4 .card canvas { max-height: 150px; }
+.chart-grid.g4 .card { padding: 12px; }
+.donut-legend { margin-top: 6px; }
+.dl-row { display: flex; align-items: center; gap: 5px; padding: 1px 0; font-size: 9px; color: var(--text); }
+.dl-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dl-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.dl-pct { font-weight: 600; color: var(--text); min-width: 24px; text-align: right; }
+
+/* Table */
+.table-toggle {
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.table-toggle button {
+  background: none;
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.table-toggle button:hover { background: var(--bg); }
+
+.project-table-wrap {
+  display: none;
+  overflow-x: auto;
+}
+.project-table-wrap.show { display: block; }
+
+.search-bar {
+  margin-bottom: 10px;
+}
+.search-bar input {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 260px;
+  background: var(--card-bg);
+}
+
+table.ptable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.ptable th {
+  background: var(--bg);
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+table.ptable th:hover { background: #EDEDEB; }
+table.ptable td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f0f0ed;
+  white-space: nowrap;
+}
+table.ptable tr:hover td { background: #FAFAF8; }
+
+.sort-arrow { font-size: 10px; margin-left: 4px; color: var(--text-secondary); }
+
+.loading-overlay {
+  position: fixed; inset: 0;
+  background: rgba(255,255,255,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; font-size: 16px; font-weight: 500; color: var(--text-secondary);
+}
+.loading-overlay.hidden { display: none; }
+
+.kpi-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+/* Onhand table (non-sortable, simple) */
+table.onhand-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.onhand-table th {
+  background: var(--bg);
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+table.onhand-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f0f0ed;
+}
+table.onhand-table tr:hover td { background: #FAFAF8; }
+
+/* Person chip toggles */
+.person-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  transition: all .15s;
+}
+.person-chip.active {
+  color: #fff;
+  border-color: transparent;
+}
+.person-chip .chip-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}
+
+/* Per-chart dropdown filter */
+.card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-title-row h3 { margin-bottom: 0; }
+.chart-filter-wrap { position: relative; }
+.chart-filter-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 500;
+  line-height: 1.4;
+}
+.chart-filter-btn:hover { background: var(--bg); }
+.chart-filter-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: 6px 0;
+  z-index: 50;
+  min-width: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.chart-filter-dropdown.open { display: block; }
+.chart-filter-dropdown label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chart-filter-dropdown label:hover { background: var(--bg); }
+.chart-filter-dropdown input[type="checkbox"] { accent-color: var(--blue); }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">Loading data...</div>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <img src="/logo.jpg" alt="Coral Life" style="height:80px;">
+    <h1>Design Management Dashboard</h1>
+  </div>
+  <div class="header-right">
+    <span class="timestamp" id="timestamp"></span>
+    <button class="btn" id="refreshBtn" onclick="loadData()">Refresh</button>
+  </div>
+</div>
+
+<div class="tabs" id="tabBar">
+  <div class="tab active" data-tab="overall" onclick="switchTab('overall')">Over All</div>
+  <div class="tab" data-tab="workload" onclick="switchTab('workload')">Workload Trends</div>
+</div>
+
+<!-- TAB 1: OVER ALL -->
+<div class="page active" id="page-overall">
+  <div class="filter-bar">
+    <label>Project Type</label>
+    <select id="filter-overall" onchange="renderOverall()">
+      <option value="All">All</option>
+      <option value="Internal">Internal</option>
+      <option value="External">External</option>
+    </select>
+  </div>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="chart-grid g4" id="donutGrid">
+    <div class="card">
+      <div class="card-title-row"><h3>Design Status Ratio</h3><div class="chart-filter-wrap"><button class="chart-filter-btn" onclick="toggleFilterDropdown('chartDesignStatus',event)">Filter &#9662;</button><div class="chart-filter-dropdown" id="dropdown-chartDesignStatus"></div></div></div>
+      <canvas id="chartDesignStatus"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title-row"><h3>Building Type Ratio</h3><div class="chart-filter-wrap"><button class="chart-filter-btn" onclick="toggleFilterDropdown('chartBuildingType',event)">Filter &#9662;</button><div class="chart-filter-dropdown" id="dropdown-chartBuildingType"></div></div></div>
+      <canvas id="chartBuildingType"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title-row"><h3>Project Status Ratio</h3><div class="chart-filter-wrap"><button class="chart-filter-btn" onclick="toggleFilterDropdown('chartProjectStatus',event)">Filter &#9662;</button><div class="chart-filter-dropdown" id="dropdown-chartProjectStatus"></div></div></div>
+      <canvas id="chartProjectStatus"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title-row"><h3>Project Type Ratio</h3><div class="chart-filter-wrap"><button class="chart-filter-btn" onclick="toggleFilterDropdown('chartProjectType',event)">Filter &#9662;</button><div class="chart-filter-dropdown" id="dropdown-chartProjectType"></div></div></div>
+      <canvas id="chartProjectType"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card"><h3>Team Workload per Month (Internal vs External)</h3><canvas id="chartTeamWorkloadMonth"></canvas></div>
+    <div class="card"><h3>Workload by Team Member</h3><canvas id="chartWorkloadByMember"></canvas></div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card"><h3>Design Area (m&sup2;) per Month &mdash; Team Total</h3><canvas id="chartDesignAreaTeamTotal"></canvas></div>
+  </div>
+
+  <div class="filter-bar" style="margin-top:8px;">
+    <label>Month</label>
+    <select id="filter-month" onchange="renderTable()">
+      <option value="All">All</option>
+      <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+      <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+      <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+      <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+    </select>
+  </div>
+  <div class="project-table-wrap show" id="tableWrap">
+    <table class="ptable" id="projectTable">
+      <thead><tr id="tableHead"></tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 2: WORKLOAD TRENDS -->
+<div class="page" id="page-workload">
+  <div class="filter-bar" style="flex-wrap:wrap;">
+    <label>Project Type</label>
+    <select id="filter-workload" onchange="renderWorkload()">
+      <option value="All">All</option>
+      <option value="Internal">Internal</option>
+      <option value="External">External</option>
+    </select>
+    <span style="width:1px;height:20px;background:var(--border);margin:0 4px;"></span>
+    <label>Engineer</label>
+    <div id="personChips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card"><h3>Total Workload (New + Revised)</h3><canvas id="chartTotalWorkload"></canvas></div>
+  </div>
+
+  <div class="chart-grid g2" style="margin-top:0;">
+    <div class="card"><h3>New Projects</h3><canvas id="chartNewProjects"></canvas></div>
+    <div class="card"><h3>Revised Work</h3><canvas id="chartRevisedWork"></canvas></div>
+  </div>
+
+  <div class="chart-grid g2" style="margin-top:0;">
+    <div class="card"><h3>Design Area (m&sup2;) per Person &mdash; Monthly</h3><canvas id="chartDesignArea"></canvas></div>
+    <div class="card"><h3>Win Rate % by Engineer</h3><canvas id="chartWinRate"></canvas></div>
+  </div>
+
+  <div class="chart-grid g2" style="margin-top:0;">
+    <div class="card"><h3>Won Project Value (THB) per Person &mdash; Monthly</h3><canvas id="chartWonValue"></canvas></div>
+    <div class="card"><h3>Design Capacity (m&sup2;/day) per Person</h3><canvas id="chartCapacity"></canvas></div>
+  </div>
+</div>
+
+<!-- KPI PAGES (generated dynamically) -->
+
+<script>
+// Do NOT register ChartDataLabels globally — pass it per-chart via plugins array
+
+const COLORS = ['#2B3A67','#C4B5D4','#5B7BA5','#8E6DAF','#3D5A80','#A8D0DB'];
+const COLORS_LIGHT = ['#5B7BA5','#D9CEE6','#8BAAC4','#B89FCC','#6B8BA4','#C4E3EB'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const ALL_MONTH_IDXS = [0,1,2,3,4,5,6,7,8,9,10,11];
+
+// Engineer color mapping (consistent across charts)
+const ENGINEER_COLORS = {
+  'Game': '#2B3A67', 'Guess': '#8E6DAF', 'Mic': '#5B7BA5',
+  'Phob': '#3D5A80', 'Ping': '#C4B5D4', 'Wich': '#A8D0DB'
+};
+const ENGINEER_COLORS_LIGHT = {
+  'Game': '#5B7BA5', 'Guess': '#B89FCC', 'Mic': '#8BAAC4',
+  'Phob': '#6B8BA4', 'Ping': '#D9CEE6', 'Wich': '#C4E3EB'
+};
+
+const ENGINEER_FULL_NAMES = {
+  'Mic': 'Natchapol (A2)', 'Ping': 'Kantapat (A1)', 'Wich': 'Thanatorn (A1)',
+  'Game': 'Anucha', 'Phob': 'Siraphob', 'Guess': 'Warid'
+};
+
+// Real-name display mapping (data keys stay as Excel nicknames)
+const DISPLAY_NAMES = {
+  'Mic': 'Natchapol', 'Phob': 'Siraphob', 'Guess': 'Warid',
+  'Wich': 'Thanatorn', 'Ping': 'Kantapat', 'Game': 'Anucha'
+};
+function dName(e) { return DISPLAY_NAMES[e] || e; }
+
+// Engineers that get KPI tabs
+const KPI_ENGINEERS = ['Ping', 'Wich', 'Mic'];
+
+// Internal/External colors
+const COLOR_INTERNAL = '#C4B5D4';
+const COLOR_EXTERNAL = '#2B3A67';
+
+let DATA = null;
+let charts = {};
+let tableSortCol = null;
+let tableSortAsc = true;
+
+// Donut chart excluded values: { canvasId: Set of excluded values }
+let donutExcluded = {
+  'chartDesignStatus': new Set(['-', 'None', 'N/A']),
+  'chartBuildingType': new Set(['-', 'None', 'N/A']),
+  'chartProjectStatus': new Set(['-', 'None', 'N/A']),
+  'chartProjectType': new Set(['-', 'None', 'N/A']),
+};
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + tab));
+  if (tab === 'workload' && DATA) renderWorkload();
+  if (tab.startsWith('kpi-') && DATA) renderKpiPages();
+}
+
+function fmt(n) { return n == null ? '—' : n.toLocaleString('en-US'); }
+function fmtLabel(n) {
+  if (n == null || n === 0) return '';
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(0) + 'K';
+  return n.toLocaleString('en-US');
+}
+function fmtAxis(n) {
+  if (n == null) return '';
+  return n.toLocaleString('en-US');
+}
+function fmtM(n) {
+  return fmtLabel(n);
+}
+function pct(n) { return n == null ? '—' : Math.round(n * 100) + '%'; }
+
+function filterProjects(filter) {
+  if (!DATA) return [];
+  return DATA.projects.filter(p => filter === 'All' || p.projectType === filter);
+}
+
+function getWorkloadData(filter) {
+  if (filter === 'Internal') return DATA.workloadInternal;
+  if (filter === 'External') return DATA.workloadExternal;
+  return DATA.workloadOverall;
+}
+
+// ---- OVERALL ----
+function renderOverall() {
+  const filter = document.getElementById('filter-overall').value;
+  const projects = filterProjects(filter);
+
+  // KPIs
+  const totalProjects = projects.length;
+  const totalArea = projects.reduce((s,p) => s + (p.area||0), 0);
+  const totalBOQ = projects.reduce((s,p) => s + (p.boqAll||0), 0);
+  const winCount = projects.filter(p => p.projectStatus === 'Win').length;
+  const statusCount = projects.filter(p => ['Win','Loss','Pending'].includes(p.projectStatus)).length;
+  const winRate = statusCount > 0 ? winCount / statusCount : 0;
+
+  document.getElementById('kpiRow').innerHTML = [
+    kpiCard(fmt(totalProjects), 'Total Projects'),
+    kpiCard(fmt(Math.round(totalArea)) + ' m²', 'Total Area'),
+    kpiCard(fmtM(totalBOQ) + ' THB', 'Total BOQ Value'),
+    kpiCard(pct(winRate), 'Win Rate'),
+  ].join('');
+
+  // Donuts with dropdown filters
+  renderDonutWithFilter('chartDesignStatus', countBy(projects, 'designStatus'));
+  renderDonutWithFilter('chartBuildingType', countBy(projects, 'buildingType'));
+  renderDonutWithFilter('chartProjectStatus', countBy(projects, 'projectStatus'));
+  renderDonutWithFilter('chartProjectType', countBy(projects, 'projectType'));
+
+  // New Overall charts
+  renderTeamWorkloadMonth(projects);
+  renderWorkloadByMember(projects);
+  renderDesignAreaTeamTotal();
+
+  renderTable();
+}
+
+function kpiCard(value, label) {
+  return `<div class="kpi-card"><div class="kpi-value">${value}</div><div class="kpi-label">${label}</div></div>`;
+}
+
+function countBy(arr, key) {
+  const m = {};
+  arr.forEach(p => { const v = p[key] || 'N/A'; m[v] = (m[v]||0) + 1; });
+  return m;
+}
+
+// Store full data maps for dropdown rebuilds
+let donutFullData = {};
+
+function renderDonutWithFilter(canvasId, fullDataMap) {
+  donutFullData[canvasId] = fullDataMap;
+  const excluded = donutExcluded[canvasId];
+  const allKeys = Object.keys(fullDataMap);
+
+  // Build dropdown checkboxes
+  const dropdown = document.getElementById('dropdown-' + canvasId);
+  dropdown.innerHTML = allKeys.map(k => {
+    const checked = !excluded.has(k);
+    return `<label><input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleDonutValue('${canvasId}','${k.replace(/'/g, "\\'")}')"> ${k} (${fullDataMap[k]})</label>`;
+  }).join('');
+
+  // Filter out excluded values
+  const filteredMap = {};
+  allKeys.forEach(k => { if (!excluded.has(k)) filteredMap[k] = fullDataMap[k]; });
+
+  renderDonut(canvasId, filteredMap);
+}
+
+function toggleFilterDropdown(canvasId, event) {
+  event.stopPropagation();
+  const dd = document.getElementById('dropdown-' + canvasId);
+  // Close all others first
+  document.querySelectorAll('.chart-filter-dropdown.open').forEach(el => {
+    if (el !== dd) el.classList.remove('open');
+  });
+  dd.classList.toggle('open');
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.chart-filter-wrap')) {
+    document.querySelectorAll('.chart-filter-dropdown.open').forEach(el => el.classList.remove('open'));
+  }
+});
+
+function toggleDonutValue(canvasId, value) {
+  const excluded = donutExcluded[canvasId];
+  if (excluded.has(value)) excluded.delete(value);
+  else excluded.add(value);
+  // Re-render just this donut (not full page) using stored data
+  if (donutFullData[canvasId]) {
+    renderDonutWithFilter(canvasId, donutFullData[canvasId]);
+  }
+}
+
+function renderDonut(canvasId, dataMap) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const labels = Object.keys(dataMap);
+  const values = Object.values(dataMap);
+  const canvas = document.getElementById(canvasId);
+  const card = canvas.parentElement;
+
+  // Remove old legend table if exists
+  const oldLeg = card.querySelector('.donut-legend');
+  if (oldLeg) oldLeg.remove();
+
+  if (labels.length === 0) {
+    charts[canvasId] = new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels: ['No data'], datasets: [{ data: [1], backgroundColor: ['#e0e0e0'], borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
+    });
+    return;
+  }
+  const total = values.reduce((a, b) => a + b, 0);
+
+  charts[canvasId] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '55%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => ctx.label + ': ' + ctx.parsed + ' (' + Math.round(ctx.parsed / total * 100) + '%)' }
+        }
+      }
+    }
+  });
+
+  // Build HTML legend table below chart
+  const leg = document.createElement('div');
+  leg.className = 'donut-legend';
+  let html = '';
+  labels.forEach((lbl, i) => {
+    const pct = Math.round(values[i] / total * 100);
+    const clr = COLORS[i % COLORS.length];
+    html += `<div class="dl-row"><span class="dl-dot" style="background:${clr}"></span><span class="dl-name">${lbl}</span><span class="dl-pct">${pct}%</span></div>`;
+  });
+  leg.innerHTML = html;
+  card.appendChild(leg);
+}
+
+// ---- NEW OVERALL CHARTS ----
+
+function renderTeamWorkloadMonth(projects) {
+  const canvasId = 'chartTeamWorkloadMonth';
+  if (charts[canvasId]) charts[canvasId].destroy();
+
+  // Count Internal vs External per month (1-12)
+  const internal = new Array(12).fill(0);
+  const external = new Array(12).fill(0);
+  projects.forEach(p => {
+    if (!p.startMonthNum) return;
+    const idx = p.startMonthNum - 1;
+    if (p.projectType === 'Internal') internal[idx]++;
+    else if (p.projectType === 'External') external[idx]++;
+  });
+
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: {
+      labels: MONTHS,
+      datasets: [
+        { label: 'Internal', data: internal, backgroundColor: COLOR_INTERNAL, stack: 'a' },
+        { label: 'External', data: external, backgroundColor: COLOR_EXTERNAL, stack: 'a', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      layout: { padding: { top: 18 } },
+      plugins: {
+        datalabels: {
+          display: function(ctx) {
+            if (ctx.datasetIndex === 0) return false;
+            return (internal[ctx.dataIndex] + external[ctx.dataIndex]) > 0;
+          },
+          anchor: 'end', align: 'top',
+          font: { size: 9, weight: '600' }, color: '#37352F',
+          formatter: function(v, ctx) {
+            return internal[ctx.dataIndex] + external[ctx.dataIndex];
+          }
+        },
+        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 14, boxWidth: 8 } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed && ctx.parsed.y) } }
+      },
+      scales: {
+        x: { grid: { display: false }, stacked: true },
+        y: { beginAtZero: true, stacked: true, grid: { color: '#f0f0ed' } }
+      }
+    }
+  });
+}
+
+function renderWorkloadByMember(projects) {
+  const canvasId = 'chartWorkloadByMember';
+  if (charts[canvasId]) charts[canvasId].destroy();
+
+  const engineers = DATA.engineers;
+  const intCounts = engineers.map(e => projects.filter(p => p.engineer === e && p.projectType === 'Internal').length);
+  const extCounts = engineers.map(e => projects.filter(p => p.engineer === e && p.projectType === 'External').length);
+
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: {
+      labels: engineers.map(dName),
+      datasets: [
+        { label: 'Internal', data: intCounts, backgroundColor: COLOR_INTERNAL, stack: 'a' },
+        { label: 'External', data: extCounts, backgroundColor: COLOR_EXTERNAL, stack: 'a', borderRadius: 4 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: true,
+      layout: { padding: { right: 30 } },
+      plugins: {
+        datalabels: {
+          display: function(ctx) {
+            if (ctx.datasetIndex === 0) return false;
+            return (intCounts[ctx.dataIndex] + extCounts[ctx.dataIndex]) > 0;
+          },
+          anchor: 'end', align: 'right',
+          font: { size: 10, weight: '600' }, color: '#37352F',
+          formatter: function(v, ctx) {
+            return intCounts[ctx.dataIndex] + extCounts[ctx.dataIndex];
+          }
+        },
+        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 14, boxWidth: 8 } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed && ctx.parsed.x) } }
+      },
+      scales: {
+        x: { beginAtZero: true, stacked: true, grid: { color: '#f0f0ed' } },
+        y: { grid: { display: false }, stacked: true }
+      }
+    }
+  });
+}
+
+function renderDesignAreaTeamTotal() {
+  const canvasId = 'chartDesignAreaTeamTotal';
+  if (charts[canvasId]) charts[canvasId].destroy();
+  if (!DATA) return;
+
+  const daData = DATA.designAreaMonthly;
+  const totals = ALL_MONTH_IDXS.map(mi => {
+    let sum = 0;
+    DATA.engineers.forEach(e => { sum += (daData[mi][e] || 0); });
+    return sum;
+  });
+
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: {
+      labels: MONTHS,
+      datasets: [{
+        label: 'Total Design Area (m²)',
+        data: totals,
+        backgroundColor: '#2B3A67',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      layout: { padding: { top: 18 } },
+      plugins: {
+        datalabels: {
+          display: ctx => ctx.parsed && ctx.parsed.y > 0,
+          anchor: 'end', align: 'top',
+          font: { size: 9, weight: '600' }, color: '#37352F',
+          formatter: v => fmtM(v)
+        },
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => 'Total: ' + fmt(ctx.parsed && ctx.parsed.y) + ' m²' } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#f0f0ed' }, ticks: { callback: v => fmtAxis(v) } }
+      }
+    }
+  });
+}
+
+// ---- TABLE ----
+const TABLE_COLS = [
+  {key:'project', label:'Project'},
+  {key:'buildingType', label:'Building Type'},
+  {key:'engineer', label:'Engineer'},
+  {key:'area', label:'Area (m²)', num:true},
+  {key:'lastReviseStartDate', label:'Start Date', date:true},
+  {key:'endDate', label:'End Date', date:true},
+  {key:'boqAll', label:'BOQ All', num:true},
+  {key:'designStatus', label:'Design Status'},
+];
+
+function fmtDate(v) {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (isNaN(d)) return '—';
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
+
+function fmtBoq(n) {
+  if (n == null || n === 0) return '—';
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  return n.toLocaleString('en-US');
+}
+
+function renderTable() {
+  const filter = document.getElementById('filter-overall').value;
+  const monthFilter = document.getElementById('filter-month').value;
+  let projects = filterProjects(filter);
+  if (monthFilter !== 'All') {
+    const mNum = parseInt(monthFilter);
+    projects = projects.filter(p => {
+      if (!p.lastReviseStartDate) return false;
+      return (new Date(p.lastReviseStartDate).getMonth() + 1) === mNum;
+    });
+  }
+
+  if (tableSortCol !== null) {
+    const col = TABLE_COLS[tableSortCol];
+    projects.sort((a,b) => {
+      let va = a[col.key], vb = b[col.key];
+      if (col.num) { va = va||0; vb = vb||0; return tableSortAsc ? va-vb : vb-va; }
+      va = String(va||''); vb = String(vb||'');
+      return tableSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }
+
+  document.getElementById('tableHead').innerHTML = TABLE_COLS.map((c,i) =>
+    `<th onclick="sortTable(${i})">${c.label}<span class="sort-arrow">${tableSortCol===i?(tableSortAsc?'▲':'▼'):''}</span></th>`
+  ).join('');
+
+  document.getElementById('tableBody').innerHTML = projects.map(p =>
+    '<tr>' + TABLE_COLS.map(c => {
+      if (c.date) return `<td>${fmtDate(p[c.key])}</td>`;
+      if (c.key === 'boqAll') return `<td>${fmtBoq(p[c.key])}</td>`;
+      if (c.num) return `<td>${fmt(p[c.key])}</td>`;
+      if (c.key === 'engineer') return `<td>${dName(p[c.key])||'—'}</td>`;
+      return `<td>${p[c.key]||'—'}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+function sortTable(i) {
+  if (tableSortCol === i) tableSortAsc = !tableSortAsc;
+  else { tableSortCol = i; tableSortAsc = true; }
+  renderTable();
+}
+
+// ---- PERSON FILTER ----
+let selectedEngineers = new Set(['Mic', 'Ping', 'Wich']);
+
+function buildPersonChips() {
+  const container = document.getElementById('personChips');
+  container.innerHTML = ['Game', 'Guess', 'Mic', 'Phob', 'Ping', 'Wich'].map(e => {
+    const active = selectedEngineers.has(e);
+    const bg = active ? ENGINEER_COLORS[e] : 'transparent';
+    return `<span class="person-chip ${active?'active':''}" style="${active?'background:'+bg+';':''};" onclick="toggleEngineer('${e}')">`
+      + `<span class="chip-dot" style="background:${ENGINEER_COLORS[e]};${active?'opacity:.7;':''}"></span>${dName(e)}</span>`;
+  }).join('');
+}
+
+function toggleEngineer(e) {
+  if (selectedEngineers.has(e)) selectedEngineers.delete(e);
+  else selectedEngineers.add(e);
+  if (selectedEngineers.size === 0) selectedEngineers.add(e); // prevent empty
+  buildPersonChips();
+  renderWorkload();
+}
+
+// ---- WORKLOAD ----
+function renderWorkload() {
+  buildPersonChips();
+  const filter = document.getElementById('filter-workload').value;
+  const projects = filterProjects(filter);
+  const engineers = DATA.engineers.filter(e => selectedEngineers.has(e));
+  const wlData = getWorkloadData(filter);
+
+  // Always show all 12 months
+  const monthLabels = MONTHS;
+
+  // --- Total Workload: stacked bar (New bottom, Revised top), grouped by person ---
+  renderStackedWorkloadChart('chartTotalWorkload', monthLabels, ALL_MONTH_IDXS, wlData, engineers, true);
+
+  // --- New Projects: grouped bar ---
+  renderGroupedBar('chartNewProjects', monthLabels, engineers.map((e,i) => ({
+    label: dName(e),
+    data: ALL_MONTH_IDXS.map(mi => wlData[mi].new[e] || 0),
+    backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
+    borderRadius: 4,
+  })), false);
+
+  // --- Revised Work: grouped bar ---
+  renderGroupedBar('chartRevisedWork', monthLabels, engineers.map((e,i) => ({
+    label: dName(e),
+    data: ALL_MONTH_IDXS.map(mi => wlData[mi].revised[e] || 0),
+    backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
+    borderRadius: 4,
+  })), false);
+
+  // --- Design Area from pre-calculated table ---
+  const daData = DATA.designAreaMonthly;
+
+  renderGroupedBar('chartDesignArea', MONTHS, engineers.map((e,i) => ({
+    label: dName(e),
+    data: ALL_MONTH_IDXS.map(mi => daData[mi][e] || 0),
+    backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
+    borderRadius: 4,
+  })), false, v => fmtM(v));
+
+  // Win Rate by engineer
+  const winRateData = engineers.map(e => {
+    const ep = projects.filter(p => p.engineer === e);
+    const win = ep.filter(p => p.projectStatus === 'Win').length;
+    const total = ep.filter(p => ['Win','Loss','Pending'].includes(p.projectStatus)).length;
+    return total > 0 ? Math.round(win/total*100) : 0;
+  });
+  renderSingleBar('chartWinRate', engineers, winRateData, '%');
+
+  // Won project value — always show all 12 months
+  const wonValue = {};
+  engineers.forEach(e => { wonValue[e] = {}; });
+  projects.forEach(p => {
+    if (!p.startMonthNum || !p.engineer || !engineers.includes(p.engineer)) return;
+    if (p.projectStatus === 'Win') {
+      const m = p.startMonthNum;
+      wonValue[p.engineer][m] = (wonValue[p.engineer][m]||0) + (p.designFee||0) + (p.boqAll||0);
+    }
+  });
+
+  renderGroupedBar('chartWonValue', MONTHS, engineers.map((e,i) => ({
+    label: dName(e),
+    data: ALL_MONTH_IDXS.map(mi => wonValue[e][mi+1] || 0),
+    backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
+    borderRadius: 4,
+  })), true, v => fmtM(v));
+
+  // Capacity
+  const capData = engineers.map(e => DATA.designCapacity[e] || 0);
+  renderSingleBar('chartCapacity', engineers, capData, ' m²/day');
+}
+
+// Stacked workload chart: for each month, show stacked bars per person
+function renderStackedWorkloadChart(canvasId, monthLabels, monthIdxs, wlData, engineers, showTotal) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+
+  // Create two datasets per engineer: New (bottom) and Revised (top)
+  const datasets = [];
+  engineers.forEach((e, i) => {
+    const newData = monthIdxs.map(mi => wlData[mi].new[e] || 0);
+    const revisedData = monthIdxs.map(mi => wlData[mi].revised[e] || 0);
+
+    datasets.push({
+      label: dName(e) + ' (New)',
+      data: newData,
+      backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
+      borderRadius: 0,
+      stack: e,
+    });
+    datasets.push({
+      label: dName(e) + ' (Revised)',
+      data: revisedData,
+      backgroundColor: ENGINEER_COLORS_LIGHT[e] || COLORS_LIGHT[i],
+      borderRadius: 4,
+      stack: e,
+    });
+  });
+
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: { labels: monthLabels, datasets },
+    plugins: [ChartDataLabels],
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      layout: { padding: { top: 20 } },
+      plugins: {
+        datalabels: {
+          display: function(ctx) {
+            const ds = ctx.dataset;
+            if (!ds.label.includes('(Revised)')) return false;
+            const stackName = ds.stack;
+            const newDs = datasets.find(d => d.stack === stackName && d.label.includes('(New)'));
+            const total = (newDs ? newDs.data[ctx.dataIndex] : 0) + (ds.data[ctx.dataIndex] || 0);
+            return total > 0;
+          },
+          anchor: 'end',
+          align: 'top',
+          font: { size: 9, weight: '600' },
+          color: '#37352F',
+          formatter: function(value, ctx) {
+            const ds = ctx.dataset;
+            const stackName = ds.stack;
+            const newDs = datasets.find(d => d.stack === stackName && d.label.includes('(New)'));
+            return (newDs ? newDs.data[ctx.dataIndex] : 0) + value;
+          }
+        },
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed && ctx.parsed.y)
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, stacked: true },
+        y: { beginAtZero: true, stacked: true, grid: { color: '#f0f0ed' } }
+      }
+    },
+    plugins: [{
+      id: 'customLegend',
+      afterDraw(chart) {}
+    }]
+  });
+
+  // Add a manual legend via HTML after canvas
+  const canvas = document.getElementById(canvasId);
+  let legendDiv = canvas.parentElement.querySelector('.custom-legend');
+  if (!legendDiv) {
+    legendDiv = document.createElement('div');
+    legendDiv.className = 'custom-legend';
+    legendDiv.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:8px;font-size:11px;color:#787774;';
+    canvas.parentElement.appendChild(legendDiv);
+  }
+  let legendHTML = '';
+  engineers.forEach(e => {
+    legendHTML += `<span style="display:inline-flex;align-items:center;gap:4px;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${ENGINEER_COLORS[e]};display:inline-block;"></span>
+      <span style="width:10px;height:10px;border-radius:50%;background:${ENGINEER_COLORS_LIGHT[e]};display:inline-block;"></span>
+      ${dName(e)}</span>`;
+  });
+  legendHTML += `<span style="display:inline-flex;align-items:center;gap:4px;margin-left:12px;">
+    <span style="width:10px;height:10px;background:#555;display:inline-block;"></span> New
+    <span style="width:10px;height:10px;background:#aaa;display:inline-block;margin-left:4px;"></span> Revised</span>`;
+  legendDiv.innerHTML = legendHTML;
+}
+
+function renderGroupedBar(canvasId, labels, datasets, showDataLabels, labelFmt) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: { labels, datasets },
+    plugins: showDataLabels ? [ChartDataLabels] : [],
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      layout: { padding: { top: 20 } },
+      plugins: {
+        datalabels: showDataLabels ? {
+          display: function(ctx) { return ctx.parsed && ctx.parsed.y != null && ctx.parsed.y > 0; },
+          anchor: 'end', align: 'top',
+          font: { size: 9 },
+          color: '#37352F',
+          formatter: function(v) { return v > 0 ? (labelFmt ? labelFmt(v) : v) : ''; }
+        } : false,
+        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 14, boxWidth: 8 } },
+        tooltip: {
+          callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed && ctx.parsed.y) }
+        }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: {
+          beginAtZero: true,
+          ticks: labelFmt ? { callback: function(v) { return fmtAxis(v); } } : {},
+          grid: { color: '#f0f0ed' }
+        }
+      }
+    }
+  });
+}
+
+function renderSingleBar(canvasId, keys, data, suffix) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: {
+      labels: keys.map(dName),
+      datasets: [{
+        data,
+        backgroundColor: keys.map(e => ENGINEER_COLORS[e] || COLORS[0]),
+        borderRadius: 4,
+      }]
+    },
+    plugins: [ChartDataLabels],
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      layout: { padding: { top: 20 } },
+      plugins: {
+        datalabels: {
+          display: function(ctx) { return ctx.parsed && ctx.parsed.y > 0; },
+          anchor: 'end', align: 'top',
+          font: { size: 10, weight: '600' },
+          color: '#37352F',
+          formatter: function(v) { return v + (suffix||''); }
+        },
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => (ctx.parsed && ctx.parsed.y || 0) + (suffix||'') } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#f0f0ed' } }
+      }
+    }
+  });
+}
+
+// ---- KPI PAGES ----
+function buildKpiPages() {
+  const tabBar = document.getElementById('tabBar');
+  // Remove old KPI tabs
+  document.querySelectorAll('.tab[data-tab^="kpi-"]').forEach(t => t.remove());
+  document.querySelectorAll('.page[id^="page-kpi-"]').forEach(p => p.remove());
+
+  KPI_ENGINEERS.forEach(eng => {
+    // Add tab
+    const tab = document.createElement('div');
+    tab.className = 'tab';
+    tab.dataset.tab = 'kpi-' + eng.toLowerCase();
+    tab.onclick = () => switchTab('kpi-' + eng.toLowerCase());
+    tab.textContent = 'KPI ' + dName(eng);
+    tabBar.appendChild(tab);
+
+    // Add page
+    const page = document.createElement('div');
+    page.className = 'page';
+    page.id = 'page-kpi-' + eng.toLowerCase();
+    page.innerHTML = `
+      <div class="kpi-page-title">KPI CARD ${ENGINEER_FULL_NAMES[eng] || eng} — 2026</div>
+      <div class="kpi-row" id="kpi-row-${eng}"></div>
+      <div class="chart-grid g1">
+        <div class="card"><h3>Total Workload (New + Revised) — ${dName(eng)}</h3><canvas id="chart-kpi-workload-${eng}"></canvas></div>
+      </div>
+      <div class="chart-grid g2" style="margin-top:0;">
+        <div class="card">
+          <h3>Onhand Projects</h3>
+          <table class="onhand-table" id="onhand-table-${eng}">
+            <thead><tr><th>Project</th><th>Design Status</th><th>Due Date</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="card"><h3>Design Area (m²) — Monthly</h3><canvas id="chart-kpi-area-${eng}"></canvas></div>
+      </div>
+      <div class="chart-grid g1" style="margin-top:0;">
+        <div class="card"><h3>Won Project Value (THB) — Monthly</h3><canvas id="chart-kpi-won-${eng}"></canvas></div>
+      </div>
+    `;
+    document.body.appendChild(page);
+  });
+}
+
+function renderKpiPages() {
+  if (!DATA) return;
+  const wlData = DATA.workloadOverall;
+  const daData = DATA.designAreaMonthly;
+
+  KPI_ENGINEERS.forEach(eng => {
+    const projects = DATA.projects.filter(p => p.engineer === eng);
+
+    // KPI cards
+    const totalProjects = projects.length;
+    const totalArea = projects.reduce((s,p) => s + (p.area||0), 0);
+    const m2day = DATA.designCapacity[eng] || 0;
+    const winCount = projects.filter(p => p.projectStatus === 'Win').length;
+    const statusCount = projects.filter(p => ['Win','Loss','Pending'].includes(p.projectStatus)).length;
+    const winRate = statusCount > 0 ? winCount / statusCount : 0;
+
+    document.getElementById('kpi-row-' + eng).innerHTML = [
+      kpiCard(fmt(totalProjects), 'Total Project'),
+      kpiCard(fmt(Math.round(totalArea)) + ' m²', 'Total Design Area m²'),
+      kpiCard(fmt(m2day), 'm²/day'),
+      kpiCard(pct(winRate), 'Win Rate %'),
+    ].join('');
+
+    // Workload stacked bar — always all 12 months
+    const cId = 'chart-kpi-workload-' + eng;
+    if (charts[cId]) charts[cId].destroy();
+    charts[cId] = new Chart(document.getElementById(cId), {
+      type: 'bar',
+      plugins: [ChartDataLabels],
+      data: {
+        labels: MONTHS,
+        datasets: [
+          {
+            label: 'New Project Value',
+            data: ALL_MONTH_IDXS.map(mi => wlData[mi].new[eng] || 0),
+            backgroundColor: ENGINEER_COLORS[eng],
+            stack: 'a',
+          },
+          {
+            label: 'Revised Work Value',
+            data: ALL_MONTH_IDXS.map(mi => wlData[mi].revised[eng] || 0),
+            backgroundColor: ENGINEER_COLORS_LIGHT[eng],
+            stack: 'a',
+            borderRadius: 4,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        layout: { padding: { top: 18 } },
+        plugins: {
+          datalabels: {
+            display: function(ctx) {
+              if (ctx.datasetIndex === 0) return false;
+              const newV = ctx.chart.data.datasets[0].data[ctx.dataIndex] || 0;
+              const revV = ctx.parsed && ctx.parsed.y || 0;
+              return (newV + revV) > 0;
+            },
+            anchor: 'end', align: 'top',
+            font: { size: 9, weight: '600' },
+            color: '#37352F',
+            formatter: function(v, ctx) {
+              return (ctx.chart.data.datasets[0].data[ctx.dataIndex] || 0) + v;
+            }
+          },
+          legend: { position: 'bottom', labels: { font: { size: 11 }, usePointStyle: true, pointStyle: 'circle', padding: 10 } },
+        },
+        scales: {
+          x: { grid: { display: false }, stacked: true },
+          y: { beginAtZero: true, stacked: true, grid: { color: '#f0f0ed' } }
+        }
+      }
+    });
+
+    // Onhand projects table
+    const onhand = projects.filter(p => p.designStatus === 'In Progress');
+    const tbody = document.querySelector('#onhand-table-' + eng + ' tbody');
+    tbody.innerHTML = onhand.length === 0
+      ? '<tr><td colspan="3" style="color:#787774;">No in-progress projects</td></tr>'
+      : onhand.map(p => `<tr><td>${p.project}</td><td>${p.designStatus}</td><td>${fmtDate(p.endDate)}</td></tr>`).join('');
+
+    // Design area bar — always all 12 months
+    const areaId = 'chart-kpi-area-' + eng;
+    if (charts[areaId]) charts[areaId].destroy();
+    charts[areaId] = new Chart(document.getElementById(areaId), {
+      type: 'bar',
+      plugins: [ChartDataLabels],
+      data: {
+        labels: MONTHS,
+        datasets: [{
+          label: dName(eng),
+          data: ALL_MONTH_IDXS.map(mi => daData[mi][eng] || 0),
+          backgroundColor: ENGINEER_COLORS[eng],
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        layout: { padding: { top: 16 } },
+        plugins: {
+          datalabels: {
+            display: ctx => ctx.parsed && ctx.parsed.y > 0,
+            anchor: 'end', align: 'top',
+            font: { size: 9 }, color: '#37352F',
+            formatter: v => fmtM(v)
+          },
+          legend: { display: false },
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, grid: { color: '#f0f0ed' }, ticks: { callback: v => fmtAxis(v) } }
+        }
+      }
+    });
+
+    // Won project value bar — always all 12 months
+    const wonValue = {};
+    projects.forEach(p => {
+      if (!p.startMonthNum || p.projectStatus !== 'Win') return;
+      wonValue[p.startMonthNum] = (wonValue[p.startMonthNum]||0) + (p.designFee||0) + (p.boqAll||0);
+    });
+    const wonId = 'chart-kpi-won-' + eng;
+    if (charts[wonId]) charts[wonId].destroy();
+    charts[wonId] = new Chart(document.getElementById(wonId), {
+      type: 'bar',
+      plugins: [ChartDataLabels],
+      data: {
+        labels: MONTHS,
+        datasets: [{
+          label: dName(eng),
+          data: ALL_MONTH_IDXS.map(mi => wonValue[mi+1] || 0),
+          backgroundColor: ENGINEER_COLORS[eng],
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        layout: { padding: { top: 16 } },
+        plugins: {
+          datalabels: {
+            display: ctx => ctx.parsed && ctx.parsed.y > 0,
+            anchor: 'end', align: 'top',
+            font: { size: 9 }, color: '#37352F',
+            formatter: v => fmtM(v)
+          },
+          legend: { display: false },
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, grid: { color: '#f0f0ed' }, ticks: { callback: v => fmtAxis(v) } }
+        }
+      }
+    });
+  });
+}
+
+// ---- DATA LOADING ----
+async function loadData() {
+  const btn = document.getElementById('refreshBtn');
+  const overlay = document.getElementById('loadingOverlay');
+  btn.classList.add('loading');
+  btn.textContent = 'Loading...';
+  overlay.classList.remove('hidden');
+
+  try {
+    // cache-bust so Refresh always pulls the latest committed data.json
+    const res = await fetch('data.json?t=' + Date.now());
+    DATA = await res.json();
+    if (DATA.error) throw new Error(DATA.error);
+    const ts = DATA.timestamp ? new Date(DATA.timestamp) : null;
+    document.getElementById('timestamp').textContent =
+      ts ? 'Data updated: ' + ts.toLocaleString() : '';
+    buildKpiPages();
+    renderOverall();
+  } catch (e) {
+    alert('Error loading data: ' + e.message);
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = 'Refresh';
+    overlay.classList.add('hidden');
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
