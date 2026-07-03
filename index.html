@@ -1203,11 +1203,7 @@ function renderStackedWorkloadChart(canvasId, monthLabels, monthIdxs, wlData, en
         x: { grid: { display: false }, stacked: true },
         y: { beginAtZero: true, stacked: true, grid: { color: '#f0f0ed' } }
       }
-    },
-    plugins: [{
-      id: 'customLegend',
-      afterDraw(chart) {}
-    }]
+    }
   });
 
   // Add a manual legend via HTML after canvas
@@ -1581,11 +1577,20 @@ function expandChart(canvasId, title) {
 
   // larger fonts for comfortable reading
   opt.plugins = opt.plugins || {};
-  if (opt.plugins.legend && opt.plugins.legend.labels) {
-    bumpFont(opt.plugins.legend.labels, 13);
-    opt.plugins.legend.labels.padding = 18;
-    opt.plugins.legend.labels.boxWidth = 10;
+
+  // legend: always show in expanded view (some charts hide it or use an HTML legend)
+  opt.plugins.legend = opt.plugins.legend || {};
+  if (opt.plugins.legend.display === false) {
+    opt.plugins.legend.display = true;
+    opt.plugins.legend.position = (cfg.type === 'doughnut' || cfg.type === 'pie') ? 'right' : 'bottom';
   }
+  opt.plugins.legend.labels = Object.assign(
+    { usePointStyle: true, pointStyle: 'circle', padding: 16, boxWidth: 10 },
+    opt.plugins.legend.labels
+  );
+  bumpFont(opt.plugins.legend.labels, 13);
+  opt.plugins.legend.labels.padding = 18;
+
   if (opt.plugins.datalabels) bumpFont(opt.plugins.datalabels, 13);
   if (opt.scales) {
     Object.keys(opt.scales).forEach(ax => {
@@ -1595,8 +1600,14 @@ function expandChart(canvasId, title) {
     });
   }
 
+  // carry plugins over; make sure ChartDataLabels is active when the chart uses it
+  const modalPlugins = Array.isArray(cfg.plugins) ? cfg.plugins.slice() : [];
+  if (opt.plugins.datalabels && typeof ChartDataLabels !== 'undefined' && modalPlugins.indexOf(ChartDataLabels) === -1) {
+    modalPlugins.push(ChartDataLabels);
+  }
+
   charts['chartModalCanvas'] = new Chart(document.getElementById('chartModalCanvas'), {
-    type: cfg.type, data: cfg.data, options: opt, plugins: cfg.plugins || []
+    type: cfg.type, data: cfg.data, options: opt, plugins: modalPlugins
   });
 }
 
