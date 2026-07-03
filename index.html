@@ -422,6 +422,10 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   </div>
 
   <div class="chart-grid g1">
+    <div class="card"><h3>Team Revenue vs Target (THB) <span id="revenueSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><canvas id="chartTeamRevenue"></canvas></div>
+  </div>
+
+  <div class="chart-grid g1">
     <div class="card"><h3>Design Area (m&sup2;) per Month &mdash; Team Total</h3><canvas id="chartDesignAreaTeamTotal"></canvas></div>
   </div>
 
@@ -472,7 +476,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   </div>
 
   <div class="chart-grid g2" style="margin-top:0;">
-    <div class="card"><h3>Won Project Value (THB) per Person &mdash; Monthly</h3><canvas id="chartWonValue"></canvas></div>
+    <div class="card"><h3>Current Revenue (THB) per Person &mdash; Monthly</h3><canvas id="chartWonValue"></canvas></div>
     <div class="card"><h3>Design Capacity (m&sup2;/day) per Person</h3><canvas id="chartCapacity"></canvas></div>
   </div>
 </div>
@@ -592,6 +596,7 @@ function renderOverall() {
   // New Overall charts
   renderTeamWorkloadMonth(projects);
   renderWorkloadByMember(projects);
+  renderTeamRevenue();
   renderDesignAreaTeamTotal();
 
   renderTable();
@@ -769,6 +774,62 @@ function toggleWbmEngineer(e) {
   else wbmExcluded.add(e);
   if (wbmExcluded.size === DATA.engineers.length) wbmExcluded.delete(e); // prevent empty chart
   if (wbmLastProjects) renderWorkloadByMember(wbmLastProjects);
+}
+
+function renderTeamRevenue() {
+  const tr = DATA.teamRevenue;
+  if (!tr) return;
+  const canvasId = 'chartTeamRevenue';
+  if (charts[canvasId]) charts[canvasId].destroy();
+
+  const current = (tr.winRevenue || 0) + (tr.designFeeAll || 0);
+  document.getElementById('revenueSummary').textContent =
+    '— Current ' + fmtLabel(current) + ' / Target ' + fmtLabel(tr.target) +
+    ' (' + Math.round(current / tr.target * 100) + '%)';
+
+  const labels = ['Target', 'Current Revenue', 'Pending', 'Loss'];
+  const datasets = [
+    { label: 'Target',      data: [tr.target, 0, 0, 0],        backgroundColor: '#D5D8DF', stack: 's', borderRadius: 4 },
+    { label: 'Win Revenue', data: [0, tr.winRevenue, 0, 0],    backgroundColor: '#2B3A67', stack: 's' },
+    { label: 'Design Fee',  data: [0, tr.designFeeAll, 0, 0],  backgroundColor: '#C4B5D4', stack: 's', borderRadius: 4 },
+    { label: 'Pending',     data: [0, 0, tr.pending, 0],       backgroundColor: '#5B7BA5', stack: 's', borderRadius: 4 },
+    { label: 'Loss',        data: [0, 0, 0, tr.loss],          backgroundColor: '#8E6DAF', stack: 's', borderRadius: 4 },
+  ];
+
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      layout: { padding: { top: 24 } },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 14, boxWidth: 8 } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(Math.round((ctx.parsed && ctx.parsed.y) || 0)) } },
+        datalabels: {
+          // show one label per column (total) on the topmost non-zero segment
+          display: function(ctx) {
+            const dss = ctx.chart.data.datasets;
+            if (!(dss[ctx.datasetIndex].data[ctx.dataIndex] > 0)) return false;
+            for (let j = ctx.datasetIndex + 1; j < dss.length; j++) {
+              if (dss[j].data[ctx.dataIndex] > 0) return false;
+            }
+            return true;
+          },
+          anchor: 'end', align: 'top',
+          font: { size: 10, weight: '600' }, color: '#37352F',
+          formatter: function(v, ctx) {
+            const total = ctx.chart.data.datasets.reduce((s, d) => s + (d.data[ctx.dataIndex] || 0), 0);
+            return fmtLabel(total);
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, stacked: true },
+        y: { beginAtZero: true, stacked: true, grid: { color: '#f0f0ed' }, ticks: { callback: v => fmtAxis(v) } }
+      }
+    }
+  });
 }
 
 function renderWorkloadByMember(projects) {
@@ -1013,9 +1074,11 @@ function renderWorkload() {
   engineers.forEach(e => { wonValue[e] = {}; });
   projects.forEach(p => {
     if (!p.startMonthNum || !p.engineer || !engineers.includes(p.engineer)) return;
-    if (p.projectStatus === 'Win') {
+    // Current Revenue basis: actual revenue (Win only) + actual design fee (all projects)
+    const v = (p.projectStatus === 'Win' ? (p.revenueActual||0) : 0) + (p.designFeeActual||0);
+    if (v > 0) {
       const m = p.startMonthNum;
-      wonValue[p.engineer][m] = (wonValue[p.engineer][m]||0) + (p.designFee||0) + (p.boqAll||0);
+      wonValue[p.engineer][m] = (wonValue[p.engineer][m]||0) + v;
     }
   });
 
@@ -1236,7 +1299,7 @@ function buildKpiPages() {
         <div class="card"><h3>Design Area (m²) — Monthly</h3><canvas id="chart-kpi-area-${eng}"></canvas></div>
       </div>
       <div class="chart-grid g1" style="margin-top:0;">
-        <div class="card"><h3>Won Project Value (THB) — Monthly</h3><canvas id="chart-kpi-won-${eng}"></canvas></div>
+        <div class="card"><h3>Current Revenue (THB) — Monthly</h3><canvas id="chart-kpi-won-${eng}"></canvas></div>
       </div>
     `;
     document.body.appendChild(page);
@@ -1362,8 +1425,9 @@ function renderKpiPages() {
     // Won project value bar — always all 12 months
     const wonValue = {};
     projects.forEach(p => {
-      if (!p.startMonthNum || p.projectStatus !== 'Win') return;
-      wonValue[p.startMonthNum] = (wonValue[p.startMonthNum]||0) + (p.designFee||0) + (p.boqAll||0);
+      if (!p.startMonthNum) return;
+      const v = (p.projectStatus === 'Win' ? (p.revenueActual||0) : 0) + (p.designFeeActual||0);
+      if (v > 0) wonValue[p.startMonthNum] = (wonValue[p.startMonthNum]||0) + v;
     });
     const wonId = 'chart-kpi-won-' + eng;
     if (charts[wonId]) charts[wonId].destroy();
