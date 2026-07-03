@@ -459,6 +459,18 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <div class="card"><h3>Team Revenue vs Target (THB) <span id="revenueSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><canvas id="chartTeamRevenue"></canvas></div>
   </div>
 
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>Pending Pipeline <span id="pendingSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3>
+      <div style="overflow-y:auto;max-height:430px;margin-top:8px;">
+        <table class="ptable" id="pendingTable">
+          <thead><tr><th>#</th><th>Project</th><th style="text-align:right;">Value (THB)</th><th>Engineer</th><th>Start Date</th><th style="text-align:right;">Aging (days)</th></tr></thead>
+          <tbody id="pendingBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="chart-grid g2">
     <div class="card"><h3>Team Workload per Month (Internal vs External)</h3><canvas id="chartTeamWorkloadMonth"></canvas></div>
     <div class="card"><div class="card-title-row"><h3>Workload by Team Member</h3><div class="chart-filter-wrap"><button class="chart-filter-btn" onclick="toggleFilterDropdown('chartWorkloadByMember',event)">Filter &#9662;</button><div class="chart-filter-dropdown" id="dropdown-chartWorkloadByMember"></div></div></div><canvas id="chartWorkloadByMember"></canvas></div>
@@ -637,6 +649,7 @@ function renderOverall() {
   renderTeamWorkloadMonth(projects);
   renderWorkloadByMember(projects);
   renderTeamRevenue();
+  renderPendingPipeline();
   renderDesignAreaTeamTotal();
 
   renderTable();
@@ -871,6 +884,35 @@ function renderTeamRevenue() {
       }
     }
   });
+}
+
+function renderPendingPipeline() {
+  const rows = DATA.projects
+    .filter(p => p.projectStatus === 'Pending')
+    .map(p => ({
+      project: p.project,
+      value: p.boqPipeline || 0,
+      engineer: p.engineer,
+      startDate: p.startDate,
+      aging: p.startDate ? Math.floor((Date.now() - new Date(p.startDate).getTime()) / 86400000) : null
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const total = rows.reduce((s, r) => s + r.value, 0);
+  document.getElementById('pendingSummary').textContent =
+    '\u2014 ' + rows.length + ' projects \u00b7 total ' + fmtLabel(total) + ' THB';
+
+  document.getElementById('pendingBody').innerHTML = rows.map((r, i) => {
+    const c = r.aging == null ? '#787774' : r.aging > 90 ? '#B5443B' : r.aging > 45 ? '#B58A3B' : '#448361';
+    return '<tr>'
+      + '<td>' + (i + 1) + '</td>'
+      + '<td>' + r.project + '</td>'
+      + '<td style="text-align:right;">' + fmt(Math.round(r.value)) + '</td>'
+      + '<td>' + (dName(r.engineer) || '\u2014') + '</td>'
+      + '<td>' + fmtDate(r.startDate) + '</td>'
+      + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (r.aging == null ? '\u2014' : r.aging) + '</td>'
+      + '</tr>';
+  }).join('');
 }
 
 function renderWorkloadByMember(projects) {
