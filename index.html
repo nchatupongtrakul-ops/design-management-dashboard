@@ -905,9 +905,13 @@ function renderRevenueTrend() {
   // monthly Current Revenue (Win actual revenue + actual design fee), by start month
   const monthly = new Array(12).fill(0);
   DATA.projects.forEach(p => {
-    if (!p.startMonthNum) return;
-    const v = (p.projectStatus === 'Win' ? (p.revenueActual || 0) : 0) + (p.designFeeActual || 0);
-    monthly[p.startMonthNum - 1] += v;
+    // design fee: collected up-front -> start month
+    if (p.startMonthNum) monthly[p.startMonthNum - 1] += (p.designFeeActual || 0);
+    // win revenue: month the deal was won (Win Date, fallback: start month)
+    if (p.projectStatus === 'Win') {
+      const wm = p.winDate ? (new Date(p.winDate).getMonth() + 1) : p.startMonthNum;
+      if (wm) monthly[wm - 1] += (p.revenueActual || 0);
+    }
   });
 
   // pending pipeline value per start month
@@ -1246,12 +1250,14 @@ function renderWorkload() {
   const wonValue = {};
   engineers.forEach(e => { wonValue[e] = {}; });
   projects.forEach(p => {
-    if (!p.startMonthNum || !p.engineer || !engineers.includes(p.engineer)) return;
-    // Current Revenue basis: actual revenue (Win only) + actual design fee (all projects)
-    const v = (p.projectStatus === 'Win' ? (p.revenueActual||0) : 0) + (p.designFeeActual||0);
-    if (v > 0) {
-      const m = p.startMonthNum;
-      wonValue[p.engineer][m] = (wonValue[p.engineer][m]||0) + v;
+    if (!p.engineer || !engineers.includes(p.engineer)) return;
+    // design fee -> start month; win revenue -> win month (Win Date, fallback: start month)
+    if (p.startMonthNum && (p.designFeeActual || 0) > 0) {
+      wonValue[p.engineer][p.startMonthNum] = (wonValue[p.engineer][p.startMonthNum]||0) + p.designFeeActual;
+    }
+    if (p.projectStatus === 'Win' && (p.revenueActual || 0) > 0) {
+      const wm = p.winDate ? (new Date(p.winDate).getMonth() + 1) : p.startMonthNum;
+      if (wm) wonValue[p.engineer][wm] = (wonValue[p.engineer][wm]||0) + p.revenueActual;
     }
   });
 
@@ -1594,9 +1600,13 @@ function renderKpiPages() {
     // Won project value bar — always all 12 months
     const wonValue = {};
     projects.forEach(p => {
-      if (!p.startMonthNum) return;
-      const v = (p.projectStatus === 'Win' ? (p.revenueActual||0) : 0) + (p.designFeeActual||0);
-      if (v > 0) wonValue[p.startMonthNum] = (wonValue[p.startMonthNum]||0) + v;
+      if (p.startMonthNum && (p.designFeeActual || 0) > 0) {
+        wonValue[p.startMonthNum] = (wonValue[p.startMonthNum]||0) + p.designFeeActual;
+      }
+      if (p.projectStatus === 'Win' && (p.revenueActual || 0) > 0) {
+        const wm = p.winDate ? (new Date(p.winDate).getMonth() + 1) : p.startMonthNum;
+        if (wm) wonValue[wm] = (wonValue[wm]||0) + p.revenueActual;
+      }
     });
     const wonId = 'chart-kpi-won-' + eng;
     if (charts[wonId]) charts[wonId].destroy();
