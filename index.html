@@ -910,6 +910,13 @@ function renderRevenueTrend() {
     monthly[p.startMonthNum - 1] += v;
   });
 
+  // pending pipeline value per start month
+  const monthlyPending = new Array(12).fill(0);
+  DATA.projects.forEach(p => {
+    if (!p.startMonthNum) return;
+    if (p.projectStatus === 'Pending') monthlyPending[p.startMonthNum - 1] += (p.boqPipeline || 0);
+  });
+
   const nowM = Math.min(new Date().getMonth() + 1, 12);
   let run = 0;
   const actual = MONTHS.map((m, i) => {
@@ -917,13 +924,20 @@ function renderRevenueTrend() {
     run += monthly[i];
     return run;
   });
+  let runP = 0;
+  const potential = MONTHS.map((m, i) => {
+    if (i >= nowM) return null;
+    runP += monthly[i] + monthlyPending[i];
+    return runP;
+  });
   const pace = MONTHS.map((m, i) => Math.round(target / 12 * (i + 1)));
 
   const planNow = pace[nowM - 1];
   const diff = run - planNow;
   document.getElementById('trendSummary').textContent =
     '\u2014 ' + MONTHS[nowM - 1] + ': actual ' + fmtLabel(run) + ' vs plan ' + fmtLabel(planNow) +
-    ' (' + (diff >= 0 ? 'ahead +' : 'behind ') + fmtLabel(Math.abs(diff)) + ')';
+    ' (' + (diff >= 0 ? 'ahead +' : 'behind ') + fmtLabel(Math.abs(diff)) + ')' +
+    ' \u00b7 potential incl. pending ' + fmtLabel(runP);
 
   charts[canvasId] = new Chart(document.getElementById(canvasId), {
     type: 'line',
@@ -931,7 +945,8 @@ function renderRevenueTrend() {
       labels: MONTHS,
       datasets: [
         { label: 'Target Pace', data: pace, borderColor: '#B9BEC9', borderDash: [6, 4], pointRadius: 0, fill: false, tension: 0 },
-        { label: 'Actual Cumulative', data: actual, borderColor: '#2B3A67', backgroundColor: 'rgba(43,58,103,0.08)', fill: true, pointRadius: 3, pointBackgroundColor: '#2B3A67', tension: 0.25, spanGaps: false }
+        { label: 'Potential (Actual + Pending)', data: potential, borderColor: '#5B7BA5', borderDash: [4, 3], backgroundColor: 'rgba(91,123,165,0.06)', fill: true, pointRadius: 2, pointBackgroundColor: '#5B7BA5', tension: 0.25, spanGaps: false },
+        { label: 'Actual Cumulative', data: actual, borderColor: '#2B3A67', backgroundColor: 'rgba(43,58,103,0.10)', fill: true, pointRadius: 3, pointBackgroundColor: '#2B3A67', tension: 0.25, spanGaps: false }
       ]
     },
     options: {
