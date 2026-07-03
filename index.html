@@ -475,6 +475,10 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <div class="card"><h3>Team Revenue vs Target (THB) <span id="revenueSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><canvas id="chartTeamRevenue"></canvas></div>
   </div>
 
+  <div class="chart-grid g1">
+    <div class="card"><h3>Cumulative Revenue vs Target Pace (THB) <span id="trendSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><canvas id="chartRevenueTrend"></canvas></div>
+  </div>
+
 
   <div class="chart-grid g2">
     <div class="card"><h3>Team Workload per Month (Internal vs External)</h3><canvas id="chartTeamWorkloadMonth"></canvas></div>
@@ -654,6 +658,7 @@ function renderOverall() {
   renderTeamWorkloadMonth(projects);
   renderWorkloadByMember(projects);
   renderTeamRevenue();
+  renderRevenueTrend();
   renderDesignAreaTeamTotal();
 
   renderTable();
@@ -892,6 +897,58 @@ function renderTeamRevenue() {
   });
 }
 
+function renderRevenueTrend() {
+  const canvasId = 'chartRevenueTrend';
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const target = (DATA.teamRevenue && DATA.teamRevenue.target) || 70000000;
+
+  // monthly Current Revenue (Win actual revenue + actual design fee), by start month
+  const monthly = new Array(12).fill(0);
+  DATA.projects.forEach(p => {
+    if (!p.startMonthNum) return;
+    const v = (p.projectStatus === 'Win' ? (p.revenueActual || 0) : 0) + (p.designFeeActual || 0);
+    monthly[p.startMonthNum - 1] += v;
+  });
+
+  const nowM = Math.min(new Date().getMonth() + 1, 12);
+  let run = 0;
+  const actual = MONTHS.map((m, i) => {
+    if (i >= nowM) return null;   // future months: no line
+    run += monthly[i];
+    return run;
+  });
+  const pace = MONTHS.map((m, i) => Math.round(target / 12 * (i + 1)));
+
+  const planNow = pace[nowM - 1];
+  const diff = run - planNow;
+  document.getElementById('trendSummary').textContent =
+    '\u2014 ' + MONTHS[nowM - 1] + ': actual ' + fmtLabel(run) + ' vs plan ' + fmtLabel(planNow) +
+    ' (' + (diff >= 0 ? 'ahead +' : 'behind ') + fmtLabel(Math.abs(diff)) + ')';
+
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        { label: 'Target Pace', data: pace, borderColor: '#B9BEC9', borderDash: [6, 4], pointRadius: 0, fill: false, tension: 0 },
+        { label: 'Actual Cumulative', data: actual, borderColor: '#2B3A67', backgroundColor: 'rgba(43,58,103,0.08)', fill: true, pointRadius: 3, pointBackgroundColor: '#2B3A67', tension: 0.25, spanGaps: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      layout: { padding: { top: 18, right: 16 } },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 14, boxWidth: 8 } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(Math.round((ctx.parsed && ctx.parsed.y) || 0)) } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#f0f0ed' }, ticks: { callback: v => fmtAxis(v) } }
+      }
+    }
+  });
+}
+
 function openPipelineModal(colIndex) {
   const cfg = {
     1: { status: 'Win',     title: 'Won Projects \u2014 Current Revenue', valHead: 'Revenue + Fee (THB)', val: p => (p.revenueActual || 0) + (p.designFeeActual || 0) },
@@ -907,7 +964,8 @@ function openPipelineModal(colIndex) {
       value: cfg.val(p),
       engineer: p.engineer,
       startDate: p.startDate,
-      aging: p.startDate ? Math.floor((Date.now() - new Date(p.startDate).getTime()) / 86400000) : null
+      lastEnd: p.lastReviseEndDate,
+      aging: p.lastReviseEndDate ? Math.floor((Date.now() - new Date(p.lastReviseEndDate).getTime()) / 86400000) : null
     }))
     .sort((a, b) => b.value - a.value);
 
@@ -915,7 +973,7 @@ function openPipelineModal(colIndex) {
   document.getElementById('pipelineModalTitle').textContent =
     cfg.title + ' \u2014 ' + rows.length + ' projects \u00b7 ' + fmtLabel(total) + ' THB';
   document.getElementById('pipelineHead').innerHTML =
-    '<th>#</th><th>Project</th><th style="text-align:right;">' + cfg.valHead + '</th><th>Engineer</th><th>Start Date</th><th style="text-align:right;">Aging (days)</th>';
+    '<th>#</th><th>Project</th><th style="text-align:right;">' + cfg.valHead + '</th><th>Engineer</th><th>Last Design End</th><th style="text-align:right;">Aging (days)</th>';
   document.getElementById('pipelineBody').innerHTML = rows.map((r, i) => {
     const c = r.aging == null ? '#787774' : r.aging > 90 ? '#B5443B' : r.aging > 45 ? '#B58A3B' : '#448361';
     return '<tr>'
@@ -923,7 +981,7 @@ function openPipelineModal(colIndex) {
       + '<td>' + r.project + '</td>'
       + '<td style="text-align:right;">' + fmt(Math.round(r.value)) + '</td>'
       + '<td>' + (dName(r.engineer) || '\u2014') + '</td>'
-      + '<td>' + fmtDate(r.startDate) + '</td>'
+      + '<td>' + fmtDate(r.lastEnd) + '</td>'
       + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (r.aging == null ? '\u2014' : r.aging) + '</td>'
       + '</tr>';
   }).join('');
