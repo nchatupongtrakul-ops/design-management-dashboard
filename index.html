@@ -337,6 +337,19 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   line-height: 1.4;
 }
 .chart-filter-btn:hover { background: var(--bg); }
+/* Chart expand + modals */
+.card { position: relative; }
+.card-expand-btn { position:absolute; top:12px; right:12px; width:26px; height:26px; border:1px solid var(--border); background:#fff; border-radius:6px; cursor:pointer; color:#787774; font-size:14px; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s; z-index:5; }
+.card:hover .card-expand-btn { opacity:1; }
+.card-expand-btn:hover { background:var(--bg); color:#37352F; }
+#chartModal, #logModal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:1000; align-items:center; justify-content:center; padding:24px; }
+#chartModal.open, #logModal.open { display:flex; }
+.chart-modal-box { background:#fff; border-radius:12px; padding:18px 22px; width:min(1200px,95vw); height:min(82vh,760px); display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.25); }
+.chart-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.chart-modal-close { border:none; background:none; font-size:22px; color:#787774; cursor:pointer; line-height:1; }
+.chart-modal-close:hover { color:#37352F; }
+.chart-modal-body { flex:1; position:relative; }
+.chart-modal-body canvas { position:absolute; inset:0; }
 .chart-filter-dropdown {
   display: none;
   position: absolute;
@@ -378,7 +391,30 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   </div>
   <div class="header-right">
     <span class="timestamp" id="timestamp"></span>
+    <button class="btn" style="background:#6B7280;" onclick="openLogModal()">Update Log</button>
     <button class="btn" id="refreshBtn" onclick="loadData()">Refresh</button>
+  </div>
+</div>
+
+<!-- Chart expand modal -->
+<div id="chartModal" onclick="if(event.target===this)closeChartModal()">
+  <div class="chart-modal-box">
+    <div class="chart-modal-head">
+      <h3 id="chartModalTitle" style="margin:0;font-size:16px;"></h3>
+      <button class="chart-modal-close" onclick="closeChartModal()">&times;</button>
+    </div>
+    <div class="chart-modal-body"><canvas id="chartModalCanvas"></canvas></div>
+  </div>
+</div>
+
+<!-- Update log modal -->
+<div id="logModal" onclick="if(event.target===this)closeLogModal()">
+  <div class="chart-modal-box" style="height:auto;max-height:82vh;">
+    <div class="chart-modal-head">
+      <h3 style="margin:0;font-size:16px;">Update Log</h3>
+      <button class="chart-modal-close" onclick="closeLogModal()">&times;</button>
+    </div>
+    <div id="logModalBody" style="overflow-y:auto;font-size:13px;"></div>
   </div>
 </div>
 
@@ -541,6 +577,7 @@ function switchTab(tab) {
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + tab));
   if (tab === 'workload' && DATA) renderWorkload();
   if (tab.startsWith('kpi-') && DATA) renderKpiPages();
+  if (DATA) setTimeout(addExpandButtons, 0);
 }
 
 function fmt(n) { return n == null ? '—' : n.toLocaleString('en-US'); }
@@ -1486,6 +1523,7 @@ async function loadData() {
       ts ? 'Data updated: ' + ts.toLocaleString() : '';
     buildKpiPages();
     renderOverall();
+    setTimeout(addExpandButtons, 0);
   } catch (e) {
     alert('Error loading data: ' + e.message);
   } finally {
@@ -1494,6 +1532,79 @@ async function loadData() {
     overlay.classList.add('hidden');
   }
 }
+
+// ---- CHART EXPAND ----
+function addExpandButtons() {
+  document.querySelectorAll('.card').forEach(card => {
+    const canvas = card.querySelector('canvas');
+    if (!canvas || card.querySelector('.card-expand-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'card-expand-btn';
+    btn.innerHTML = '&#x2922;';
+    btn.title = 'Expand chart';
+    if (card.querySelector('.chart-filter-wrap')) btn.style.right = '84px';
+    btn.onclick = () => {
+      const h3 = card.querySelector('h3');
+      expandChart(canvas.id, h3 ? h3.textContent : '');
+    };
+    card.appendChild(btn);
+  });
+}
+
+function expandChart(canvasId, title) {
+  const src = charts[canvasId];
+  if (!src) return;
+  document.getElementById('chartModalTitle').textContent = (title || '').trim();
+  document.getElementById('chartModal').classList.add('open');
+  if (charts['chartModalCanvas']) { charts['chartModalCanvas'].destroy(); delete charts['chartModalCanvas']; }
+  const cfg = src.config._config || src.config;
+  const options = Object.assign({}, cfg.options, { responsive: true, maintainAspectRatio: false });
+  charts['chartModalCanvas'] = new Chart(document.getElementById('chartModalCanvas'), {
+    type: cfg.type, data: cfg.data, options: options, plugins: cfg.plugins || []
+  });
+}
+
+function closeChartModal() {
+  document.getElementById('chartModal').classList.remove('open');
+  if (charts['chartModalCanvas']) { charts['chartModalCanvas'].destroy(); delete charts['chartModalCanvas']; }
+}
+
+// ---- UPDATE LOG ----
+function fmtLogVal(v) {
+  if (v == null || v === '') return '\u2014';
+  if (typeof v === 'number') return v.toLocaleString('en-US');
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) return v.slice(0, 10);
+  return v;
+}
+function logRow(color, tag, text) {
+  return '<div style="display:flex;gap:8px;padding:2px 0;align-items:baseline;">'
+    + '<span style="flex-shrink:0;font-weight:600;color:' + color + ';">' + tag + '</span>'
+    + '<span style="color:#37352F;">' + text + '</span></div>';
+}
+async function openLogModal() {
+  document.getElementById('logModal').classList.add('open');
+  const body = document.getElementById('logModalBody');
+  body.innerHTML = '<div style="color:#787774;">Loading\u2026</div>';
+  try {
+    const res = await fetch('changelog.json?t=' + Date.now());
+    if (!res.ok) throw new Error('nolog');
+    const log = await res.json();
+    if (!Array.isArray(log) || log.length === 0) throw new Error('empty');
+    body.innerHTML = log.map(entry => {
+      let html = '<div style="border-bottom:1px solid var(--border);padding:10px 2px;">';
+      html += '<div style="font-weight:600;margin-bottom:4px;">' + new Date(entry.timestamp).toLocaleString() + '</div>';
+      (entry.added || []).forEach(p => { html += logRow('#448361', 'Added', p); });
+      (entry.removed || []).forEach(p => { html += logRow('#B5443B', 'Removed', p); });
+      (entry.changes || []).forEach(c => { html += logRow('#5B7BA5', c.project, c.field + ': ' + fmtLogVal(c.old) + ' \u2192 ' + fmtLogVal(c.new)); });
+      const tr = entry.teamRevenue || {};
+      Object.keys(tr).forEach(k => { html += logRow('#8E6DAF', 'Team Revenue', k + ': ' + fmtLogVal(tr[k].old) + ' \u2192 ' + fmtLogVal(tr[k].new)); });
+      return html + '</div>';
+    }).join('');
+  } catch (e) {
+    body.innerHTML = '<div style="color:#787774;">No changes recorded yet.</div>';
+  }
+}
+function closeLogModal() { document.getElementById('logModal').classList.remove('open'); }
 
 loadData();
 </script>
