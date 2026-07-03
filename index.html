@@ -479,6 +479,18 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <div class="card"><h3>Cumulative Revenue vs Target Pace (THB) <span id="trendSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><canvas id="chartRevenueTrend"></canvas></div>
   </div>
 
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>On-time Delivery <span id="ontimeSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3>
+      <div id="overdueWrap" style="overflow-y:auto;max-height:340px;margin-top:8px;">
+        <table class="ptable">
+          <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Design Status</th><th>Due Date</th><th style="text-align:right;">Overdue (days)</th></tr></thead>
+          <tbody id="overdueBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 
   <div class="chart-grid g2">
     <div class="card"><h3>Team Workload per Month (Internal vs External)</h3><canvas id="chartTeamWorkloadMonth"></canvas></div>
@@ -538,6 +550,11 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   <div class="chart-grid g2" style="margin-top:0;">
     <div class="card"><h3>Current Revenue (THB) per Person &mdash; Monthly</h3><canvas id="chartWonValue"></canvas></div>
     <div class="card"><h3>Design Capacity (m&sup2;/day) per Person</h3><canvas id="chartCapacity"></canvas></div>
+  </div>
+
+  <div class="chart-grid g2" style="margin-top:0;">
+    <div class="card"><h3>Avg Revisions per Project</h3><canvas id="chartRevisionRate"></canvas></div>
+    <div class="card"><h3>Projects with Revisions (%)</h3><canvas id="chartRevisedShare"></canvas></div>
   </div>
 </div>
 
@@ -659,6 +676,7 @@ function renderOverall() {
   renderWorkloadByMember(projects);
   renderTeamRevenue();
   renderRevenueTrend();
+  renderOntime();
   renderDesignAreaTeamTotal();
 
   renderTable();
@@ -968,6 +986,40 @@ function renderRevenueTrend() {
   });
 }
 
+function renderOntime() {
+  const today = Date.now();
+  // due date = END of latest revision (fallback: main END). Exclude Loss projects.
+  const scored = DATA.projects.filter(p =>
+    p.lastReviseEndDate && p.projectStatus !== 'Loss' &&
+    new Date(p.lastReviseEndDate).getTime() < today);
+  const delivered = scored.filter(p => (p.designStatus || '').toLowerCase() === 'done');
+  const overdue = scored.filter(p => (p.designStatus || '').toLowerCase() !== 'done')
+    .map(p => ({
+      project: p.project, engineer: p.engineer, designStatus: p.designStatus,
+      due: p.lastReviseEndDate,
+      days: Math.floor((today - new Date(p.lastReviseEndDate).getTime()) / 86400000)
+    }))
+    .sort((a, b) => b.days - a.days);
+
+  const rate = scored.length ? Math.round(delivered.length / scored.length * 100) : 100;
+  document.getElementById('ontimeSummary').textContent =
+    '\u2014 delivered ' + rate + '% (' + delivered.length + '/' + scored.length + ' past-due projects) \u00b7 overdue now: ' + overdue.length;
+
+  document.getElementById('overdueBody').innerHTML = overdue.length === 0
+    ? '<tr><td colspan="6" style="color:#448361;">No overdue projects</td></tr>'
+    : overdue.map((r, i) => {
+        const c = r.days > 30 ? '#B5443B' : r.days > 14 ? '#B58A3B' : '#787774';
+        return '<tr>'
+          + '<td>' + (i + 1) + '</td>'
+          + '<td>' + r.project + '</td>'
+          + '<td>' + (dName(r.engineer) || '\u2014') + '</td>'
+          + '<td>' + (r.designStatus || '\u2014') + '</td>'
+          + '<td>' + fmtDate(r.due) + '</td>'
+          + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + r.days + '</td>'
+          + '</tr>';
+      }).join('');
+}
+
 function openPipelineModal(colIndex) {
   const cfg = {
     1: { status: 'Win',     title: 'Won Projects \u2014 Current Revenue', valHead: 'Revenue + Fee (THB)', val: p => (p.revenueActual || 0) + (p.designFeeActual || 0) },
@@ -1271,6 +1323,22 @@ function renderWorkload() {
   // Capacity
   const capData = engineers.map(e => DATA.designCapacity[e] || 0);
   renderSingleBar('chartCapacity', engineers, capData, ' m²/day');
+
+  // Revision rate: avg revisions per project + share of projects revised
+  const revAvg = engineers.map(e => {
+    const ep = projects.filter(p => p.engineer === e);
+    if (!ep.length) return 0;
+    const total = ep.reduce((s, p) => s + (p.reviseCount || 0), 0);
+    return Math.round(total / ep.length * 10) / 10;
+  });
+  renderSingleBar('chartRevisionRate', engineers, revAvg, ' rev/proj');
+
+  const revShare = engineers.map(e => {
+    const ep = projects.filter(p => p.engineer === e);
+    if (!ep.length) return 0;
+    return Math.round(ep.filter(p => (p.reviseCount || 0) > 0).length / ep.length * 100);
+  });
+  renderSingleBar('chartRevisedShare', engineers, revShare, '%');
 }
 
 // Stacked workload chart: for each month, show stacked bars per person
