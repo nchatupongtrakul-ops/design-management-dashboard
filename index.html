@@ -342,8 +342,8 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 .card-expand-btn { position:absolute; top:12px; right:12px; width:26px; height:26px; border:1px solid var(--border); background:#fff; border-radius:6px; cursor:pointer; color:#787774; font-size:14px; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s; z-index:5; }
 .card:hover .card-expand-btn { opacity:1; }
 .card-expand-btn:hover { background:var(--bg); color:#37352F; }
-#chartModal, #logModal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:1000; align-items:center; justify-content:center; padding:24px; }
-#chartModal.open, #logModal.open { display:flex; }
+#chartModal, #logModal, #pipelineModal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:1000; align-items:center; justify-content:center; padding:24px; }
+#chartModal.open, #logModal.open, #pipelineModal.open { display:flex; }
 .chart-modal-box { background:#fff; border-radius:12px; padding:20px 26px; width:min(1100px,94vw); height:min(75vh,660px); display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.25); }
 .chart-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 .chart-modal-close { border:none; background:none; font-size:22px; color:#787774; cursor:pointer; line-height:1; }
@@ -418,6 +418,22 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   </div>
 </div>
 
+<!-- Pipeline detail modal (click a Team Revenue bar) -->
+<div id="pipelineModal" onclick="if(event.target===this)closePipelineModal()">
+  <div class="chart-modal-box" style="height:auto;max-height:82vh;">
+    <div class="chart-modal-head">
+      <h3 id="pipelineModalTitle" style="margin:0;font-size:16px;"></h3>
+      <button class="chart-modal-close" onclick="closePipelineModal()">&times;</button>
+    </div>
+    <div style="overflow-y:auto;">
+      <table class="ptable">
+        <thead><tr id="pipelineHead"></tr></thead>
+        <tbody id="pipelineBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <div class="tabs" id="tabBar">
   <div class="tab active" data-tab="overall" onclick="switchTab('overall')">Over All</div>
   <div class="tab" data-tab="workload" onclick="switchTab('workload')">Workload Trends</div>
@@ -459,17 +475,6 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <div class="card"><h3>Team Revenue vs Target (THB) <span id="revenueSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><canvas id="chartTeamRevenue"></canvas></div>
   </div>
 
-  <div class="chart-grid g1">
-    <div class="card">
-      <h3>Pending Pipeline <span id="pendingSummary" style="font-weight:500;color:#787774;font-size:12px;"></span></h3>
-      <div style="overflow-y:auto;max-height:430px;margin-top:8px;">
-        <table class="ptable" id="pendingTable">
-          <thead><tr><th>#</th><th>Project</th><th style="text-align:right;">Value (THB)</th><th>Engineer</th><th>Start Date</th><th style="text-align:right;">Aging (days)</th></tr></thead>
-          <tbody id="pendingBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
   <div class="chart-grid g2">
     <div class="card"><h3>Team Workload per Month (Internal vs External)</h3><canvas id="chartTeamWorkloadMonth"></canvas></div>
@@ -649,7 +654,6 @@ function renderOverall() {
   renderTeamWorkloadMonth(projects);
   renderWorkloadByMember(projects);
   renderTeamRevenue();
-  renderPendingPipeline();
   renderDesignAreaTeamTotal();
 
   renderTable();
@@ -838,7 +842,7 @@ function renderTeamRevenue() {
   const current = (tr.winRevenue || 0) + (tr.designFeeAll || 0);
   document.getElementById('revenueSummary').textContent =
     '— Current ' + fmtLabel(current) + ' / Target ' + fmtLabel(tr.target) +
-    ' (' + Math.round(current / tr.target * 100) + '%)';
+    ' (' + Math.round(current / tr.target * 100) + '%) \u00b7 click a bar for details';
 
   const labels = ['Target', 'Current Revenue', 'Pending', 'Loss'];
   const datasets = [
@@ -857,6 +861,8 @@ function renderTeamRevenue() {
       responsive: true, maintainAspectRatio: true,
       layout: { padding: { top: 24 } },
       datasets: { bar: { maxBarThickness: 56, categoryPercentage: 0.55 } },
+      onClick: (e, elements) => { if (elements && elements.length) openPipelineModal(elements[0].index); },
+      onHover: (e, elements) => { try { e.native.target.style.cursor = (elements && elements.length) ? 'pointer' : 'default'; } catch (err) {} },
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 14, boxWidth: 8 } },
         tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(Math.round((ctx.parsed && ctx.parsed.y) || 0)) } },
@@ -886,12 +892,19 @@ function renderTeamRevenue() {
   });
 }
 
-function renderPendingPipeline() {
+function openPipelineModal(colIndex) {
+  const cfg = {
+    1: { status: 'Win',     title: 'Won Projects \u2014 Current Revenue', valHead: 'Revenue + Fee (THB)', val: p => (p.revenueActual || 0) + (p.designFeeActual || 0) },
+    2: { status: 'Pending', title: 'Pending Pipeline',                     valHead: 'Value (THB)',         val: p => p.boqPipeline || 0 },
+    3: { status: 'Loss',    title: 'Loss Projects',                        valHead: 'Value (THB)',         val: p => p.boqPipeline || 0 }
+  }[colIndex];
+  if (!cfg || !DATA) return;
+
   const rows = DATA.projects
-    .filter(p => p.projectStatus === 'Pending')
+    .filter(p => p.projectStatus === cfg.status)
     .map(p => ({
       project: p.project,
-      value: p.boqPipeline || 0,
+      value: cfg.val(p),
       engineer: p.engineer,
       startDate: p.startDate,
       aging: p.startDate ? Math.floor((Date.now() - new Date(p.startDate).getTime()) / 86400000) : null
@@ -899,10 +912,11 @@ function renderPendingPipeline() {
     .sort((a, b) => b.value - a.value);
 
   const total = rows.reduce((s, r) => s + r.value, 0);
-  document.getElementById('pendingSummary').textContent =
-    '\u2014 ' + rows.length + ' projects \u00b7 total ' + fmtLabel(total) + ' THB';
-
-  document.getElementById('pendingBody').innerHTML = rows.map((r, i) => {
+  document.getElementById('pipelineModalTitle').textContent =
+    cfg.title + ' \u2014 ' + rows.length + ' projects \u00b7 ' + fmtLabel(total) + ' THB';
+  document.getElementById('pipelineHead').innerHTML =
+    '<th>#</th><th>Project</th><th style="text-align:right;">' + cfg.valHead + '</th><th>Engineer</th><th>Start Date</th><th style="text-align:right;">Aging (days)</th>';
+  document.getElementById('pipelineBody').innerHTML = rows.map((r, i) => {
     const c = r.aging == null ? '#787774' : r.aging > 90 ? '#B5443B' : r.aging > 45 ? '#B58A3B' : '#448361';
     return '<tr>'
       + '<td>' + (i + 1) + '</td>'
@@ -913,7 +927,10 @@ function renderPendingPipeline() {
       + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (r.aging == null ? '\u2014' : r.aging) + '</td>'
       + '</tr>';
   }).join('');
+  document.getElementById('pipelineModal').classList.add('open');
 }
+
+function closePipelineModal() { document.getElementById('pipelineModal').classList.remove('open'); }
 
 function renderWorkloadByMember(projects) {
   const canvasId = 'chartWorkloadByMember';
