@@ -344,7 +344,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 .card-expand-btn:hover { background:var(--bg); color:#37352F; }
 #chartModal, #logModal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:1000; align-items:center; justify-content:center; padding:24px; }
 #chartModal.open, #logModal.open { display:flex; }
-.chart-modal-box { background:#fff; border-radius:12px; padding:18px 22px; width:min(1200px,95vw); height:min(82vh,760px); display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.25); }
+.chart-modal-box { background:#fff; border-radius:12px; padding:20px 26px; width:min(1100px,94vw); height:min(75vh,660px); display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.25); }
 .chart-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 .chart-modal-close { border:none; background:none; font-size:22px; color:#787774; cursor:pointer; line-height:1; }
 .chart-modal-close:hover { color:#37352F; }
@@ -1551,6 +1551,19 @@ function addExpandButtons() {
   });
 }
 
+function cloneOpts(o) {
+  if (o === null || typeof o !== 'object') return o;
+  if (Array.isArray(o)) return o.map(cloneOpts);
+  const r = {};
+  for (const k in o) r[k] = cloneOpts(o[k]);
+  return r;
+}
+
+function bumpFont(obj, size) {
+  if (!obj) return;
+  obj.font = Object.assign({}, obj.font, { size: size });
+}
+
 function expandChart(canvasId, title) {
   const src = charts[canvasId];
   if (!src) return;
@@ -1558,9 +1571,32 @@ function expandChart(canvasId, title) {
   document.getElementById('chartModal').classList.add('open');
   if (charts['chartModalCanvas']) { charts['chartModalCanvas'].destroy(); delete charts['chartModalCanvas']; }
   const cfg = src.config._config || src.config;
-  const options = Object.assign({}, cfg.options, { responsive: true, maintainAspectRatio: false });
+
+  // deep-clone options so readability tweaks never touch the small chart
+  const opt = cloneOpts(cfg.options || {});
+  opt.responsive = true;
+  opt.maintainAspectRatio = false;
+  opt.layout = opt.layout || {};
+  opt.layout.padding = Object.assign({}, opt.layout.padding, { top: 32, right: 28, left: 16, bottom: 8 });
+
+  // larger fonts for comfortable reading
+  opt.plugins = opt.plugins || {};
+  if (opt.plugins.legend && opt.plugins.legend.labels) {
+    bumpFont(opt.plugins.legend.labels, 13);
+    opt.plugins.legend.labels.padding = 18;
+    opt.plugins.legend.labels.boxWidth = 10;
+  }
+  if (opt.plugins.datalabels) bumpFont(opt.plugins.datalabels, 13);
+  if (opt.scales) {
+    Object.keys(opt.scales).forEach(ax => {
+      const s = opt.scales[ax];
+      s.ticks = s.ticks || {};
+      bumpFont(s.ticks, 13);
+    });
+  }
+
   charts['chartModalCanvas'] = new Chart(document.getElementById('chartModalCanvas'), {
-    type: cfg.type, data: cfg.data, options: options, plugins: cfg.plugins || []
+    type: cfg.type, data: cfg.data, options: opt, plugins: cfg.plugins || []
   });
 }
 
