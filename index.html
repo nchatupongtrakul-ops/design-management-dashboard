@@ -437,7 +437,6 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 <div class="tabs" id="tabBar">
   <div class="tab active" data-tab="overall" onclick="switchTab('overall')">Over All</div>
   <div class="tab" data-tab="workload" onclick="switchTab('workload')">Workload Trends</div>
-  <div class="tab" data-tab="weekly" onclick="switchTab('weekly')">Weekly Report</div>
 </div>
 
 <!-- TAB 1: OVER ALL -->
@@ -502,6 +501,39 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <div class="card"><h3>Design Area (m&sup2;) per Month &mdash; Team Total</h3><canvas id="chartDesignAreaTeamTotal"></canvas></div>
   </div>
 
+  <!-- WEEKLY REPORT SECTION -->
+  <div class="filter-bar" style="align-items:center;gap:10px;margin-top:8px;">
+    <span style="font-weight:700;font-size:14px;">Weekly Report</span>
+    <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(-1)">&#9664;</button>
+    <span id="weekLabel" style="font-weight:600;font-size:14px;"></span>
+    <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(1)">&#9654;</button>
+    <button class="btn" id="copyReportBtn" onclick="copyWeeklyReport()" style="margin-left:auto;background:#448361;">Copy report</button>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row"><h3>Completed this week <span id="weeklyDoneCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><button class="chart-filter-btn" onclick="toggleSection('weeklyDoneWrap', this)">Hide &#9652;</button></div>
+      <div id="weeklyDoneWrap">
+        <table class="ptable" style="margin-top:8px;">
+          <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Finished (last Rv. END)</th></tr></thead>
+          <tbody id="weeklyDoneBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row"><h3>In Progress <span id="weeklyProgCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><button class="chart-filter-btn" onclick="toggleSection('weeklyProgWrap', this)">Hide &#9652;</button></div>
+      <div id="weeklyProgWrap">
+        <table class="ptable" style="margin-top:8px;">
+          <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Due (Tender END)</th><th style="text-align:right;">Days left</th></tr></thead>
+          <tbody id="weeklyProgBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="filter-bar" style="margin-top:8px;">
     <label>Month</label>
     <select id="filter-month" onchange="renderTable()">
@@ -511,6 +543,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
       <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
       <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
     </select>
+    <button class="chart-filter-btn" style="margin-left:auto;" onclick="toggleSection('tableWrap', this)">Hide &#9652;</button>
   </div>
   <div class="project-table-wrap show" id="tableWrap">
     <table class="ptable" id="projectTable">
@@ -556,36 +589,6 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   <div class="chart-grid g2" style="margin-top:0;">
     <div class="card"><h3>Avg Revisions per Project</h3><canvas id="chartRevisionRate"></canvas></div>
     <div class="card"><h3>Projects with Revisions (%)</h3><canvas id="chartRevisedShare"></canvas></div>
-  </div>
-</div>
-
-<!-- TAB: WEEKLY REPORT -->
-<div class="page" id="page-weekly">
-  <div class="filter-bar" style="align-items:center;gap:10px;">
-    <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(-1)">&#9664;</button>
-    <span id="weekLabel" style="font-weight:600;font-size:14px;"></span>
-    <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(1)">&#9654;</button>
-    <button class="btn" id="copyReportBtn" onclick="copyWeeklyReport()" style="margin-left:auto;background:#448361;">Copy report</button>
-  </div>
-
-  <div class="chart-grid g1">
-    <div class="card">
-      <h3>Completed this week <span id="weeklyDoneCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3>
-      <table class="ptable" style="margin-top:8px;">
-        <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Finished (last Rv. END)</th></tr></thead>
-        <tbody id="weeklyDoneBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="chart-grid g1">
-    <div class="card">
-      <h3>In Progress <span id="weeklyProgCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3>
-      <table class="ptable" style="margin-top:8px;">
-        <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Due (Tender END)</th><th style="text-align:right;">Days left</th></tr></thead>
-        <tbody id="weeklyProgBody"></tbody>
-      </table>
-    </div>
   </div>
 </div>
 
@@ -645,7 +648,6 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + tab));
   if (tab === 'workload' && DATA) renderWorkload();
-  if (tab === 'weekly' && DATA) renderWeeklyReport();
   if (tab.startsWith('kpi-') && DATA) renderKpiPages();
   if (DATA) setTimeout(addExpandButtons, 0);
 }
@@ -709,6 +711,7 @@ function renderOverall() {
   renderTeamRevenue();
   renderRevenueTrend();
   renderOntime();
+  renderWeeklyReport();
   renderDesignAreaTeamTotal();
 
   renderTable();
@@ -1050,6 +1053,13 @@ function renderOntime() {
           + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + r.days + '</td>'
           + '</tr>';
       }).join('');
+}
+
+function toggleSection(id, btn) {
+  const el = document.getElementById(id);
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  btn.innerHTML = hidden ? 'Hide &#9652;' : 'Show &#9662;';
 }
 
 // ---- WEEKLY REPORT ----
