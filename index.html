@@ -688,6 +688,7 @@ function renderOverall() {
   const totalProjects = projects.length;
   const totalArea = projects.reduce((s,p) => s + (p.area||0), 0);
   const totalBOQ = projects.reduce((s,p) => s + (p.boqAll||0), 0);
+  const totalFee = projects.reduce((s,p) => s + (p.designFeeActual||0), 0);
   const winCount = projects.filter(p => p.projectStatus === 'Win').length;
   const statusCount = projects.filter(p => ['Win','Loss','Pending'].includes(p.projectStatus)).length;
   const winRate = statusCount > 0 ? winCount / statusCount : 0;
@@ -696,6 +697,7 @@ function renderOverall() {
     kpiCard(fmt(totalProjects), 'Total Projects'),
     kpiCard(fmt(Math.round(totalArea)) + ' m²', 'Total Area'),
     kpiCard(fmtM(totalBOQ) + ' THB', 'Total BOQ Value'),
+    kpiCard(fmtM(totalFee) + ' THB', 'Design Fee (Actual)'),
     kpiCard(pct(winRate), 'Win Rate'),
   ].join('');
 
