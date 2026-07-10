@@ -437,6 +437,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 <div class="tabs" id="tabBar">
   <div class="tab active" data-tab="overall" onclick="switchTab('overall')">Over All</div>
   <div class="tab" data-tab="workload" onclick="switchTab('workload')">Workload Trends</div>
+  <div class="tab" data-tab="sale" onclick="switchTab('sale')">Sale Analysis</div>
 </div>
 
 <!-- TAB 1: OVER ALL -->
@@ -592,6 +593,39 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   </div>
 </div>
 
+<!-- TAB: SALE ANALYSIS -->
+<div class="page" id="page-sale">
+  <div class="filter-bar" style="flex-wrap:wrap;">
+    <label>Project Type</label>
+    <select id="filter-sale" onchange="renderSaleAnalysis()">
+      <option value="All">All</option>
+      <option value="Internal">Internal</option>
+      <option value="External">External</option>
+    </select>
+    <span style="color:#787774;font-size:12px;">\u2014 \u0e07\u0e32\u0e19\u0e21\u0e32\u0e08\u0e32\u0e01\u0e40\u0e0b\u0e25\u0e04\u0e19\u0e44\u0e2b\u0e19 / \u0e2a\u0e16\u0e32\u0e19\u0e30\u0e01\u0e32\u0e23\u0e02\u0e32\u0e22</span>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card"><h3>Projects by Sale (by status)</h3><canvas id="chartSaleProjects"></canvas></div>
+    <div class="card"><h3>Won Revenue by Sale (THB)</h3><canvas id="chartSaleRevenue"></canvas></div>
+  </div>
+  <div class="chart-grid g2">
+    <div class="card"><h3>Win Rate by Sale</h3><canvas id="chartSaleWinRate"></canvas></div>
+    <div class="card"><h3>Pending Sale Status</h3><canvas id="chartSaleStatus"></canvas></div>
+  </div>
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row"><h3>Projects by Sale &mdash; detail</h3><button class="chart-filter-btn" onclick="toggleSection('saleTableWrap', this)">Hide &#9652;</button></div>
+      <div id="saleTableWrap" style="overflow-y:auto;max-height:420px;">
+        <table class="ptable" style="margin-top:8px;">
+          <thead><tr><th>Sale</th><th style="text-align:right;">Total</th><th style="text-align:right;">Win</th><th style="text-align:right;">Pending</th><th style="text-align:right;">Loss</th><th style="text-align:right;">Win Rate</th><th style="text-align:right;">Won Revenue</th></tr></thead>
+          <tbody id="saleTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- KPI PAGES (generated dynamically) -->
 
 <script>
@@ -648,6 +682,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + tab));
   if (tab === 'workload' && DATA) renderWorkload();
+  if (tab === 'sale' && DATA) renderSaleAnalysis();
   if (tab.startsWith('kpi-') && DATA) renderKpiPages();
   if (DATA) setTimeout(addExpandButtons, 0);
 }
@@ -1206,6 +1241,89 @@ async function copyWeeklyReport() {
     btn.textContent = 'Copy failed';
   }
   setTimeout(() => { btn.textContent = 'Copy report'; }, 1600);
+}
+
+function renderSaleAnalysis() {
+  if (!DATA) return;
+  const flt = document.getElementById('filter-sale').value;
+  const projects = DATA.projects.filter(p => p.sale && (flt === 'All' || p.projectType === flt));
+  const sales = [...new Set(projects.map(p => p.sale))];
+  const byS = s => projects.filter(p => p.sale === s);
+  sales.sort((a, b) => byS(b).length - byS(a).length);
+
+  const ST = { Win: '#448361', Pending: '#B58A3B', Loss: '#B5443B' };
+  const cnt = (s, st) => byS(s).filter(p => p.projectStatus === st).length;
+
+  // 1. stacked horizontal: projects by status
+  const id1 = 'chartSaleProjects';
+  if (charts[id1]) charts[id1].destroy();
+  charts[id1] = new Chart(document.getElementById(id1), {
+    type: 'bar', plugins: [ChartDataLabels],
+    data: { labels: sales, datasets: ['Win', 'Pending', 'Loss'].map(st => ({
+      label: st, data: sales.map(s => cnt(s, st)), backgroundColor: ST[st], stack: 'a', borderRadius: st === 'Loss' ? 4 : 0
+    })) },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, layout: { padding: { right: 24 } },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 12, boxWidth: 8 } },
+        datalabels: { display: ctx => (ctx.parsed && ctx.parsed.x) > 0, color: '#fff', font: { size: 10, weight: '600' } }
+      },
+      scales: { x: { stacked: true, beginAtZero: true, grid: { color: '#f0f0ed' } }, y: { stacked: true, grid: { display: false } } }
+    }
+  });
+
+  // 2. won revenue by sale (Win revenue + all design fees)
+  const rev = sales.map(s => byS(s).reduce((a, p) =>
+    a + (p.projectStatus === 'Win' ? (p.revenueActual || 0) : 0) + (p.designFeeActual || 0), 0));
+  const id2 = 'chartSaleRevenue';
+  if (charts[id2]) charts[id2].destroy();
+  charts[id2] = new Chart(document.getElementById(id2), {
+    type: 'bar', plugins: [ChartDataLabels],
+    data: { labels: sales, datasets: [{ data: rev, backgroundColor: '#2B3A67', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: true, layout: { padding: { top: 20 } },
+      plugins: { legend: { display: false },
+        datalabels: { display: ctx => (ctx.parsed && ctx.parsed.y) > 0, anchor: 'end', align: 'top', font: { size: 10, weight: '600' }, color: '#37352F', formatter: v => fmtLabel(v) },
+        tooltip: { callbacks: { label: ctx => fmt(Math.round((ctx.parsed && ctx.parsed.y) || 0)) } } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: '#f0f0ed' }, ticks: { callback: v => fmtAxis(v) } } }
+    }
+  });
+
+  // 3. win rate by sale
+  const wr = sales.map(s => {
+    const dec = byS(s).filter(p => ['Win', 'Loss', 'Pending'].includes(p.projectStatus));
+    const w = dec.filter(p => p.projectStatus === 'Win').length;
+    return dec.length ? Math.round(w / dec.length * 100) : 0;
+  });
+  const id3 = 'chartSaleWinRate';
+  if (charts[id3]) charts[id3].destroy();
+  charts[id3] = new Chart(document.getElementById(id3), {
+    type: 'bar', plugins: [ChartDataLabels],
+    data: { labels: sales, datasets: [{ data: wr, backgroundColor: '#5B7BA5', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: true, layout: { padding: { top: 20 } },
+      plugins: { legend: { display: false },
+        datalabels: { anchor: 'end', align: 'top', font: { size: 10, weight: '600' }, color: '#37352F', formatter: v => v + '%' } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, max: 100, grid: { color: '#f0f0ed' }, ticks: { callback: v => v + '%' } } }
+    }
+  });
+
+  // 4. pending sale status donut
+  const pend = projects.filter(p => p.projectStatus === 'Pending');
+  const smap = {};
+  pend.forEach(p => { const k = p.saleStatus || 'N/A'; smap[k] = (smap[k] || 0) + 1; });
+  renderDonut('chartSaleStatus', smap);
+
+  // 5. table
+  document.getElementById('saleTableBody').innerHTML = sales.map(s => {
+    const t = byS(s).length, w = cnt(s, 'Win'), pe = cnt(s, 'Pending'), l = cnt(s, 'Loss');
+    const dec = w + pe + l, wrv = dec ? Math.round(w / dec * 100) : 0;
+    const rv = byS(s).reduce((a, p) => a + (p.projectStatus === 'Win' ? (p.revenueActual || 0) : 0) + (p.designFeeActual || 0), 0);
+    return '<tr><td>' + s + '</td>'
+      + '<td style="text-align:right;">' + t + '</td>'
+      + '<td style="text-align:right;color:#448361;">' + w + '</td>'
+      + '<td style="text-align:right;color:#B58A3B;">' + pe + '</td>'
+      + '<td style="text-align:right;color:#B5443B;">' + l + '</td>'
+      + '<td style="text-align:right;">' + wrv + '%</td>'
+      + '<td style="text-align:right;">' + fmt(Math.round(rv)) + '</td></tr>';
+  }).join('');
 }
 
 function openWorkloadDetail(eng, monthIdx, kind) {
