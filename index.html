@@ -1660,15 +1660,31 @@ function renderWorkload() {
     borderRadius: 4,
   })), false, v => fmtM(v));
 
-  // Utilization %: design area done / (m2 per day capacity * weekdays that month) * 100
+  // Utilization %: External design (m2) + Internal work (hours) vs capacity x weekdays.
+  //   external_days = design m2 / capacity  (Internal projects have ~0 m2, so daData ~ external)
+  //   internal_days = logged Work Time hours / 8  (0 until team fills hours)
   const uYear = (DATA.projects.find(p => p.startDate) || {}).startDate;
   const YEAR = uYear ? new Date(uYear).getFullYear() : 2026;
+  const HOURS_PER_DAY = 8;
   const wd = ALL_MONTH_IDXS.map(mi => weekdaysInMonth(YEAR, mi));
+  // internal hours per engineer per month (month 1-12 key)
+  const intHours = {};
+  engineers.forEach(e => { intHours[e] = {}; });
+  DATA.projects.forEach(p => {
+    if (p.projectType !== 'Internal' || !engineers.includes(p.engineer)) return;
+    const hbm = p.hoursByMonth || {};
+    Object.keys(hbm).forEach(m => { intHours[p.engineer][m] = (intHours[p.engineer][m] || 0) + hbm[m]; });
+  });
   renderGroupedBar('chartUtilization', MONTHS, engineers.map((e,i) => {
     const cap = DATA.designCapacity[e] || 0;
     return {
       label: dName(e),
-      data: ALL_MONTH_IDXS.map(mi => cap && wd[mi] ? Math.round((daData[mi][e] || 0) / (cap * wd[mi]) * 100) : 0),
+      data: ALL_MONTH_IDXS.map(mi => {
+        if (!wd[mi]) return 0;
+        const extDays = cap ? (daData[mi][e] || 0) / cap : 0;
+        const intDays = (intHours[e][mi + 1] || 0) / HOURS_PER_DAY;
+        return Math.round((extDays + intDays) / wd[mi] * 100);
+      }),
       backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
       borderRadius: 4,
     };
