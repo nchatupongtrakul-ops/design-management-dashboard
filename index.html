@@ -1672,7 +1672,7 @@ function renderWorkload() {
       backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
       borderRadius: 4,
     };
-  }), false, v => v + '%');
+  }), false, v => v + '%', v => v + '%');
 
   // Win Rate by engineer
   const winRateData = engineers.map(e => {
@@ -1819,7 +1819,7 @@ function renderStackedWorkloadChart(canvasId, monthLabels, monthIdxs, wlData, en
   legendDiv.innerHTML = legendHTML;
 }
 
-function renderGroupedBar(canvasId, labels, datasets, showDataLabels, labelFmt) {
+function renderGroupedBar(canvasId, labels, datasets, showDataLabels, labelFmt, axisFmt) {
   if (charts[canvasId]) charts[canvasId].destroy();
   charts[canvasId] = new Chart(document.getElementById(canvasId), {
     type: 'bar',
@@ -1839,14 +1839,14 @@ function renderGroupedBar(canvasId, labels, datasets, showDataLabels, labelFmt) 
         } : false,
         legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 14, boxWidth: 8 } },
         tooltip: {
-          callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed && ctx.parsed.y) }
+          callbacks: { label: ctx => ctx.dataset.label + ': ' + (axisFmt ? axisFmt(ctx.parsed && ctx.parsed.y) : fmt(ctx.parsed && ctx.parsed.y)) }
         }
       },
       scales: {
         x: { grid: { display: false } },
         y: {
           beginAtZero: true,
-          ticks: labelFmt ? { callback: function(v) { return fmtAxis(v); } } : {},
+          ticks: (axisFmt || labelFmt) ? { callback: function(v) { return axisFmt ? axisFmt(v) : fmtAxis(v); } } : {},
           grid: { color: '#f0f0ed' }
         }
       }
