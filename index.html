@@ -1231,16 +1231,15 @@ function openWorkloadDetail(eng, monthIdx, kind) {
   const title = dName(eng) + ' — ' + MONTHS[monthIdx] + ' — ' + (isNew ? 'New Projects' : 'Revised Work');
   document.getElementById('pipelineModalTitle').textContent = title + ' (' + totalCount + ')';
   document.getElementById('pipelineHead').innerHTML =
-    '<th>#</th><th>Project</th><th>Building Type</th><th style="text-align:right;">Area (m²)</th><th>Start Date</th><th>Status</th>' + extraHead;
+    '<th>#</th><th>Project</th><th>Building Type</th><th style="text-align:right;">Area (m²)</th><th>Start Date</th>' + extraHead;
   document.getElementById('pipelineBody').innerHTML = rows.length === 0
-    ? '<tr><td colspan="7" style="color:#787774;">No projects</td></tr>'
+    ? '<tr><td colspan="6" style="color:#787774;">No projects</td></tr>'
     : rows.map((p, i) => '<tr>'
         + '<td>' + (i + 1) + '</td>'
         + '<td>' + p.project + '</td>'
         + '<td>' + (p.buildingType || '—') + '</td>'
         + '<td style="text-align:right;">' + fmt(Math.round(p.area || 0)) + '</td>'
         + '<td>' + fmtDate(p.startDate) + '</td>'
-        + '<td>' + (p.projectStatus || '—') + '</td>'
         + (isNew ? '' : '<td style="text-align:right;">' + (p._rounds || 1) + '</td>')
         + '</tr>').join('');
   document.getElementById('pipelineModal').classList.add('open');
