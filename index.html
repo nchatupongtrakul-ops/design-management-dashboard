@@ -522,6 +522,18 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     </div>
   </div>
 
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row"><h3>Status changes this period <span id="statusChangeCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><button class="chart-filter-btn" onclick="toggleSection('statusChangeWrap', this)">Hide &#9652;</button></div>
+      <div id="statusChangeWrap">
+        <table class="ptable" style="margin-top:8px;">
+          <thead><tr><th>#</th><th>Project</th><th>Status change</th><th>Recorded</th></tr></thead>
+          <tbody id="statusChangeBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="filter-bar" style="margin-top:8px;">
     <label>Month</label>
     <select id="filter-month" onchange="renderTable()">
@@ -1118,6 +1130,39 @@ function renderWeeklyReport() {
           + daysHtml
           + '</tr>';
       }).join('');
+
+  renderStatusChanges(m, s);
+}
+
+let CHANGELOG = null;
+
+function statusChangesIn(m, s) {
+  if (!Array.isArray(CHANGELOG)) return [];
+  const out = [];
+  CHANGELOG.forEach(entry => {
+    const t = new Date(entry.timestamp);
+    if (t < m || t > s) return;
+    (entry.changes || []).forEach(c => {
+      if (c.field === 'Project Status') out.push({ project: c.project, old: c.old, neu: c.new, when: entry.timestamp });
+    });
+  });
+  return out;
+}
+
+async function renderStatusChanges(m, s) {
+  try {
+    const r = await fetch('changelog.json?t=' + Date.now());
+    CHANGELOG = r.ok ? await r.json() : [];
+  } catch (e) { CHANGELOG = []; }
+  const rows = statusChangesIn(m, s);
+  const badge = v => {
+    const col = v === 'Win' ? '#448361' : v === 'Loss' ? '#B5443B' : v === 'Pending' ? '#B58A3B' : '#787774';
+    return '<span style="color:' + col + ';font-weight:600;">' + (v || '\u2014') + '</span>';
+  };
+  document.getElementById('statusChangeCount').textContent = '\u2014 ' + rows.length + ' change' + (rows.length === 1 ? '' : 's');
+  document.getElementById('statusChangeBody').innerHTML = rows.length === 0
+    ? '<tr><td colspan="4" style="color:#787774;">No status changes recorded in this period</td></tr>'
+    : rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + r.project + '</td><td>' + badge(r.old) + ' \u2192 ' + badge(r.neu) + '</td><td>' + fmtDate(r.when) + '</td></tr>').join('');
 }
 
 function buildWeeklyReportText() {
@@ -1132,6 +1177,11 @@ function buildWeeklyReportText() {
   lines.push('\u0e07\u0e32\u0e19\u0e17\u0e35\u0e48\u0e01\u0e33\u0e25\u0e31\u0e07\u0e17\u0e33 (' + inprog.length + '):');
   if (inprog.length === 0) lines.push('- \u0e44\u0e21\u0e48\u0e21\u0e35');
   inprog.forEach(p => lines.push('- ' + p.project + ' \u2014 ' + (dName(p.engineer) || '?') + (p.endDate ? ' (\u0e01\u0e33\u0e2b\u0e19\u0e14\u0e2a\u0e48\u0e07 ' + fmtDate(p.endDate) + ')' : '')));
+  const sc = statusChangesIn(m, s);
+  lines.push('');
+  lines.push('เปลี่ยนสถานะในรอบนี้ (' + sc.length + '):');
+  if (sc.length === 0) lines.push('- ไม่มี');
+  sc.forEach(c => lines.push('- ' + c.project + ' : ' + (c.old || '?') + ' \u2192 ' + (c.neu || '?')));
   return lines.join('\n');
 }
 
