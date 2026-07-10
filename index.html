@@ -491,7 +491,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 
   <!-- WEEKLY REPORT SECTION -->
   <div class="filter-bar" style="align-items:center;gap:10px;margin-top:8px;">
-    <span style="font-weight:700;font-size:14px;">Weekly Report</span>
+    <span style="font-weight:700;font-size:14px;">Bi-weekly Report</span>
     <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(-1)">&#9664;</button>
     <span id="weekLabel" style="font-weight:600;font-size:14px;"></span>
     <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(1)">&#9654;</button>
@@ -500,7 +500,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 
   <div class="chart-grid g1">
     <div class="card">
-      <div class="card-title-row"><h3>Completed this week <span id="weeklyDoneCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><button class="chart-filter-btn" onclick="toggleSection('weeklyDoneWrap', this)">Hide &#9652;</button></div>
+      <div class="card-title-row"><h3>Completed this period <span id="weeklyDoneCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><button class="chart-filter-btn" onclick="toggleSection('weeklyDoneWrap', this)">Hide &#9652;</button></div>
       <div id="weeklyDoneWrap">
         <table class="ptable" style="margin-top:8px;">
           <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Finished (last Rv. END)</th></tr></thead>
@@ -1057,8 +1057,8 @@ let weeklyOffset = -1; // 0 = this week, -1 = last week
 function weekRange(offset) {
   const now = new Date();
   const day = (now.getDay() + 6) % 7; // Monday = 0
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + offset * 7);
-  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 23, 59, 59, 999);
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + offset * 14);
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 13, 23, 59, 59, 999);
   return [monday, sunday];
 }
 
@@ -1082,12 +1082,12 @@ function weeklyData() {
 
 function renderWeeklyReport() {
   const { m, s, done, inprog } = weeklyData();
-  const name = weeklyOffset === 0 ? 'This week' : weeklyOffset === -1 ? 'Last week' : (weeklyOffset < 0 ? Math.abs(weeklyOffset) + ' weeks ago' : '+' + weeklyOffset + ' weeks');
+  const name = weeklyOffset === 0 ? 'This period' : weeklyOffset === -1 ? 'Last period' : (weeklyOffset < 0 ? Math.abs(weeklyOffset) + ' periods ago' : '+' + weeklyOffset + ' periods');
   document.getElementById('weekLabel').textContent = name + ': ' + fmtDate(m.toISOString()) + ' \u2013 ' + fmtDate(s.toISOString());
 
   document.getElementById('weeklyDoneCount').textContent = '\u2014 ' + done.length + ' project' + (done.length === 1 ? '' : 's');
   document.getElementById('weeklyDoneBody').innerHTML = done.length === 0
-    ? '<tr><td colspan="6" style="color:#787774;">No projects completed in this week</td></tr>'
+    ? '<tr><td colspan="6" style="color:#787774;">No projects completed in this period</td></tr>'
     : done.map((p, i) => '<tr>'
         + '<td>' + (i + 1) + '</td>'
         + '<td>' + p.project + '</td>'
@@ -1123,9 +1123,9 @@ function renderWeeklyReport() {
 function buildWeeklyReportText() {
   const { m, s, done, inprog } = weeklyData();
   const lines = [];
-  lines.push('\u0e23\u0e32\u0e22\u0e07\u0e32\u0e19\u0e17\u0e35\u0e21 Design \u2014 \u0e2a\u0e31\u0e1b\u0e14\u0e32\u0e2b\u0e4c ' + fmtDate(m.toISOString()) + ' \u2013 ' + fmtDate(s.toISOString()));
+  lines.push('\u0e23\u0e32\u0e22\u0e07\u0e32\u0e19\u0e17\u0e35\u0e21 Design \u2014 \u0e23\u0e2d\u0e1a 2 \u0e2a\u0e31\u0e1b\u0e14\u0e32\u0e2b\u0e4c ' + fmtDate(m.toISOString()) + ' \u2013 ' + fmtDate(s.toISOString()));
   lines.push('');
-  lines.push('\u0e07\u0e32\u0e19\u0e17\u0e35\u0e48\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e43\u0e19\u0e2a\u0e31\u0e1b\u0e14\u0e32\u0e2b\u0e4c (' + done.length + '):');
+  lines.push('\u0e07\u0e32\u0e19\u0e17\u0e35\u0e48\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e43\u0e19\u0e23\u0e2d\u0e1a\u0e19\u0e35\u0e49 (' + done.length + '):');
   if (done.length === 0) lines.push('- \u0e44\u0e21\u0e48\u0e21\u0e35');
   done.forEach(p => lines.push('- ' + p.project + ' \u2014 ' + (dName(p.engineer) || '?') + ' (\u0e40\u0e2a\u0e23\u0e47\u0e08 ' + fmtDate(p.lastReviseEndDate) + ')'));
   lines.push('');
