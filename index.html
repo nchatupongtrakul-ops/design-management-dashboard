@@ -1208,6 +1208,44 @@ async function copyWeeklyReport() {
   setTimeout(() => { btn.textContent = 'Copy report'; }, 1600);
 }
 
+function openWorkloadDetail(eng, monthIdx, kind) {
+  if (!DATA) return;
+  const month = monthIdx + 1;
+  const isNew = kind === 'new';
+  // New = projects started this month. Revised = projects with Rv.2..8 this month;
+  // a project can be revised several rounds in one month, so show a Rounds column
+  // and total rounds (matches the stacked bar which counts revision events).
+  let rows, totalCount, extraHead, extraCell;
+  if (isNew) {
+    rows = DATA.projects.filter(p => p.engineer === eng && p.startMonthNum === month);
+    totalCount = rows.length;
+    extraHead = ''; extraCell = () => '';
+  } else {
+    rows = DATA.projects.filter(p => p.engineer === eng && (p.reviseMonths || []).includes(month))
+      .map(p => ({ p: p, rounds: (p.reviseMonths || []).filter(m => m === month).length }));
+    totalCount = rows.reduce((s, r) => s + r.rounds, 0);
+    extraHead = '<th style="text-align:right;">Rounds</th>';
+    extraCell = r => '<td style="text-align:right;">' + r.rounds + '</td>';
+    rows = rows.map(r => Object.assign({}, r.p, { _rounds: r.rounds }));
+  }
+  const title = dName(eng) + ' — ' + MONTHS[monthIdx] + ' — ' + (isNew ? 'New Projects' : 'Revised Work');
+  document.getElementById('pipelineModalTitle').textContent = title + ' (' + totalCount + ')';
+  document.getElementById('pipelineHead').innerHTML =
+    '<th>#</th><th>Project</th><th>Building Type</th><th style="text-align:right;">Area (m²)</th><th>Start Date</th><th>Status</th>' + extraHead;
+  document.getElementById('pipelineBody').innerHTML = rows.length === 0
+    ? '<tr><td colspan="7" style="color:#787774;">No projects</td></tr>'
+    : rows.map((p, i) => '<tr>'
+        + '<td>' + (i + 1) + '</td>'
+        + '<td>' + p.project + '</td>'
+        + '<td>' + (p.buildingType || '—') + '</td>'
+        + '<td style="text-align:right;">' + fmt(Math.round(p.area || 0)) + '</td>'
+        + '<td>' + fmtDate(p.startDate) + '</td>'
+        + '<td>' + (p.projectStatus || '—') + '</td>'
+        + (isNew ? '' : '<td style="text-align:right;">' + (p._rounds || 1) + '</td>')
+        + '</tr>').join('');
+  document.getElementById('pipelineModal').classList.add('open');
+}
+
 function openPipelineModal(colIndex) {
   const cfg = {
     1: { status: 'Win',     title: 'Won Projects \u2014 Current Revenue', valHead: 'Revenue + Fee (THB)', val: p => (p.revenueActual || 0) + (p.designFeeActual || 0) },
@@ -1806,6 +1844,8 @@ function renderKpiPages() {
         responsive: true,
         maintainAspectRatio: true,
         layout: { padding: { top: 18 } },
+        onClick: (e, els) => { if (els.length) openWorkloadDetail(eng, els[0].index, els[0].datasetIndex === 0 ? 'new' : 'revised'); },
+        onHover: (e, els) => { try { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; } catch (_) {} },
         plugins: {
           datalabels: {
             display: function(ctx) {
