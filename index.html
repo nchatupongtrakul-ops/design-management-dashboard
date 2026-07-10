@@ -1138,15 +1138,27 @@ let CHANGELOG = null;
 
 function statusChangesIn(m, s) {
   if (!Array.isArray(CHANGELOG)) return [];
-  const out = [];
+  // Collapse multiple changes of the same project within the period into one:
+  // old = the first (oldest) change's old value, new = the last (newest) change's new value.
+  // CHANGELOG is newest-first, so the first time we see a project = its latest change.
+  const byProject = {};
   CHANGELOG.forEach(entry => {
     const t = new Date(entry.timestamp);
     if (t < m || t > s) return;
     (entry.changes || []).forEach(c => {
-      if (c.field === 'Project Status') out.push({ project: c.project, old: c.old, neu: c.new, when: entry.timestamp });
+      if (c.field !== 'Project Status') return;
+      const g = byProject[c.project];
+      if (!g) {
+        byProject[c.project] = { project: c.project, neu: c.new, old: c.old, when: entry.timestamp };
+      } else {
+        g.old = c.old; // keep overwriting -> ends as the oldest change's old value
+      }
     });
   });
-  return out;
+  // drop no-net-change, sort by latest change desc
+  return Object.values(byProject)
+    .filter(g => g.old !== g.neu)
+    .sort((a, b) => new Date(b.when) - new Date(a.when));
 }
 
 async function renderStatusChanges(m, s) {
