@@ -1035,17 +1035,15 @@ function renderRevenueTrend() {
   });
   const pace = MONTHS.map((m, i) => Math.round(target / 12 * (i + 1)));
 
-  // Realistic forecast = actual now + pending x historical win rate (decided deals),
-  // ramped linearly from this month to Dec (pending close timing is unknown).
+  // Realistic forecast = ceiling with only the pending portion discounted by
+  // historical win rate. actual (certain, 100%) + pending_cum x win rate.
   const wins = DATA.projects.filter(p => p.projectStatus === 'Win').length;
   const losses = DATA.projects.filter(p => p.projectStatus === 'Loss').length;
   const winProb = (wins + losses) ? wins / (wins + losses) : 0;
   const pendingTotal = (DATA.teamRevenue && DATA.teamRevenue.pending) || 0;
-  const expectedWin = pendingTotal * winProb;
-  const yearEnd = run + expectedWin;
-  const lastIdx = nowM - 1;
-  const span = Math.max(11 - lastIdx, 1);
-  const forecast = MONTHS.map((m, i) => (i < lastIdx) ? null : Math.round(run + expectedWin * (i - lastIdx) / span));
+  const yearEnd = run + pendingTotal * winProb;
+  const forecast = MONTHS.map((m, i) =>
+    (actual[i] == null) ? null : Math.round(actual[i] + (potential[i] - actual[i]) * winProb));
 
   const planNow = pace[nowM - 1];
   const diff = run - planNow;
