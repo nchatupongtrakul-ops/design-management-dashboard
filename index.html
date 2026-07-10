@@ -591,6 +591,10 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <div class="card"><h3>Avg Revisions per Project</h3><canvas id="chartRevisionRate"></canvas></div>
     <div class="card"><h3>Projects with Revisions (%)</h3><canvas id="chartRevisedShare"></canvas></div>
   </div>
+
+  <div class="chart-grid g1" style="margin-top:0;">
+    <div class="card"><h3>Utilization % per Person &mdash; Monthly <span style="font-weight:500;color:#787774;font-size:12px;">(design m&sup2; ÷ capacity × workdays Mon-Fri)</span></h3><canvas id="chartUtilization"></canvas></div>
+  </div>
 </div>
 
 <!-- TAB: SALE ANALYSIS -->
@@ -702,6 +706,12 @@ function fmtM(n) {
   return fmtLabel(n);
 }
 function pct(n) { return n == null ? '—' : Math.round(n * 100) + '%'; }
+function weekdaysInMonth(year, monthIdx) {
+  let n = 0;
+  const d = new Date(year, monthIdx, 1);
+  while (d.getMonth() === monthIdx) { const w = d.getDay(); if (w >= 1 && w <= 5) n++; d.setDate(d.getDate() + 1); }
+  return n;
+}
 
 function filterProjects(filter) {
   if (!DATA) return [];
@@ -1649,6 +1659,20 @@ function renderWorkload() {
     backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
     borderRadius: 4,
   })), false, v => fmtM(v));
+
+  // Utilization %: design area done / (m2 per day capacity * weekdays that month) * 100
+  const uYear = (DATA.projects.find(p => p.startDate) || {}).startDate;
+  const YEAR = uYear ? new Date(uYear).getFullYear() : 2026;
+  const wd = ALL_MONTH_IDXS.map(mi => weekdaysInMonth(YEAR, mi));
+  renderGroupedBar('chartUtilization', MONTHS, engineers.map((e,i) => {
+    const cap = DATA.designCapacity[e] || 0;
+    return {
+      label: dName(e),
+      data: ALL_MONTH_IDXS.map(mi => cap && wd[mi] ? Math.round((daData[mi][e] || 0) / (cap * wd[mi]) * 100) : 0),
+      backgroundColor: ENGINEER_COLORS[e] || COLORS[i],
+      borderRadius: 4,
+    };
+  }), false, v => v + '%');
 
   // Win Rate by engineer
   const winRateData = engineers.map(e => {
