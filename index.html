@@ -1038,8 +1038,8 @@ function renderRevenueTrend() {
   // Realistic forecast = ceiling with only the pending portion discounted by
   // historical win rate. actual (certain, 100%) + pending_cum x win rate.
   const wins = DATA.projects.filter(p => p.projectStatus === 'Win').length;
-  const losses = DATA.projects.filter(p => p.projectStatus === 'Loss').length;
-  const winProb = (wins + losses) ? wins / (wins + losses) : 0;
+  const decided = DATA.projects.filter(p => ['Win', 'Loss', 'Pending'].includes(p.projectStatus)).length;
+  const winProb = decided ? wins / decided : 0;  // dashboard Win Rate (pending in denominator)
   const pendingTotal = (DATA.teamRevenue && DATA.teamRevenue.pending) || 0;
   const yearEnd = run + pendingTotal * winProb;
   const forecast = MONTHS.map((m, i) =>
