@@ -1872,6 +1872,8 @@ function buildKpiPages() {
   // Remove old KPI tabs
   document.querySelectorAll('.tab[data-tab^="kpi-"]').forEach(t => t.remove());
   document.querySelectorAll('.page[id^="page-kpi-"]').forEach(p => p.remove());
+  // keep Sale Analysis tab last (after the dynamic KPI tabs below)
+  const saleTab = document.querySelector('.tab[data-tab="sale"]');
 
   KPI_ENGINEERS.forEach(eng => {
     // Add tab
@@ -1880,7 +1882,7 @@ function buildKpiPages() {
     tab.dataset.tab = 'kpi-' + eng.toLowerCase();
     tab.onclick = () => switchTab('kpi-' + eng.toLowerCase());
     tab.textContent = 'KPI ' + dName(eng);
-    tabBar.appendChild(tab);
+    if (saleTab) tabBar.insertBefore(tab, saleTab); else tabBar.appendChild(tab);
 
     // Add page
     const page = document.createElement('div');
