@@ -1217,6 +1217,7 @@ function openPipelineModal(colIndex) {
   if (!cfg || !DATA) return;
 
   const isWin = cfg.status === 'Win';
+  const isPending = cfg.status === 'Pending';
   const rows = DATA.projects
     .filter(p => p.projectStatus === cfg.status)
     .map(p => {
@@ -1233,6 +1234,7 @@ function openPipelineModal(colIndex) {
         project: p.project,
         value: cfg.val(p),
         sale: p.sale,
+        saleStatus: p.saleStatus,
         startDate: p.startDate,
         endShown: endShown,
         revise: p.reviseCount || 0,
@@ -1245,7 +1247,7 @@ function openPipelineModal(colIndex) {
   document.getElementById('pipelineModalTitle').textContent =
     cfg.title + ' \u2014 ' + rows.length + ' projects \u00b7 ' + fmtLabel(total) + ' THB';
   document.getElementById('pipelineHead').innerHTML =
-    '<th>#</th><th>Project</th><th style="text-align:right;">' + cfg.valHead + '</th><th>Sale</th><th>First Design</th><th>' + (isWin ? 'Win Date' : 'Last Design End') + '</th><th style="text-align:right;">Revisions</th><th style="text-align:right;">' + (isWin ? 'Days to close' : 'Aging (days)') + '</th>';
+    '<th>#</th><th>Project</th><th style="text-align:right;">' + cfg.valHead + '</th><th>Sale</th><th>First Design</th><th>' + (isWin ? 'Win Date' : 'Last Design End') + '</th><th style="text-align:right;">Revisions</th><th style="text-align:right;">' + (isWin ? 'Days to close' : 'Aging (days)') + '</th>' + (isPending ? '<th>Sale Status</th>' : '');
   document.getElementById('pipelineBody').innerHTML = rows.map((r, i) => {
     const c = r.aging == null ? '#787774' : r.aging > 90 ? '#B5443B' : r.aging > 45 ? '#B58A3B' : '#448361';
     return '<tr>'
@@ -1257,6 +1259,7 @@ function openPipelineModal(colIndex) {
       + '<td>' + fmtDate(r.endShown) + '</td>'
       + '<td style="text-align:right;">' + r.revise + '</td>'
       + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (r.aging == null ? '\u2014' : r.aging) + '</td>'
+      + (isPending ? '<td>' + (r.saleStatus || '\u2014') + '</td>' : '')
       + '</tr>';
   }).join('');
   document.getElementById('pipelineModal').classList.add('open');
