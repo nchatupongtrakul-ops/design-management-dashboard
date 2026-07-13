@@ -619,6 +619,12 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   </div>
   <div class="chart-grid g1">
     <div class="card">
+      <h3>Pipeline Value by Sale &rarr; Status (BOQ predict, THB)</h3>
+      <div id="saleSankey" style="margin-top:10px;"></div>
+    </div>
+  </div>
+  <div class="chart-grid g1">
+    <div class="card">
       <div class="card-title-row"><h3>Projects by Sale &mdash; detail</h3><button class="chart-filter-btn" onclick="toggleSection('saleTableWrap', this)">Hide &#9652;</button></div>
       <div id="saleTableWrap" style="overflow-y:auto;max-height:420px;">
         <table class="ptable" style="margin-top:8px;">
@@ -1332,6 +1338,7 @@ function renderSaleAnalysis() {
   const smap = {};
   pend.forEach(p => { const k = p.saleStatus || 'N/A'; smap[k] = (smap[k] || 0) + 1; });
   renderDonut('chartSaleStatus', smap);
+  renderSaleSankey(projects);
 
   // 5. table
   document.getElementById('saleTableBody').innerHTML = sales.map(s => {
@@ -1346,6 +1353,54 @@ function renderSaleAnalysis() {
       + '<td style="text-align:right;">' + wrv + '%</td>'
       + '<td style="text-align:right;">' + fmt(Math.round(rv)) + '</td></tr>';
   }).join('');
+}
+
+function renderSaleSankey(projects) {
+  const host = document.getElementById('saleSankey');
+  if (!host) return;
+  const ST = [['Win', '#448361'], ['Pending', '#B58A3B'], ['Loss', '#B5443B']];
+  const val = p => p.boqPipeline || p.boqAll || p.designFee || 0;
+  const agg = {};
+  projects.forEach(p => {
+    if (!['Win', 'Pending', 'Loss'].includes(p.projectStatus)) return;
+    const v = val(p); if (v <= 0) return;
+    (agg[p.sale] = agg[p.sale] || { Win: 0, Pending: 0, Loss: 0 })[p.projectStatus] += v;
+  });
+  let rows = Object.keys(agg).map(n => {
+    const r = agg[n]; return { n, ...r, tot: r.Win + r.Pending + r.Loss };
+  }).filter(r => r.tot > 0).sort((a, b) => b.tot - a.tot);
+  if (!rows.length) { host.innerHTML = '<p style="color:#787774;font-size:12px;">ไม่มีข้อมูลมูลค่าในตัวกรองนี้</p>'; return; }
+  const total = rows.reduce((a, r) => a + r.tot, 0);
+  const rTot = { Win: 0, Pending: 0, Loss: 0 };
+  rows.forEach(r => ST.forEach(([k]) => rTot[k] += r[k]));
+  const top = 12, botPad = 12, lx = 150, rx = 530, nodeW = 12, gapL = 6, gapR = 10;
+  const targetH = Math.max(260, rows.length * 44);
+  const scale = (targetH - gapL * (rows.length - 1)) / total;
+  const bodyH = Math.max(total * scale + gapL * (rows.length - 1), total * scale + gapR * 2);
+  const H = Math.round(bodyH + top + botPad);
+  const mfmt = v => (v / 1e6).toFixed(1) + 'M';
+  const ribbon = (x0, y0, x1, y1, w, col) => {
+    const xm = (x0 + x1) / 2;
+    return `<path d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1 + w} C${xm},${y1 + w} ${xm},${y0 + w} ${x0},${y0 + w} Z" fill="${col}" opacity="0.42"/>`;
+  };
+  let s = '';
+  let ry = top + (bodyH - (total * scale + gapR * 2)) / 2;
+  const rPos = {};
+  ST.forEach(([k, c]) => { const h = rTot[k] * scale; rPos[k] = { y: ry, cur: ry, h }; ry += h + gapR; });
+  let ly = top;
+  rows.forEach(r => {
+    const h = r.tot * scale; let cur = ly;
+    ST.forEach(([k, c]) => { const v = r[k]; if (v <= 0) return; const w = v * scale; s += ribbon(lx + nodeW, cur, rx, rPos[k].cur, w, c); cur += w; rPos[k].cur += w; });
+    s += `<rect x="${lx}" y="${ly}" width="${nodeW}" height="${h}" rx="2" fill="#2B3A67"/>`;
+    s += `<text x="${lx - 8}" y="${ly + h / 2}" text-anchor="end" dominant-baseline="middle" font-size="12" font-weight="500" fill="#37352F">${r.n}</text>`;
+    ly += h + gapL;
+  });
+  ST.forEach(([k, c]) => {
+    const p = rPos[k];
+    s += `<rect x="${rx}" y="${p.y}" width="${nodeW}" height="${p.h}" rx="2" fill="${c}"/>`;
+    s += `<text x="${rx + nodeW + 8}" y="${p.y + p.h / 2}" dominant-baseline="middle" font-size="12" font-weight="500" fill="#37352F">${k} ${mfmt(rTot[k])}</text>`;
+  });
+  host.innerHTML = `<svg viewBox="0 0 680 ${H}" width="100%" role="img" aria-label="Pipeline value by sale to status">${s}</svg>`;
 }
 
 function openWorkloadDetail(eng, monthIdx, kind) {
