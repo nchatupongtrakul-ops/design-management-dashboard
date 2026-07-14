@@ -21,7 +21,7 @@
   --blue: #2383E2;
   --red: #D44C47;
   --purple: #6940A5;
-  --green: #448361;
+  --green: #74BE95;
   --orange: #CB912F;
   --gray: #9B9A97;
   --radius: 8px;
@@ -508,7 +508,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(-1)">&#9664;</button>
     <span id="weekLabel" style="font-weight:600;font-size:14px;"></span>
     <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(1)">&#9654;</button>
-    <button class="btn" id="copyReportBtn" onclick="copyWeeklyReport()" style="margin-left:auto;background:#448361;">Copy report</button>
+    <button class="btn" id="copyReportBtn" onclick="copyWeeklyReport()" style="margin-left:auto;background:#74BE95;">Copy report</button>
   </div>
 
   <div class="chart-grid g1">
@@ -1076,7 +1076,7 @@ function renderRevenueTrend() {
       datasets: [
         { label: 'Target Pace', data: pace, borderColor: '#B9BEC9', borderDash: [6, 4], pointRadius: 0, fill: false, tension: 0 },
         { label: 'Ceiling (if all pending win)', data: potential, borderColor: '#B9C4D4', borderDash: [4, 3], backgroundColor: 'rgba(91,123,165,0.05)', fill: true, pointRadius: 0, tension: 0.25, spanGaps: false },
-        { label: 'Forecast (win-weighted)', data: forecast, borderColor: '#448361', borderDash: [7, 4], backgroundColor: 'rgba(68,131,97,0.06)', fill: false, pointRadius: 2, pointBackgroundColor: '#448361', tension: 0.25, spanGaps: false },
+        { label: 'Forecast (win-weighted)', data: forecast, borderColor: '#74BE95', borderDash: [7, 4], backgroundColor: 'rgba(68,131,97,0.06)', fill: false, pointRadius: 2, pointBackgroundColor: '#74BE95', tension: 0.25, spanGaps: false },
         { label: 'Actual Cumulative', data: actual, borderColor: '#2B3A67', backgroundColor: 'rgba(43,58,103,0.10)', fill: true, pointRadius: 3, pointBackgroundColor: '#2B3A67', tension: 0.25, spanGaps: false }
       ]
     },
@@ -1115,9 +1115,9 @@ function renderOntime() {
     '\u2014 delivered ' + rate + '% (' + delivered.length + '/' + scored.length + ' past-due projects) \u00b7 overdue now: ' + overdue.length;
 
   document.getElementById('overdueBody').innerHTML = overdue.length === 0
-    ? '<tr><td colspan="6" style="color:#448361;">No overdue projects</td></tr>'
+    ? '<tr><td colspan="6" style="color:#74BE95;">No overdue projects</td></tr>'
     : overdue.map((r, i) => {
-        const c = r.days > 30 ? '#B5443B' : r.days > 14 ? '#B58A3B' : '#787774';
+        const c = r.days > 30 ? '#E0938A' : r.days > 14 ? '#DFBE64' : '#787774';
         return '<tr>'
           + '<td>' + (i + 1) + '</td>'
           + '<td>' + r.project + '</td>'
@@ -1190,7 +1190,7 @@ function renderWeeklyReport() {
         let daysHtml = '<td style="text-align:right;color:#787774;">\u2014</td>';
         if (p.endDate) {
           const dl = Math.ceil((new Date(p.endDate).getTime() - today.getTime()) / 86400000);
-          const c = dl < 0 ? '#B5443B' : dl <= 3 ? '#B58A3B' : '#448361';
+          const c = dl < 0 ? '#E0938A' : dl <= 3 ? '#DFBE64' : '#74BE95';
           daysHtml = '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (dl < 0 ? 'overdue ' + Math.abs(dl) : dl) + '</td>';
         }
         return '<tr>'
@@ -1241,7 +1241,7 @@ async function renderStatusChanges(m, s) {
   } catch (e) { CHANGELOG = []; }
   const rows = statusChangesIn(m, s);
   const badge = v => {
-    const col = v === 'Win' ? '#448361' : v === 'Loss' ? '#B5443B' : v === 'Pending' ? '#B58A3B' : '#787774';
+    const col = v === 'Win' ? '#74BE95' : v === 'Loss' ? '#E0938A' : v === 'Pending' ? '#DFBE64' : '#787774';
     return '<span style="color:' + col + ';font-weight:600;">' + (v || '\u2014') + '</span>';
   };
   document.getElementById('statusChangeCount').textContent = '\u2014 ' + rows.length + ' change' + (rows.length === 1 ? '' : 's');
@@ -1289,7 +1289,7 @@ function renderSaleAnalysis() {
   const byS = s => projects.filter(p => p.sale === s);
   sales.sort((a, b) => byS(b).length - byS(a).length);
 
-  const ST = { Win: '#448361', Pending: '#B58A3B', Loss: '#B5443B' };
+  const ST = { Win: '#74BE95', Pending: '#DFBE64', Loss: '#E0938A' };
   const cnt = (s, st) => byS(s).filter(p => p.projectStatus === st).length;
 
   // 1. stacked horizontal: projects by status
@@ -1303,7 +1303,7 @@ function renderSaleAnalysis() {
     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, layout: { padding: { right: 24 } },
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 12, boxWidth: 8 } },
-        datalabels: { display: ctx => (ctx.parsed && ctx.parsed.x) > 0, color: '#fff', font: { size: 10, weight: '600' } }
+        datalabels: { display: ctx => (ctx.parsed && ctx.parsed.x) > 0, color: '#37352F', font: { size: 10, weight: '600' } }
       },
       scales: { x: { stacked: true, beginAtZero: true, grid: { color: '#f0f0ed' } }, y: { stacked: true, grid: { display: false } } }
     }
@@ -1357,15 +1357,15 @@ function renderSaleAnalysis() {
     const rv = byS(s).reduce((a, p) => a + (p.projectStatus === 'Win' ? (p.revenueActual || 0) : 0) + (p.designFeeActual || 0), 0);
     return '<tr><td>' + s + '</td>'
       + '<td style="text-align:right;">' + t + '</td>'
-      + '<td style="text-align:right;color:#448361;">' + w + '</td>'
-      + '<td style="text-align:right;color:#B58A3B;">' + pe + '</td>'
-      + '<td style="text-align:right;color:#B5443B;">' + l + '</td>'
+      + '<td style="text-align:right;color:#74BE95;">' + w + '</td>'
+      + '<td style="text-align:right;color:#DFBE64;">' + pe + '</td>'
+      + '<td style="text-align:right;color:#E0938A;">' + l + '</td>'
       + '<td style="text-align:right;">' + wrv + '%</td>'
       + '<td style="text-align:right;">' + fmt(Math.round(rv)) + '</td></tr>';
   }).join('');
 }
 
-const SANKEY_ST = [['Win', '#448361'], ['Pending', '#B58A3B'], ['Loss', '#B5443B']];
+const SANKEY_ST = [['Win', '#74BE95'], ['Pending', '#DFBE64'], ['Loss', '#E0938A']];
 let saleSankeyState = { ribbons: [], svg: '', projects: [] };
 const sankeyVal = p => p.boqPipeline || p.boqAll || p.designFee || 0;
 
@@ -1423,7 +1423,7 @@ function buildSankeySVG(rows) {
   const ribbons = [];
   const ribbon = (x0, y0, x1, y1, w, col, i) => {
     const xm = (x0 + x1) / 2;
-    return `<path class="skr" data-i="${i}" d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1 + w} C${xm},${y1 + w} ${xm},${y0 + w} ${x0},${y0 + w} Z" fill="${col}" opacity="0.42"/>`;
+    return `<path class="skr" data-i="${i}" d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1 + w} C${xm},${y1 + w} ${xm},${y0 + w} ${x0},${y0 + w} Z" fill="${col}" opacity="0.62"/>`;
   };
   let s = '';
   let ry = top + (bodyH - (total * scale + gapR * 2)) / 2;
@@ -1468,7 +1468,7 @@ function attachSankeyEvents(container) {
   container.querySelectorAll('path.skr').forEach(p => {
     const r = saleSankeyState.ribbons[+p.dataset.i];
     p.style.cursor = 'pointer';
-    p.addEventListener('mouseenter', () => p.setAttribute('opacity', '0.72'));
+    p.addEventListener('mouseenter', () => p.setAttribute('opacity', '0.85'));
     p.addEventListener('mousemove', e => {
       const n = saleSankeyState.projects.filter(x => r.sales.includes(x.sale) && x.projectStatus === r.status && sankeyVal(x) > 0).length;
       tip.innerHTML = '<b>' + r.label + '</b> &rarr; ' + r.status + '<br>' + fmt(Math.round(r.val)) + ' THB &middot; ' + n + ' งาน';
@@ -1476,7 +1476,7 @@ function attachSankeyEvents(container) {
       tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 180) + 'px';
       tip.style.top = (e.clientY + 14) + 'px';
     });
-    p.addEventListener('mouseleave', () => { p.setAttribute('opacity', '0.42'); tip.style.display = 'none'; });
+    p.addEventListener('mouseleave', () => { p.setAttribute('opacity', '0.62'); tip.style.display = 'none'; });
     p.addEventListener('click', () => { tip.style.display = 'none'; openSaleDetail(r.sales, r.status, r.label + ' → ' + r.status); });
   });
 }
@@ -1592,7 +1592,7 @@ function openPipelineModal(colIndex) {
   document.getElementById('pipelineHead').innerHTML =
     '<th>#</th><th>Project</th><th style="text-align:right;">' + cfg.valHead + '</th><th>Sale</th><th>First Design</th><th>' + (isWin ? 'Win Date' : 'Last Design End') + '</th><th style="text-align:right;">Revisions</th><th style="text-align:right;">' + (isWin ? 'Days to close' : 'Aging (days)') + '</th>' + (isPending ? '<th>Sale Status</th>' : '');
   document.getElementById('pipelineBody').innerHTML = rows.map((r, i) => {
-    const c = r.aging == null ? '#787774' : r.aging > 90 ? '#B5443B' : r.aging > 45 ? '#B58A3B' : '#448361';
+    const c = r.aging == null ? '#787774' : r.aging > 90 ? '#E0938A' : r.aging > 45 ? '#DFBE64' : '#74BE95';
     return '<tr>'
       + '<td>' + (i + 1) + '</td>'
       + '<td>' + r.project + '</td>'
@@ -2433,8 +2433,8 @@ async function openLogModal() {
     body.innerHTML = log.map(entry => {
       let html = '<div style="border-bottom:1px solid var(--border);padding:10px 2px;">';
       html += '<div style="font-weight:600;margin-bottom:4px;">' + new Date(entry.timestamp).toLocaleString() + '</div>';
-      (entry.added || []).forEach(p => { html += logRow('#448361', 'Added', p); });
-      (entry.removed || []).forEach(p => { html += logRow('#B5443B', 'Removed', p); });
+      (entry.added || []).forEach(p => { html += logRow('#74BE95', 'Added', p); });
+      (entry.removed || []).forEach(p => { html += logRow('#E0938A', 'Removed', p); });
       (entry.changes || []).forEach(c => { html += logRow('#5B7BA5', c.project, c.field + ': ' + fmtLogVal(c.old) + ' \u2192 ' + fmtLogVal(c.new)); });
       const tr = entry.teamRevenue || {};
       Object.keys(tr).forEach(k => { html += logRow('#8E6DAF', 'Team Revenue', k + ': ' + fmtLogVal(tr[k].old) + ' \u2192 ' + fmtLogVal(tr[k].new)); });
