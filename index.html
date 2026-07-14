@@ -1605,7 +1605,7 @@ function openPipelineModal(colIndex) {
       + '<td>' + fmtDate(r.startDate) + '</td>'
       + '<td>' + fmtDate(r.endShown) + '</td>'
       + '<td style="text-align:right;">' + r.revise + '</td>'
-      + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (r.aging == null ? '\u2014' : r.aging) + (r.gov ? ' <span style="color:#787774;font-weight:400;font-size:11px;">\u0e23\u0e01</span>' : '') + '</td>'
+      + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (r.aging == null ? '\u2014' : r.aging) + (r.gov ? ' <span style="color:#787774;font-weight:400;font-size:11px;">G</span>' : '') + '</td>'
       + (isPending ? '<td>' + (r.saleStatus || '\u2014') + '</td>' : '')
       + '</tr>';
   }).join('');
