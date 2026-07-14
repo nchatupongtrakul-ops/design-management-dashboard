@@ -21,7 +21,7 @@
   --blue: #2383E2;
   --red: #D44C47;
   --purple: #6940A5;
-  --green: #74BE95;
+  --green: #C0D7FF;
   --orange: #CB912F;
   --gray: #9B9A97;
   --radius: 8px;
@@ -308,7 +308,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   transition: all .15s;
 }
 .person-chip.active {
-  color: #fff;
+  color: #37352F;
   border-color: transparent;
 }
 .person-chip .chip-dot {
@@ -508,7 +508,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(-1)">&#9664;</button>
     <span id="weekLabel" style="font-weight:600;font-size:14px;"></span>
     <button class="btn" style="background:#fff;color:#37352F;border:1px solid var(--border);" onclick="shiftWeek(1)">&#9654;</button>
-    <button class="btn" id="copyReportBtn" onclick="copyWeeklyReport()" style="margin-left:auto;background:#74BE95;">Copy report</button>
+    <button class="btn" id="copyReportBtn" onclick="copyWeeklyReport()" style="margin-left:auto;background:#C0D7FF;color:#37352F;">Copy report</button>
   </div>
 
   <div class="chart-grid g1">
@@ -651,19 +651,19 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 <script>
 // Do NOT register ChartDataLabels globally — pass it per-chart via plugins array
 
-const COLORS = ['#2B3A67','#C4B5D4','#5B7BA5','#8E6DAF','#3D5A80','#A8D0DB'];
-const COLORS_LIGHT = ['#5B7BA5','#D9CEE6','#8BAAC4','#B89FCC','#6B8BA4','#C4E3EB'];
+const COLORS = ['#B1B4DD','#F6BFE6','#CBC2FF','#D2F9FE','#FFD0FC','#C0D7FF'];
+const COLORS_LIGHT = ['#D0D2EA','#FBDFF3','#E5E1FF','#E8FCFF','#FFE8FD','#DFEBFF'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const ALL_MONTH_IDXS = [0,1,2,3,4,5,6,7,8,9,10,11];
 
 // Engineer color mapping (consistent across charts)
 const ENGINEER_COLORS = {
-  'Game': '#2B3A67', 'Guess': '#8E6DAF', 'Mic': '#5B7BA5',
-  'Phob': '#3D5A80', 'Ping': '#C4B5D4', 'Wich': '#A8D0DB'
+  'Game': '#B1B4DD', 'Guess': '#F6BFE6', 'Mic': '#CBC2FF',
+  'Phob': '#D2F9FE', 'Ping': '#FFD0FC', 'Wich': '#C0D7FF'
 };
 const ENGINEER_COLORS_LIGHT = {
-  'Game': '#5B7BA5', 'Guess': '#B89FCC', 'Mic': '#8BAAC4',
-  'Phob': '#6B8BA4', 'Ping': '#D9CEE6', 'Wich': '#C4E3EB'
+  'Game': '#D0D2EA', 'Guess': '#FBDFF3', 'Mic': '#E5E1FF',
+  'Phob': '#E8FCFF', 'Ping': '#FFE8FD', 'Wich': '#DFEBFF'
 };
 
 const ENGINEER_FULL_NAMES = {
@@ -682,8 +682,8 @@ function dName(e) { return DISPLAY_NAMES[e] || e; }
 const KPI_ENGINEERS = ['Ping', 'Wich', 'Mic'];
 
 // Internal/External colors
-const COLOR_INTERNAL = '#C4B5D4';
-const COLOR_EXTERNAL = '#2B3A67';
+const COLOR_INTERNAL = '#CBC2FF';
+const COLOR_EXTERNAL = '#B1B4DD';
 
 let DATA = null;
 let charts = {};
@@ -967,10 +967,10 @@ function renderTeamRevenue() {
   const labels = ['Target', 'Current Revenue', 'Pending', 'Loss'];
   const datasets = [
     { label: 'Target',      data: [tr.target, 0, 0, 0],        backgroundColor: '#D5D8DF', stack: 's', borderRadius: 4 },
-    { label: 'Win Revenue', data: [0, tr.winRevenue, 0, 0],    backgroundColor: '#2B3A67', stack: 's' },
-    { label: 'Design Fee',  data: [0, tr.designFeeAll, 0, 0],  backgroundColor: '#C4B5D4', stack: 's', borderRadius: 4 },
-    { label: 'Pending',     data: [0, 0, tr.pending, 0],       backgroundColor: '#5B7BA5', stack: 's', borderRadius: 4 },
-    { label: 'Loss',        data: [0, 0, 0, tr.loss],          backgroundColor: '#8E6DAF', stack: 's', borderRadius: 4 },
+    { label: 'Win Revenue', data: [0, tr.winRevenue, 0, 0],    backgroundColor: '#C0D7FF', stack: 's' },
+    { label: 'Design Fee',  data: [0, tr.designFeeAll, 0, 0],  backgroundColor: '#CBC2FF', stack: 's', borderRadius: 4 },
+    { label: 'Pending',     data: [0, 0, tr.pending, 0],       backgroundColor: '#F4F0C0', stack: 's', borderRadius: 4 },
+    { label: 'Loss',        data: [0, 0, 0, tr.loss],          backgroundColor: '#FECFC7', stack: 's', borderRadius: 4 },
   ];
 
   charts[canvasId] = new Chart(document.getElementById(canvasId), {
@@ -1076,7 +1076,7 @@ function renderRevenueTrend() {
       datasets: [
         { label: 'Target Pace', data: pace, borderColor: '#B9BEC9', borderDash: [6, 4], pointRadius: 0, fill: false, tension: 0 },
         { label: 'Ceiling (if all pending win)', data: potential, borderColor: '#B9C4D4', borderDash: [4, 3], backgroundColor: 'rgba(91,123,165,0.05)', fill: true, pointRadius: 0, tension: 0.25, spanGaps: false },
-        { label: 'Forecast (win-weighted)', data: forecast, borderColor: '#74BE95', borderDash: [7, 4], backgroundColor: 'rgba(68,131,97,0.06)', fill: false, pointRadius: 2, pointBackgroundColor: '#74BE95', tension: 0.25, spanGaps: false },
+        { label: 'Forecast (win-weighted)', data: forecast, borderColor: '#C0D7FF', borderDash: [7, 4], backgroundColor: 'rgba(68,131,97,0.06)', fill: false, pointRadius: 2, pointBackgroundColor: '#C0D7FF', tension: 0.25, spanGaps: false },
         { label: 'Actual Cumulative', data: actual, borderColor: '#2B3A67', backgroundColor: 'rgba(43,58,103,0.10)', fill: true, pointRadius: 3, pointBackgroundColor: '#2B3A67', tension: 0.25, spanGaps: false }
       ]
     },
@@ -1115,9 +1115,9 @@ function renderOntime() {
     '\u2014 delivered ' + rate + '% (' + delivered.length + '/' + scored.length + ' past-due projects) \u00b7 overdue now: ' + overdue.length;
 
   document.getElementById('overdueBody').innerHTML = overdue.length === 0
-    ? '<tr><td colspan="6" style="color:#74BE95;">No overdue projects</td></tr>'
+    ? '<tr><td colspan="6" style="color:#C0D7FF;">No overdue projects</td></tr>'
     : overdue.map((r, i) => {
-        const c = r.days > 30 ? '#E0938A' : r.days > 14 ? '#DFBE64' : '#787774';
+        const c = r.days > 30 ? '#FECFC7' : r.days > 14 ? '#F4F0C0' : '#787774';
         return '<tr>'
           + '<td>' + (i + 1) + '</td>'
           + '<td>' + r.project + '</td>'
@@ -1190,7 +1190,7 @@ function renderWeeklyReport() {
         let daysHtml = '<td style="text-align:right;color:#787774;">\u2014</td>';
         if (p.endDate) {
           const dl = Math.ceil((new Date(p.endDate).getTime() - today.getTime()) / 86400000);
-          const c = dl < 0 ? '#E0938A' : dl <= 3 ? '#DFBE64' : '#74BE95';
+          const c = dl < 0 ? '#FECFC7' : dl <= 3 ? '#F4F0C0' : '#C0D7FF';
           daysHtml = '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (dl < 0 ? 'overdue ' + Math.abs(dl) : dl) + '</td>';
         }
         return '<tr>'
@@ -1241,7 +1241,7 @@ async function renderStatusChanges(m, s) {
   } catch (e) { CHANGELOG = []; }
   const rows = statusChangesIn(m, s);
   const badge = v => {
-    const col = v === 'Win' ? '#74BE95' : v === 'Loss' ? '#E0938A' : v === 'Pending' ? '#DFBE64' : '#787774';
+    const col = v === 'Win' ? '#C0D7FF' : v === 'Loss' ? '#FECFC7' : v === 'Pending' ? '#F4F0C0' : '#787774';
     return '<span style="color:' + col + ';font-weight:600;">' + (v || '\u2014') + '</span>';
   };
   document.getElementById('statusChangeCount').textContent = '\u2014 ' + rows.length + ' change' + (rows.length === 1 ? '' : 's');
@@ -1289,7 +1289,7 @@ function renderSaleAnalysis() {
   const byS = s => projects.filter(p => p.sale === s);
   sales.sort((a, b) => byS(b).length - byS(a).length);
 
-  const ST = { Win: '#74BE95', Pending: '#DFBE64', Loss: '#E0938A' };
+  const ST = { Win: '#C0D7FF', Pending: '#F4F0C0', Loss: '#FECFC7' };
   const cnt = (s, st) => byS(s).filter(p => p.projectStatus === st).length;
 
   // 1. stacked horizontal: projects by status
@@ -1316,7 +1316,7 @@ function renderSaleAnalysis() {
   if (charts[id2]) charts[id2].destroy();
   charts[id2] = new Chart(document.getElementById(id2), {
     type: 'bar', plugins: [ChartDataLabels],
-    data: { labels: sales, datasets: [{ data: rev, backgroundColor: '#2B3A67', borderRadius: 4 }] },
+    data: { labels: sales, datasets: [{ data: rev, backgroundColor: '#B1B4DD', borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: true, layout: { padding: { top: 20 } },
       plugins: { legend: { display: false },
         datalabels: { display: ctx => (ctx.parsed && ctx.parsed.y) > 0, anchor: 'end', align: 'top', font: { size: 10, weight: '600' }, color: '#37352F', formatter: v => fmtLabel(v) },
@@ -1335,7 +1335,7 @@ function renderSaleAnalysis() {
   if (charts[id3]) charts[id3].destroy();
   charts[id3] = new Chart(document.getElementById(id3), {
     type: 'bar', plugins: [ChartDataLabels],
-    data: { labels: sales, datasets: [{ data: wr, backgroundColor: '#5B7BA5', borderRadius: 4 }] },
+    data: { labels: sales, datasets: [{ data: wr, backgroundColor: '#B1B4DD', borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: true, layout: { padding: { top: 20 } },
       plugins: { legend: { display: false },
         datalabels: { anchor: 'end', align: 'top', font: { size: 10, weight: '600' }, color: '#37352F', formatter: v => v + '%' } },
@@ -1357,15 +1357,15 @@ function renderSaleAnalysis() {
     const rv = byS(s).reduce((a, p) => a + (p.projectStatus === 'Win' ? (p.revenueActual || 0) : 0) + (p.designFeeActual || 0), 0);
     return '<tr><td>' + s + '</td>'
       + '<td style="text-align:right;">' + t + '</td>'
-      + '<td style="text-align:right;color:#74BE95;">' + w + '</td>'
-      + '<td style="text-align:right;color:#DFBE64;">' + pe + '</td>'
-      + '<td style="text-align:right;color:#E0938A;">' + l + '</td>'
+      + '<td style="text-align:right;color:#C0D7FF;">' + w + '</td>'
+      + '<td style="text-align:right;color:#F4F0C0;">' + pe + '</td>'
+      + '<td style="text-align:right;color:#FECFC7;">' + l + '</td>'
       + '<td style="text-align:right;">' + wrv + '%</td>'
       + '<td style="text-align:right;">' + fmt(Math.round(rv)) + '</td></tr>';
   }).join('');
 }
 
-const SANKEY_ST = [['Win', '#74BE95'], ['Pending', '#DFBE64'], ['Loss', '#E0938A']];
+const SANKEY_ST = [['Win', '#C0D7FF'], ['Pending', '#F4F0C0'], ['Loss', '#FECFC7']];
 let saleSankeyState = { ribbons: [], svg: '', projects: [] };
 const sankeyVal = p => p.boqPipeline || p.boqAll || p.designFee || 0;
 
@@ -1423,7 +1423,7 @@ function buildSankeySVG(rows) {
   const ribbons = [];
   const ribbon = (x0, y0, x1, y1, w, col, i) => {
     const xm = (x0 + x1) / 2;
-    return `<path class="skr" data-i="${i}" d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1 + w} C${xm},${y1 + w} ${xm},${y0 + w} ${x0},${y0 + w} Z" fill="${col}" opacity="0.62"/>`;
+    return `<path class="skr" data-i="${i}" d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1 + w} C${xm},${y1 + w} ${xm},${y0 + w} ${x0},${y0 + w} Z" fill="${col}" opacity="0.8"/>`;
   };
   let s = '';
   let ry = top + (bodyH - (total * scale + gapR * 2)) / 2;
@@ -1439,7 +1439,7 @@ function buildSankeySVG(rows) {
       s += ribbon(lx + nodeW, cur, rx, rPos[k].cur, w, c, i);
       cur += w; rPos[k].cur += w;
     });
-    s += `<rect x="${lx}" y="${ly}" width="${nodeW}" height="${h}" rx="2" fill="#2B3A67"/>`;
+    s += `<rect x="${lx}" y="${ly}" width="${nodeW}" height="${h}" rx="2" fill="#8A8FC4"/>`;
     s += `<text x="${lx - 8}" y="${ly + h / 2}" text-anchor="end" dominant-baseline="middle" font-size="12" font-weight="500" fill="#37352F">${r.n}</text>`;
     ly += h + gapL;
   });
@@ -1468,7 +1468,7 @@ function attachSankeyEvents(container) {
   container.querySelectorAll('path.skr').forEach(p => {
     const r = saleSankeyState.ribbons[+p.dataset.i];
     p.style.cursor = 'pointer';
-    p.addEventListener('mouseenter', () => p.setAttribute('opacity', '0.85'));
+    p.addEventListener('mouseenter', () => p.setAttribute('opacity', '1'));
     p.addEventListener('mousemove', e => {
       const n = saleSankeyState.projects.filter(x => r.sales.includes(x.sale) && x.projectStatus === r.status && sankeyVal(x) > 0).length;
       tip.innerHTML = '<b>' + r.label + '</b> &rarr; ' + r.status + '<br>' + fmt(Math.round(r.val)) + ' THB &middot; ' + n + ' งาน';
@@ -1476,7 +1476,7 @@ function attachSankeyEvents(container) {
       tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 180) + 'px';
       tip.style.top = (e.clientY + 14) + 'px';
     });
-    p.addEventListener('mouseleave', () => { p.setAttribute('opacity', '0.62'); tip.style.display = 'none'; });
+    p.addEventListener('mouseleave', () => { p.setAttribute('opacity', '0.8'); tip.style.display = 'none'; });
     p.addEventListener('click', () => { tip.style.display = 'none'; openSaleDetail(r.sales, r.status, r.label + ' → ' + r.status); });
   });
 }
@@ -1592,7 +1592,7 @@ function openPipelineModal(colIndex) {
   document.getElementById('pipelineHead').innerHTML =
     '<th>#</th><th>Project</th><th style="text-align:right;">' + cfg.valHead + '</th><th>Sale</th><th>First Design</th><th>' + (isWin ? 'Win Date' : 'Last Design End') + '</th><th style="text-align:right;">Revisions</th><th style="text-align:right;">' + (isWin ? 'Days to close' : 'Aging (days)') + '</th>' + (isPending ? '<th>Sale Status</th>' : '');
   document.getElementById('pipelineBody').innerHTML = rows.map((r, i) => {
-    const c = r.aging == null ? '#787774' : r.aging > 90 ? '#E0938A' : r.aging > 45 ? '#DFBE64' : '#74BE95';
+    const c = r.aging == null ? '#787774' : r.aging > 90 ? '#FECFC7' : r.aging > 45 ? '#F4F0C0' : '#C0D7FF';
     return '<tr>'
       + '<td>' + (i + 1) + '</td>'
       + '<td>' + r.project + '</td>'
@@ -1684,7 +1684,7 @@ function renderDesignAreaTeamTotal() {
       datasets: [{
         label: 'Total Design Area (m²)',
         data: totals,
-        backgroundColor: '#2B3A67',
+        backgroundColor: '#B1B4DD',
         borderRadius: 4,
       }]
     },
@@ -2433,11 +2433,11 @@ async function openLogModal() {
     body.innerHTML = log.map(entry => {
       let html = '<div style="border-bottom:1px solid var(--border);padding:10px 2px;">';
       html += '<div style="font-weight:600;margin-bottom:4px;">' + new Date(entry.timestamp).toLocaleString() + '</div>';
-      (entry.added || []).forEach(p => { html += logRow('#74BE95', 'Added', p); });
-      (entry.removed || []).forEach(p => { html += logRow('#E0938A', 'Removed', p); });
-      (entry.changes || []).forEach(c => { html += logRow('#5B7BA5', c.project, c.field + ': ' + fmtLogVal(c.old) + ' \u2192 ' + fmtLogVal(c.new)); });
+      (entry.added || []).forEach(p => { html += logRow('#C0D7FF', 'Added', p); });
+      (entry.removed || []).forEach(p => { html += logRow('#FECFC7', 'Removed', p); });
+      (entry.changes || []).forEach(c => { html += logRow('#B1B4DD', c.project, c.field + ': ' + fmtLogVal(c.old) + ' \u2192 ' + fmtLogVal(c.new)); });
       const tr = entry.teamRevenue || {};
-      Object.keys(tr).forEach(k => { html += logRow('#8E6DAF', 'Team Revenue', k + ': ' + fmtLogVal(tr[k].old) + ' \u2192 ' + fmtLogVal(tr[k].new)); });
+      Object.keys(tr).forEach(k => { html += logRow('#CBC2FF', 'Team Revenue', k + ': ' + fmtLogVal(tr[k].old) + ' \u2192 ' + fmtLogVal(tr[k].new)); });
       return html + '</div>';
     }).join('');
   } catch (e) {
