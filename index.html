@@ -1582,7 +1582,8 @@ function openPipelineModal(colIndex) {
         startDate: p.startDate,
         endShown: endShown,
         revise: p.reviseCount || 0,
-        aging: aging
+        aging: aging,
+        gov: p.govType === 'G'
       };
     })
     .sort((a, b) => b.value - a.value);
@@ -1593,7 +1594,9 @@ function openPipelineModal(colIndex) {
   document.getElementById('pipelineHead').innerHTML =
     '<th>#</th><th>Project</th><th style="text-align:right;">' + cfg.valHead + '</th><th>Sale</th><th>First Design</th><th>' + (isWin ? 'Win Date' : 'Last Design End') + '</th><th style="text-align:right;">Revisions</th><th style="text-align:right;">' + (isWin ? 'Days to close' : 'Aging (days)') + '</th>' + (isPending ? '<th>Sale Status</th>' : '');
   document.getElementById('pipelineBody').innerHTML = rows.map((r, i) => {
-    const c = r.aging == null ? '#787774' : r.aging > 90 ? '#D64545' : r.aging > 45 ? '#E0A94E' : '#669BBC';
+    // Government projects close ~9 months after design, then +3 month steps -> longer thresholds
+    const t1 = r.gov ? 270 : 45, t2 = r.gov ? 360 : 90;
+    const c = r.aging == null ? '#787774' : r.aging > t2 ? '#D64545' : r.aging > t1 ? '#E0A94E' : '#669BBC';
     return '<tr>'
       + '<td>' + (i + 1) + '</td>'
       + '<td>' + r.project + '</td>'
@@ -1602,7 +1605,7 @@ function openPipelineModal(colIndex) {
       + '<td>' + fmtDate(r.startDate) + '</td>'
       + '<td>' + fmtDate(r.endShown) + '</td>'
       + '<td style="text-align:right;">' + r.revise + '</td>'
-      + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (r.aging == null ? '\u2014' : r.aging) + '</td>'
+      + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + (r.aging == null ? '\u2014' : r.aging) + (r.gov ? ' <span style="color:#787774;font-weight:400;font-size:11px;">\u0e23\u0e01</span>' : '') + '</td>'
       + (isPending ? '<td>' + (r.saleStatus || '\u2014') + '</td>' : '')
       + '</tr>';
   }).join('');
