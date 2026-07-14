@@ -342,8 +342,9 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
 .card-expand-btn { position:absolute; top:12px; right:12px; width:26px; height:26px; border:1px solid var(--border); background:#fff; border-radius:6px; cursor:pointer; color:#787774; font-size:14px; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s; z-index:5; }
 .card:hover .card-expand-btn { opacity:1; }
 .card-expand-btn:hover { background:var(--bg); color:#37352F; }
-#chartModal, #logModal, #pipelineModal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:1000; align-items:center; justify-content:center; padding:24px; }
-#chartModal.open, #logModal.open, #pipelineModal.open { display:flex; }
+#chartModal, #logModal, #pipelineModal, #sankeyModal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:1000; align-items:center; justify-content:center; padding:24px; }
+#chartModal.open, #logModal.open, #pipelineModal.open, #sankeyModal.open { display:flex; }
+#sankeyModal { z-index:990; }
 .chart-modal-box { background:#fff; border-radius:12px; padding:20px 26px; width:min(1100px,94vw); height:min(75vh,660px); display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.25); }
 .chart-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 .chart-modal-close { border:none; background:none; font-size:22px; color:#787774; cursor:pointer; line-height:1; }
@@ -431,6 +432,17 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
         <tbody id="pipelineBody"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- Sankey zoom modal -->
+<div id="sankeyModal" onclick="if(event.target===this)closeSankeyModal()">
+  <div class="chart-modal-box" style="height:auto;max-height:88vh;">
+    <div class="chart-modal-head">
+      <h3 style="margin:0;font-size:16px;">Projects by Sale &rarr; Status (มูลค่า BOQ predict, THB)</h3>
+      <button class="chart-modal-close" onclick="closeSankeyModal()">&times;</button>
+    </div>
+    <div id="sankeyModalBody" style="overflow:auto;"></div>
   </div>
 </div>
 
@@ -1353,53 +1365,154 @@ function renderSaleAnalysis() {
   }).join('');
 }
 
+const SANKEY_ST = [['Win', '#448361'], ['Pending', '#B58A3B'], ['Loss', '#B5443B']];
+let saleSankeyState = { ribbons: [], svg: '', projects: [] };
+const sankeyVal = p => p.boqPipeline || p.boqAll || p.designFee || 0;
+
 function renderSaleSankey(projects) {
   const host = document.getElementById('saleSankey');
   if (!host) return;
-  const ST = [['Win', '#448361'], ['Pending', '#B58A3B'], ['Loss', '#B5443B']];
-  const val = p => p.boqPipeline || p.boqAll || p.designFee || 0;
+  saleSankeyState.projects = projects;
   const agg = {};
   projects.forEach(p => {
     if (!['Win', 'Pending', 'Loss'].includes(p.projectStatus)) return;
-    const v = val(p); if (v <= 0) return;
-    (agg[p.sale] = agg[p.sale] || { Win: 0, Pending: 0, Loss: 0 })[p.projectStatus] += v;
+    if (sankeyVal(p) <= 0) return;
+    (agg[p.sale] = agg[p.sale] || { Win: 0, Pending: 0, Loss: 0 })[p.projectStatus] += sankeyVal(p);
   });
   let rows = Object.keys(agg).map(n => {
-    const r = agg[n]; return { n, ...r, tot: r.Win + r.Pending + r.Loss };
+    const r = agg[n]; return { n, Win: r.Win, Pending: r.Pending, Loss: r.Loss, sales: [n], tot: r.Win + r.Pending + r.Loss };
   }).filter(r => r.tot > 0).sort((a, b) => b.tot - a.tot);
   if (!rows.length) { host.innerHTML = '<p style="color:#787774;font-size:12px;">ไม่มีข้อมูลมูลค่าในตัวกรองนี้</p>'; return; }
+
+  // fold small sales (<4% of total) into one "Other" node, if it merges 2+
+  const grand = rows.reduce((a, r) => a + r.tot, 0);
+  const small = rows.filter(r => r.tot < grand * 0.04);
+  if (small.length >= 2) {
+    const o = { n: 'Other (' + small.length + ')', Win: 0, Pending: 0, Loss: 0, sales: [], tot: 0 };
+    small.forEach(s => { o.Win += s.Win; o.Pending += s.Pending; o.Loss += s.Loss; o.tot += s.tot; o.sales.push(...s.sales); });
+    rows = rows.filter(r => r.tot >= grand * 0.04).concat(o);
+  }
+
+  const built = buildSankeySVG(rows);
+  saleSankeyState.ribbons = built.ribbons;
+  saleSankeyState.svg = built.svg;
+  host.innerHTML = built.svg;
+  attachSankeyEvents(host);
+
+  const card = host.closest('.card');
+  if (card && !card.querySelector('.card-expand-btn')) {
+    const btn = document.createElement('button');
+    btn.className = 'card-expand-btn';
+    btn.innerHTML = '&#x2922;';
+    btn.title = 'Expand chart';
+    btn.onclick = openSankeyModal;
+    card.appendChild(btn);
+  }
+}
+
+function buildSankeySVG(rows) {
   const total = rows.reduce((a, r) => a + r.tot, 0);
   const rTot = { Win: 0, Pending: 0, Loss: 0 };
-  rows.forEach(r => ST.forEach(([k]) => rTot[k] += r[k]));
+  rows.forEach(r => SANKEY_ST.forEach(([k]) => rTot[k] += r[k]));
   const top = 12, botPad = 12, lx = 150, rx = 530, nodeW = 12, gapL = 6, gapR = 10;
   const targetH = Math.max(260, rows.length * 44);
   const scale = (targetH - gapL * (rows.length - 1)) / total;
   const bodyH = Math.max(total * scale + gapL * (rows.length - 1), total * scale + gapR * 2);
   const H = Math.round(bodyH + top + botPad);
   const mfmt = v => (v / 1e6).toFixed(1) + 'M';
-  const ribbon = (x0, y0, x1, y1, w, col) => {
+  const ribbons = [];
+  const ribbon = (x0, y0, x1, y1, w, col, i) => {
     const xm = (x0 + x1) / 2;
-    return `<path d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1 + w} C${xm},${y1 + w} ${xm},${y0 + w} ${x0},${y0 + w} Z" fill="${col}" opacity="0.42"/>`;
+    return `<path class="skr" data-i="${i}" d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1 + w} C${xm},${y1 + w} ${xm},${y0 + w} ${x0},${y0 + w} Z" fill="${col}" opacity="0.42"/>`;
   };
   let s = '';
   let ry = top + (bodyH - (total * scale + gapR * 2)) / 2;
   const rPos = {};
-  ST.forEach(([k, c]) => { const h = rTot[k] * scale; rPos[k] = { y: ry, cur: ry, h }; ry += h + gapR; });
+  SANKEY_ST.forEach(([k, c]) => { const h = rTot[k] * scale; rPos[k] = { y: ry, cur: ry, h }; ry += h + gapR; });
   let ly = top;
   rows.forEach(r => {
     const h = r.tot * scale; let cur = ly;
-    ST.forEach(([k, c]) => { const v = r[k]; if (v <= 0) return; const w = v * scale; s += ribbon(lx + nodeW, cur, rx, rPos[k].cur, w, c); cur += w; rPos[k].cur += w; });
+    SANKEY_ST.forEach(([k, c]) => {
+      const v = r[k]; if (v <= 0) return; const w = v * scale;
+      const i = ribbons.length;
+      ribbons.push({ label: r.n, sales: r.sales, status: k, val: v });
+      s += ribbon(lx + nodeW, cur, rx, rPos[k].cur, w, c, i);
+      cur += w; rPos[k].cur += w;
+    });
     s += `<rect x="${lx}" y="${ly}" width="${nodeW}" height="${h}" rx="2" fill="#2B3A67"/>`;
     s += `<text x="${lx - 8}" y="${ly + h / 2}" text-anchor="end" dominant-baseline="middle" font-size="12" font-weight="500" fill="#37352F">${r.n}</text>`;
     ly += h + gapL;
   });
-  ST.forEach(([k, c]) => {
+  SANKEY_ST.forEach(([k, c]) => {
     const p = rPos[k];
     s += `<rect x="${rx}" y="${p.y}" width="${nodeW}" height="${p.h}" rx="2" fill="${c}"/>`;
     s += `<text x="${rx + nodeW + 8}" y="${p.y + p.h / 2}" dominant-baseline="middle" font-size="12" font-weight="500" fill="#37352F">${k} ${mfmt(rTot[k])}</text>`;
   });
-  host.innerHTML = `<svg viewBox="0 0 680 ${H}" width="100%" role="img" aria-label="Pipeline value by sale to status">${s}</svg>`;
+  const svg = `<svg viewBox="0 0 680 ${H}" width="100%" role="img" aria-label="Pipeline value by sale to status">${s}</svg>`;
+  return { svg, ribbons };
 }
+
+function sankeyTip() {
+  let t = document.getElementById('sankeyTip');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'sankeyTip';
+    t.style.cssText = 'position:fixed;z-index:1300;pointer-events:none;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);padding:6px 10px;font-size:12px;color:#37352F;display:none;';
+    document.body.appendChild(t);
+  }
+  return t;
+}
+
+function attachSankeyEvents(container) {
+  const tip = sankeyTip();
+  container.querySelectorAll('path.skr').forEach(p => {
+    const r = saleSankeyState.ribbons[+p.dataset.i];
+    p.style.cursor = 'pointer';
+    p.addEventListener('mouseenter', () => p.setAttribute('opacity', '0.72'));
+    p.addEventListener('mousemove', e => {
+      const n = saleSankeyState.projects.filter(x => r.sales.includes(x.sale) && x.projectStatus === r.status && sankeyVal(x) > 0).length;
+      tip.innerHTML = '<b>' + r.label + '</b> &rarr; ' + r.status + '<br>' + fmt(Math.round(r.val)) + ' THB &middot; ' + n + ' งาน';
+      tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 180) + 'px';
+      tip.style.top = (e.clientY + 14) + 'px';
+    });
+    p.addEventListener('mouseleave', () => { p.setAttribute('opacity', '0.42'); tip.style.display = 'none'; });
+    p.addEventListener('click', () => { tip.style.display = 'none'; openSaleDetail(r.sales, r.status, r.label + ' → ' + r.status); });
+  });
+}
+
+function openSaleDetail(sales, status, titleLabel) {
+  if (!DATA) return;
+  const rows = saleSankeyState.projects
+    .filter(p => sales.includes(p.sale) && p.projectStatus === status && sankeyVal(p) > 0)
+    .map(p => ({
+      project: p.project, value: sankeyVal(p), sale: p.sale, status: p.projectStatus,
+      startDate: p.startDate, endShown: p.projectStatus === 'Win' ? p.winDate : p.lastReviseEndDate,
+      revise: p.reviseCount || 0
+    }))
+    .sort((a, b) => b.value - a.value);
+  const total = rows.reduce((s, r) => s + r.value, 0);
+  document.getElementById('pipelineModalTitle').textContent = titleLabel + ' — ' + rows.length + ' projects · ' + fmtLabel(total) + ' THB';
+  document.getElementById('pipelineHead').innerHTML =
+    '<th>#</th><th>Project</th><th style="text-align:right;">Value (THB)</th><th>Sale</th><th>First Design</th><th>' + (status === 'Win' ? 'Win Date' : 'Last Design End') + '</th><th style="text-align:right;">Revisions</th>';
+  document.getElementById('pipelineBody').innerHTML = rows.map((r, i) =>
+    '<tr><td>' + (i + 1) + '</td><td>' + r.project + '</td>'
+    + '<td style="text-align:right;">' + fmt(Math.round(r.value)) + '</td>'
+    + '<td>' + (r.sale || '—') + '</td>'
+    + '<td>' + fmtDate(r.startDate) + '</td>'
+    + '<td>' + fmtDate(r.endShown) + '</td>'
+    + '<td style="text-align:right;">' + r.revise + '</td></tr>'
+  ).join('');
+  document.getElementById('pipelineModal').classList.add('open');
+}
+
+function openSankeyModal() {
+  const body = document.getElementById('sankeyModalBody');
+  body.innerHTML = saleSankeyState.svg;
+  attachSankeyEvents(body);
+  document.getElementById('sankeyModal').classList.add('open');
+}
+function closeSankeyModal() { document.getElementById('sankeyModal').classList.remove('open'); }
 
 function openWorkloadDetail(eng, monthIdx, kind) {
   if (!DATA) return;
