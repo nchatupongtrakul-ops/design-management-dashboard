@@ -609,9 +609,10 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <span style="color:#787774;font-size:12px;">— งานมาจากเซลคนไหน / สถานะการขาย</span>
   </div>
 
-  <div class="chart-grid g1">
+  <div class="chart-grid g2">
+    <div class="card"><h3>Projects by Sale (by status)</h3><canvas id="chartSaleProjects"></canvas></div>
     <div class="card">
-      <h3>Projects by Sale &rarr; Status (ถ่วงด้วยมูลค่า BOQ predict, THB)</h3>
+      <h3>Projects by Sale &rarr; Status (มูลค่า BOQ predict, THB)</h3>
       <div id="saleSankey" style="margin-top:10px;"></div>
     </div>
   </div>
@@ -1276,9 +1277,25 @@ function renderSaleAnalysis() {
   const byS = s => projects.filter(p => p.sale === s);
   sales.sort((a, b) => byS(b).length - byS(a).length);
 
+  const ST = { Win: '#448361', Pending: '#B58A3B', Loss: '#B5443B' };
   const cnt = (s, st) => byS(s).filter(p => p.projectStatus === st).length;
 
-  // 1. projects by sale -> status is now the Pipeline Value sankey (renderSaleSankey below)
+  // 1. stacked horizontal: projects by status
+  const id1 = 'chartSaleProjects';
+  if (charts[id1]) charts[id1].destroy();
+  charts[id1] = new Chart(document.getElementById(id1), {
+    type: 'bar', plugins: [ChartDataLabels],
+    data: { labels: sales, datasets: ['Win', 'Pending', 'Loss'].map(st => ({
+      label: st, data: sales.map(s => cnt(s, st)), backgroundColor: ST[st], stack: 'a', borderRadius: st === 'Loss' ? 4 : 0
+    })) },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, layout: { padding: { right: 24 } },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, pointStyle: 'circle', padding: 12, boxWidth: 8 } },
+        datalabels: { display: ctx => (ctx.parsed && ctx.parsed.x) > 0, color: '#fff', font: { size: 10, weight: '600' } }
+      },
+      scales: { x: { stacked: true, beginAtZero: true, grid: { color: '#f0f0ed' } }, y: { stacked: true, grid: { display: false } } }
+    }
+  });
 
   // 2. won revenue by sale (Win revenue + all design fees)
   const rev = sales.map(s => byS(s).reduce((a, p) =>
