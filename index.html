@@ -13,7 +13,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #FDF0D5;
+  --bg: #FFFFFF;
+  --surface: #F4F3F0;
   --card-bg: #FFFFFF;
   --border: #E3E2DE;
   --text: #37352F;
@@ -211,7 +212,7 @@ body {
   color: var(--text-secondary);
   font-weight: 500;
 }
-.table-toggle button:hover { background: var(--bg); }
+.table-toggle button:hover { background: var(--surface); }
 
 .project-table-wrap {
   display: none;
@@ -238,7 +239,7 @@ table.ptable {
   font-size: 13px;
 }
 table.ptable th {
-  background: var(--bg);
+  background: var(--surface);
   font-weight: 600;
   text-align: left;
   padding: 8px 10px;
@@ -279,7 +280,7 @@ table.onhand-table {
   font-size: 13px;
 }
 table.onhand-table th {
-  background: var(--bg);
+  background: var(--surface);
   font-weight: 600;
   text-align: left;
   padding: 8px 10px;
@@ -336,12 +337,12 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   font-weight: 500;
   line-height: 1.4;
 }
-.chart-filter-btn:hover { background: var(--bg); }
+.chart-filter-btn:hover { background: var(--surface); }
 /* Chart expand + modals */
 .card { position: relative; }
 .card-expand-btn { position:absolute; top:12px; right:12px; width:26px; height:26px; border:1px solid var(--border); background:#fff; border-radius:6px; cursor:pointer; color:#787774; font-size:14px; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s; z-index:5; }
 .card:hover .card-expand-btn { opacity:1; }
-.card-expand-btn:hover { background:var(--bg); color:#37352F; }
+.card-expand-btn:hover { background:var(--surface); color:#37352F; }
 #chartModal, #logModal, #pipelineModal, #sankeyModal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:1000; align-items:center; justify-content:center; padding:24px; }
 #chartModal.open, #logModal.open, #pipelineModal.open, #sankeyModal.open { display:flex; }
 #sankeyModal { z-index:990; }
@@ -377,7 +378,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   cursor: pointer;
   white-space: nowrap;
 }
-.chart-filter-dropdown label:hover { background: var(--bg); }
+.chart-filter-dropdown label:hover { background: var(--surface); }
 .chart-filter-dropdown input[type="checkbox"] { accent-color: var(--blue); }
 </style>
 </head>
