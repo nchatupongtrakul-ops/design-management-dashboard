@@ -1583,6 +1583,44 @@ function openSankeyModal() {
 }
 function closeSankeyModal() { document.getElementById('sankeyModal').classList.remove('open'); }
 
+function openUtilDetail(eng, monthIdx) {
+  if (!DATA) return;
+  var month = monthIdx + 1;
+  var cap = DATA.designCapacity[eng] || 0;
+  var uYear = (DATA.projects.find(function (p) { return p.startDate; }) || {}).startDate;
+  var YEAR = uYear ? new Date(uYear).getFullYear() : 2026;
+  var wd = weekdaysInMonth(YEAR, monthIdx);
+  var rows = [];
+  DATA.projects.filter(function (p) { return p.engineer === eng; }).forEach(function (p) {
+    if (p.startMonthNum === month && (p.area || 0) > 0)
+      rows.push({ project: p.project, type: 'Design (New)', amount: fmt(Math.round(p.area)) + ' m\u00b2', days: cap ? p.area / cap : 0 });
+    (p.reviseByMonth || []).forEach(function (ev) {
+      if (ev[0] === month && (ev[1] || 0) > 0)
+        rows.push({ project: p.project, type: 'Design (Revised)', amount: fmt(Math.round(ev[1])) + ' m\u00b2', days: cap ? ev[1] / cap : 0 });
+    });
+    if (p.projectType === 'Internal') {
+      var h = (p.hoursByMonth || {})[month] || 0;
+      if (h > 0) rows.push({ project: p.project, type: 'Internal (hrs)', amount: h + ' h', days: h / 8 });
+    }
+  });
+  rows.sort(function (a, b) { return b.days - a.days; });
+  var used = rows.reduce(function (s, r) { return s + r.days; }, 0);
+  var util = wd ? Math.round(used / wd * 100) : 0;
+  document.getElementById('pipelineModalTitle').textContent =
+    dName(eng) + ' \u2014 ' + MONTHS[monthIdx] + ' \u2014 Utilization ' + util + '% (' +
+    (Math.round(used * 10) / 10) + ' / ' + wd + ' workdays)';
+  document.getElementById('pipelineHead').innerHTML =
+    '<th>#</th><th>Project</th><th>Type</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Days used</th>';
+  document.getElementById('pipelineBody').innerHTML = rows.length === 0
+    ? '<tr><td colspan="5" style="color:#787774;">No work this month</td></tr>'
+    : rows.map(function (r, i) {
+        return '<tr><td>' + (i + 1) + '</td><td>' + r.project + '</td><td>' + r.type + '</td>' +
+          '<td style="text-align:right;">' + r.amount + '</td>' +
+          '<td style="text-align:right;">' + (Math.round(r.days * 10) / 10) + '</td></tr>';
+      }).join('');
+  document.getElementById('pipelineModal').classList.add('open');
+}
+
 function openKpiDetail(eng, monthIdx, type) {
   if (!DATA) return;
   var month = monthIdx + 1;
@@ -1971,6 +2009,17 @@ function renderWorkload() {
       borderRadius: 4,
     };
   }), false, v => v + '%', v => v + '%');
+
+  (function (engs) {
+    const cv = document.getElementById('chartUtilization');
+    if (!cv) return;
+    cv.style.cursor = 'pointer';
+    cv.onclick = function (evt) {
+      const ch = charts['chartUtilization'];
+      const els = ch.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+      if (els.length) openUtilDetail(engs[els[0].datasetIndex], els[0].index);
+    };
+  })(engineers);
 
   // Win Rate by engineer
   const winRateData = engineers.map(e => {
