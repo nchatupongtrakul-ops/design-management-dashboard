@@ -529,7 +529,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
       <div class="card-title-row"><h3>In Progress <span id="weeklyProgCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><button class="chart-filter-btn" onclick="toggleSection('weeklyProgWrap', this)">Hide &#9652;</button></div>
       <div id="weeklyProgWrap">
         <table class="ptable" style="margin-top:8px;">
-          <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Due (Tender END)</th><th style="text-align:right;">Days left</th></tr></thead>
+          <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Last Rv. Start</th><th>Due (Tender END)</th><th style="text-align:right;">Days left</th></tr></thead>
           <tbody id="weeklyProgBody"></tbody>
         </table>
       </div>
@@ -1188,7 +1188,7 @@ function renderWeeklyReport() {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   document.getElementById('weeklyProgCount').textContent = '\u2014 ' + inprog.length + ' project' + (inprog.length === 1 ? '' : 's');
   document.getElementById('weeklyProgBody').innerHTML = inprog.length === 0
-    ? '<tr><td colspan="7" style="color:#787774;">No projects in progress</td></tr>'
+    ? '<tr><td colspan="8" style="color:#787774;">No projects in progress</td></tr>'
     : inprog.map((p, i) => {
         let daysHtml = '<td style="text-align:right;color:#787774;">\u2014</td>';
         if (p.endDate) {
@@ -1202,6 +1202,7 @@ function renderWeeklyReport() {
           + '<td>' + (dName(p.engineer) || '\u2014') + '</td>'
           + '<td>' + (p.buildingType || '\u2014') + '</td>'
           + '<td style="text-align:right;">' + fmt(Math.round(p.area || 0)) + '</td>'
+          + '<td>' + fmtDate(p.lastReviseStartDate) + '</td>'
           + '<td>' + fmtDate(p.endDate) + '</td>'
           + daysHtml
           + '</tr>';
