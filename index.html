@@ -517,7 +517,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
       <div class="card-title-row"><h3>Completed this period <span id="weeklyDoneCount" style="font-weight:500;color:#787774;font-size:12px;"></span></h3><button class="chart-filter-btn" onclick="toggleSection('weeklyDoneWrap', this)">Hide &#9652;</button></div>
       <div id="weeklyDoneWrap">
         <table class="ptable" style="margin-top:8px;">
-          <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Finished (last Rv. END)</th></tr></thead>
+          <thead><tr><th>#</th><th>Project</th><th>Engineer</th><th>Building Type</th><th style="text-align:right;">Area (m&sup2;)</th><th>Last Rv. Start</th><th>Finished (last Rv. END)</th><th style="text-align:right;">Value (THB)</th></tr></thead>
           <tbody id="weeklyDoneBody"></tbody>
         </table>
       </div>
@@ -1173,14 +1173,16 @@ function renderWeeklyReport() {
 
   document.getElementById('weeklyDoneCount').textContent = '\u2014 ' + done.length + ' project' + (done.length === 1 ? '' : 's');
   document.getElementById('weeklyDoneBody').innerHTML = done.length === 0
-    ? '<tr><td colspan="6" style="color:#787774;">No projects completed in this period</td></tr>'
+    ? '<tr><td colspan="8" style="color:#787774;">No projects completed in this period</td></tr>'
     : done.map((p, i) => '<tr>'
         + '<td>' + (i + 1) + '</td>'
         + '<td>' + p.project + '</td>'
         + '<td>' + (dName(p.engineer) || '\u2014') + '</td>'
         + '<td>' + (p.buildingType || '\u2014') + '</td>'
         + '<td style="text-align:right;">' + fmt(Math.round(p.area || 0)) + '</td>'
+        + '<td>' + fmtDate(p.lastReviseStartDate) + '</td>'
         + '<td>' + fmtDate(p.lastReviseEndDate) + '</td>'
+        + '<td style="text-align:right;">' + fmtBoq(p.boqAll) + '</td>'
         + '</tr>').join('');
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
