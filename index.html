@@ -636,6 +636,10 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
   <div class="chart-grid g1">
     <div class="card"><h3>Pending Sale Status</h3><canvas id="chartSaleStatus"></canvas></div>
   </div>
+  <div class="chart-grid g2">
+    <div class="card"><h3>Projects by Sale &mdash; Monthly</h3><canvas id="chartSaleProjMonth"></canvas></div>
+    <div class="card"><h3>Design Area by Sale (m&sup2;) &mdash; Monthly</h3><canvas id="chartSaleAreaMonth"></canvas></div>
+  </div>
   <div class="chart-grid g1">
     <div class="card">
       <div class="card-title-row"><h3>Projects by Sale &mdash; detail</h3><button class="chart-filter-btn" onclick="toggleSection('saleTableWrap', this)">Hide &#9652;</button></div>
@@ -1287,6 +1291,38 @@ async function copyWeeklyReport() {
   setTimeout(() => { btn.textContent = 'Copy report'; }, 1600);
 }
 
+function renderSaleStacked(canvasId, sales, projects, valueFn, labelFmt) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const palette = COLORS.concat(COLORS_LIGHT);
+  const datasets = sales.map(function (s, i) {
+    return {
+      label: s,
+      data: ALL_MONTH_IDXS.map(function (mi) {
+        return projects.filter(function (p) { return p.sale === s && p.startMonthNum === mi + 1; })
+          .reduce(function (a, p) { return a + valueFn(p); }, 0);
+      }),
+      backgroundColor: palette[i % palette.length],
+      stack: 'a',
+      borderRadius: 2
+    };
+  });
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: { labels: MONTHS, datasets: datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 9 }, usePointStyle: true, pointStyle: 'circle', padding: 8, boxWidth: 8 } },
+        tooltip: { callbacks: { label: function (ctx) { return ctx.dataset.label + ': ' + (labelFmt ? labelFmt(ctx.parsed.y) : ctx.parsed.y); } } }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, grid: { color: '#f0f0ed' }, ticks: { callback: function (v) { return fmtAxis(v); } } }
+      }
+    }
+  });
+}
+
 function renderSaleAnalysis() {
   if (!DATA) return;
   const flt = document.getElementById('filter-sale').value;
@@ -1357,6 +1393,10 @@ function renderSaleAnalysis() {
   Object.keys(rawStatus).forEach(k => { if (rawStatus[k] >= 2) smap[k] = rawStatus[k]; else other += rawStatus[k]; });
   if (other > 0) smap['Other'] = other;
   renderDonut('chartSaleStatus', smap);
+
+  // 4b. monthly stacked by sale: project count + design area
+  renderSaleStacked('chartSaleProjMonth', sales, projects, function () { return 1; }, null);
+  renderSaleStacked('chartSaleAreaMonth', sales, projects, function (p) { return p.area || 0; }, function (v) { return fmtLabel(v); });
   renderSaleSankey(projects);
 
   // 5. table
