@@ -1583,6 +1583,38 @@ function openSankeyModal() {
 }
 function closeSankeyModal() { document.getElementById('sankeyModal').classList.remove('open'); }
 
+function openKpiDetail(eng, monthIdx, type) {
+  if (!DATA) return;
+  var month = monthIdx + 1;
+  var isArea = type === 'area';
+  var rows = [];
+  DATA.projects.filter(function (p) { return p.engineer === eng; }).forEach(function (p) {
+    if (isArea) {
+      if (p.startMonthNum === month && (p.area || 0) > 0) rows.push({ project: p.project, kind: 'New', bt: p.buildingType, val: p.area || 0 });
+      (p.reviseByMonth || []).forEach(function (ev) { if (ev[0] === month && (ev[1] || 0) > 0) rows.push({ project: p.project, kind: 'Revised', bt: p.buildingType, val: ev[1] }); });
+    } else {
+      if (p.startMonthNum === month && (p.designFeeActual || 0) > 0) rows.push({ project: p.project, kind: 'Design Fee', bt: p.buildingType, val: p.designFeeActual });
+      if (p.projectStatus === 'Win' && (p.revenueActual || 0) > 0) {
+        var wm = p.winDate ? (new Date(p.winDate).getMonth() + 1) : p.startMonthNum;
+        if (wm === month) rows.push({ project: p.project, kind: 'Win Revenue', bt: p.buildingType, val: p.revenueActual });
+      }
+    }
+  });
+  rows.sort(function (a, b) { return b.val - a.val; });
+  var total = rows.reduce(function (s, r) { return s + r.val; }, 0);
+  document.getElementById('pipelineModalTitle').textContent =
+    dName(eng) + ' \u2014 ' + MONTHS[monthIdx] + ' \u2014 ' + (isArea ? 'Design Area' : 'Current Revenue') +
+    ' (' + (isArea ? fmt(Math.round(total)) + ' m\u00b2' : fmtLabel(total) + ' THB') + ')';
+  document.getElementById('pipelineHead').innerHTML =
+    '<th>#</th><th>Project</th><th>Type</th><th>Building</th><th style="text-align:right;">' + (isArea ? 'Area (m\u00b2)' : 'Value (THB)') + '</th>';
+  document.getElementById('pipelineBody').innerHTML = rows.length === 0
+    ? '<tr><td colspan="5" style="color:#787774;">No data</td></tr>'
+    : rows.map(function (r, i) {
+        return '<tr><td>' + (i + 1) + '</td><td>' + r.project + '</td><td>' + r.kind + '</td><td>' + (r.bt || '\u2014') + '</td><td style="text-align:right;">' + fmt(Math.round(r.val)) + '</td></tr>';
+      }).join('');
+  document.getElementById('pipelineModal').classList.add('open');
+}
+
 function openWorkloadDetail(eng, monthIdx, kind) {
   if (!DATA) return;
   const month = monthIdx + 1;
@@ -2319,6 +2351,11 @@ function renderKpiPages() {
         }
       }
     });
+    document.getElementById(areaId).style.cursor = 'pointer';
+    document.getElementById(areaId).onclick = function (evt) {
+      var els = charts[areaId].getElementsAtEventForMode(evt, 'index', { intersect: true }, false);
+      if (els.length) openKpiDetail(eng, els[0].index, 'area');
+    };
 
     // Won project value bar — always all 12 months
     const wonValue = {};
@@ -2363,6 +2400,11 @@ function renderKpiPages() {
         }
       }
     });
+    document.getElementById(wonId).style.cursor = 'pointer';
+    document.getElementById(wonId).onclick = function (evt) {
+      var els = charts[wonId].getElementsAtEventForMode(evt, 'index', { intersect: true }, false);
+      if (els.length) openKpiDetail(eng, els[0].index, 'revenue');
+    };
   });
 }
 
