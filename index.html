@@ -619,6 +619,12 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
       <option value="Internal">Internal</option>
       <option value="External">External</option>
     </select>
+    <label style="margin-left:8px;">Work (monthly)</label>
+    <select id="filter-sale-work" onchange="renderSaleAnalysis()">
+      <option value="new">New</option>
+      <option value="revised">Revised</option>
+      <option value="all">New + Revised</option>
+    </select>
     <span style="color:#787774;font-size:12px;">— งานมาจากเซลคนไหน / สถานะการขาย</span>
   </div>
 
@@ -637,7 +643,7 @@ table.onhand-table tr:hover td { background: #FAFAF8; }
     <div class="card"><h3>Pending Sale Status</h3><canvas id="chartSaleStatus"></canvas></div>
   </div>
   <div class="chart-grid g2">
-    <div class="card"><h3>Projects by Sale &mdash; Monthly</h3><canvas id="chartSaleProjMonth"></canvas></div>
+    <div class="card"><h3>Projects by Sale &mdash; Monthly <span style="font-weight:500;color:#787774;font-size:11px;">(New/Revised filter above)</span></h3><canvas id="chartSaleProjMonth"></canvas></div>
     <div class="card"><h3>Design Area by Sale (m&sup2;) &mdash; Monthly</h3><canvas id="chartSaleAreaMonth"></canvas></div>
   </div>
   <div class="chart-grid g1">
@@ -1291,16 +1297,26 @@ async function copyWeeklyReport() {
   setTimeout(() => { btn.textContent = 'Copy report'; }, 1600);
 }
 
-function renderSaleStacked(canvasId, sales, projects, valueFn, labelFmt) {
+function saleMonthValue(projects, sale, monthNum, metric, kind) {
+  // metric: 'count' | 'area' ; kind: 'new' | 'revised' | 'all'
+  var v = 0;
+  projects.forEach(function (p) {
+    if (p.sale !== sale) return;
+    if (kind !== 'revised' && p.startMonthNum === monthNum) v += (metric === 'area' ? (p.area || 0) : 1);
+    if (kind !== 'new') (p.reviseByMonth || []).forEach(function (ev) {
+      if (ev[0] === monthNum) v += (metric === 'area' ? (ev[1] || 0) : 1);
+    });
+  });
+  return v;
+}
+
+function renderSaleStacked(canvasId, sales, projects, metric, kind, labelFmt) {
   if (charts[canvasId]) charts[canvasId].destroy();
   const palette = COLORS.concat(COLORS_LIGHT);
   const datasets = sales.map(function (s, i) {
     return {
       label: s,
-      data: ALL_MONTH_IDXS.map(function (mi) {
-        return projects.filter(function (p) { return p.sale === s && p.startMonthNum === mi + 1; })
-          .reduce(function (a, p) { return a + valueFn(p); }, 0);
-      }),
+      data: ALL_MONTH_IDXS.map(function (mi) { return saleMonthValue(projects, s, mi + 1, metric, kind); }),
       backgroundColor: palette[i % palette.length],
       stack: 'a',
       borderRadius: 2
@@ -1394,9 +1410,10 @@ function renderSaleAnalysis() {
   if (other > 0) smap['Other'] = other;
   renderDonut('chartSaleStatus', smap);
 
-  // 4b. monthly stacked by sale: project count + design area
-  renderSaleStacked('chartSaleProjMonth', sales, projects, function () { return 1; }, null);
-  renderSaleStacked('chartSaleAreaMonth', sales, projects, function (p) { return p.area || 0; }, function (v) { return fmtLabel(v); });
+  // 4b. monthly stacked by sale: project count + design area (New/Revised filter)
+  const workKind = (document.getElementById('filter-sale-work') || {}).value || 'new';
+  renderSaleStacked('chartSaleProjMonth', sales, projects, 'count', workKind, null);
+  renderSaleStacked('chartSaleAreaMonth', sales, projects, 'area', workKind, function (v) { return fmtLabel(v); });
   renderSaleSankey(projects);
 
   // 5. table
