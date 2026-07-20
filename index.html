@@ -1153,14 +1153,20 @@ function toggleSection(id, btn) {
 }
 
 // ---- WEEKLY REPORT ----
-let weeklyOffset = -1; // 0 = this week, -1 = last week
+let weeklyOffset = 0; // 0 = current bi-weekly period (fixed 14-day grid)
 
+// Fixed bi-weekly grid: periods are 14-day blocks anchored to a fixed Monday epoch,
+// so a period stays stable for 2 weeks and only rolls every other Monday (not weekly).
+// Epoch 2026-01-12 (a Monday) is aligned so the current period starts the previous Monday.
+const BIWEEK_EPOCH = new Date(2026, 0, 12);
 function weekRange(offset) {
-  const now = new Date();
-  const day = (now.getDay() + 6) % 7; // Monday = 0
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + offset * 14);
-  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 13, 23, 59, 59, 999);
-  return [monday, sunday];
+  const MS = 86400000;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const epoch = new Date(BIWEEK_EPOCH.getFullYear(), BIWEEK_EPOCH.getMonth(), BIWEEK_EPOCH.getDate());
+  const periodsSince = Math.floor((now - epoch) / (14 * MS));
+  const start = new Date(epoch.getFullYear(), epoch.getMonth(), epoch.getDate() + (periodsSince + offset) * 14);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 13, 23, 59, 59, 999);
+  return [start, end];
 }
 
 function shiftWeek(d) { weeklyOffset += d; renderWeeklyReport(); }
