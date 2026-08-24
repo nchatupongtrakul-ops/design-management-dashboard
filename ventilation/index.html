@@ -325,6 +325,7 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
       <button class="card-expand-btn" id="expandBtn" title="ขยายกราฟ" aria-label="ขยายกราฟ">⤢</button>
       <h3>CO₂ ตลอดระยะเวลาใช้งาน</h3>
       <div class="canvas-wrap"><canvas id="chart"></canvas></div>
+      <div class="zoomhint" id="refnote"></div>
       <div class="zoomhint">เลื่อนล้อเมาส์เพื่อซูมแกนเวลา · ลากเพื่อเลื่อน · ดับเบิลคลิกเพื่อรีเซ็ต · กดปุ่ม ⤢ มุมขวาบนเพื่อขยายเต็มจอ</div>
     </div>
   </div>
@@ -541,6 +542,34 @@ Vbz = (Rp × Pz + Ra × Az) × 3.6      ผลลัพธ์เป็น CMH
           <li><b>ไม่ได้นับแหล่ง CO₂ อื่นนอกจากคน</b> — ถ้ามีการเผาไหม้ เช่น เตาแก๊ส ต้องบวกเพิ่มเอง</li>
         </ol>
       </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>เส้นอ้างอิงในกราฟมาจากไหน</h3>
+      <div class="prose"><p>กราฟมีเส้นประอ้างอิงสองเส้น ทั้งคู่ผูกกับหมวดพื้นที่ที่เลือก ไม่ได้ตายตัว</p></div>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr><th>เส้น</th><th>ค่า</th><th>ที่มา</th><th>สถานะทางกฎหมาย</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b style="color:#D44C47">เส้นแดง</b></td>
+              <td>CO₂ ภายนอก + เพดานของหมวดที่เลือก</td>
+              <td>ASHRAE 62.1 ตารางหมวดพื้นที่ คอลัมน์เพดาน CO₂ ซึ่งระบุเป็น ppm <b>เหนืออากาศภายนอก</b> ไม่ใช่ค่าสัมบูรณ์</td>
+              <td>ภาคผนวกเชิงข้อมูล ใช้ประเมินได้ <b>อ้างเป็นเกณฑ์ผ่านไม่ได้</b></td>
+            </tr>
+            <tr>
+              <td><b style="color:#2E7D32">เส้นเขียว</b></td>
+              <td>1,000 ppm คงที่</td>
+              <td>เป็นเป้าหมายที่วงการใช้กันมานาน ตกทอดมาจากอัตรา 15 cfm ต่อคนใน ASHRAE 62-1989 ซึ่งตั้งขึ้นเพื่อคุม CO₂ ให้อยู่ราวระดับนี้พอดี</td>
+              <td><b>ไม่ใช่เกณฑ์ตามกฎหมายหรือมาตรฐานปัจจุบัน</b> เป็นธรรมเนียมปฏิบัติ</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="warnbox"><b>เพดานต่างกันมากตามหมวด อย่าจำเป็นตัวเลขเดียว</b> ตัวอย่างค่าสัมบูรณ์เมื่ออากาศภายนอก 400 ppm — ห้องเรียนอายุ 9 ปีขึ้นไป 1,000 · Lecture hall 1,600 · Conference/meeting 1,900 · Auditorium seating 2,200 · Music/theater/dance 2,500 · และ <b>50 จาก 108 หมวดไม่มีเพดานกำหนดไว้เลย</b> หมวดที่ไม่มีจะไม่มีเส้นแดงในกราฟ</div>
+      <div class="warnbox" style="border-left-color:#2383E2;background:#EBF4FC"><b>ถ้าจะยื่นแบบหรือเขียนสัญญา</b> ให้ใช้ Rp กับ Ra ใน Table 6-1 เป็นเกณฑ์ผ่าน ส่วนค่า CO₂ ทั้งสองเส้นนี้ใช้ตอบคำถามว่าคนจะรู้สึกอย่างไร และใช้สื่อสารกับเจ้าของงาน</div>
     </div>
   </div>
 
@@ -769,14 +798,22 @@ function draw(canvas){
     ctx.fillText(fmt(yv), L-8, y);
   }
 
-  /* reference levels */
-  [[1000,'#2E7D32'],[1500,C.orange],[2000,C.red]].forEach(function(pair){
-    if(pair[0] > ymin && pair[0] < ymax){
-      var y = Math.round(py(pair[0]))+0.5;
-      ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = pair[1]; ctx.globalAlpha = .45;
+  /* reference levels — both are sourced, nothing invented here.
+     ceiling : ASHRAE 62.1 informative CO2 limit for the SELECTED category,
+               expressed above outdoor, so it moves with category and with Co.
+     target  : 1,000 ppm, the long-standing practice target that falls out of
+               the 15 cfm/person rate in ASHRAE 62-1989. Not a code limit. */
+  var refs = [];
+  if(s.cat[5] != null) refs.push({ v: s.Co + s.cat[5], c: C.red, t: 'เพดาน 62.1 · ' + s.cat[1] });
+  var ceilV = s.cat[5] != null ? s.Co + s.cat[5] : null;
+  if(ceilV == null || Math.abs(ceilV - 1000) > 60) refs.push({ v: 1000, c: '#2E7D32', t: 'เป้าหมายที่ใช้กันทั่วไป' });
+  refs.forEach(function(r){
+    if(r.v > ymin && r.v < ymax){
+      var y = Math.round(py(r.v))+0.5;
+      ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = r.c; ctx.globalAlpha = .45;
       ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-R,y); ctx.stroke(); ctx.restore();
-      ctx.fillStyle = pair[1]; ctx.globalAlpha = .85; ctx.textAlign = 'right';
-      ctx.fillText(fmt(pair[0])+' ppm', W-R-4, y-9); ctx.globalAlpha = 1;
+      ctx.fillStyle = r.c; ctx.globalAlpha = .9; ctx.textAlign = 'right';
+      ctx.fillText(fmt(Math.round(r.v)) + ' ppm · ' + r.t, W-R-4, y-9); ctx.globalAlpha = 1;
     }
   });
 
@@ -994,6 +1031,16 @@ function render(){
       +'<div class="kpi-label">อัตราเปลี่ยนอากาศ · ACH</div><div class="kpi-note">'+fmt(s.Q/3.6/s.Pz,1)+' L/s ต่อคน</div></div>'
     +'<div class="kpi-card"><div class="kpi-value">'+(tau?fmt(tau):'—')+'<small>นาที</small></div>'
       +'<div class="kpi-label">ค่าคงเวลาห้อง</div><div class="kpi-note">'+(tau?'ไล่อากาศก่อนใช้งาน '+fmt(tau*3)+' นาที':'ไม่มีลมเข้า')+'</div></div>';
+
+  var _cv = s.cat[5] != null ? s.Co + s.cat[5] : null;
+  var _same = _cv != null && Math.abs(_cv - 1000) <= 60;
+  $('refnote').innerHTML = (_cv != null
+      ? '<b>เส้นแดง</b> ' + fmt(_cv) + ' ppm คือเพดาน CO₂ ของหมวด ' + s.cat[1]
+        + ' ตาม ASHRAE 62.1 (' + fmt(s.cat[5]) + ' ppm เหนืออากาศภายนอก) เป็นภาคผนวกเชิงข้อมูล ไม่ใช่ข้อกำหนดบังคับ'
+      : 'หมวดนี้ไม่มีเพดาน CO₂ กำหนดไว้ใน ASHRAE 62.1 จึงไม่มีเส้นแดง')
+    + (_same
+        ? ' · หมวดนี้เพดานอยู่ที่ 1,000 ppm พอดี ซึ่งตรงกับเป้าหมายที่ใช้กันทั่วไป จึงแสดงเส้นเดียว'
+        : ' · <b>เส้นเขียว</b> 1,000 ppm เป็นเป้าหมายที่ใช้กันทั่วไป มาจากอัตรา 15 cfm ต่อคนของ ASHRAE 62-1989 ไม่ใช่เกณฑ์ตามกฎหมาย');
 
   var cr = criteria(s), gov = null;
   $('reqs').innerHTML = cr.map(function(r){
