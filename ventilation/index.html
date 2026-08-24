@@ -201,6 +201,11 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
 .prose li { margin-bottom: 6px; }
 .sectitle { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+/* embedded inside Design Management Dashboard */
+.embed .header { display: none; }
+.embed .tabs { position: static; top: auto; padding: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; background: transparent; }
+.embed .page { padding: 0; max-width: none; }
+.embed body { background: transparent; height: -moz-fit-content; height: fit-content; overflow: hidden; }
 .footer { color: var(--gray); font-size: 12px; padding: 18px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
 </style>
 </head>
@@ -306,6 +311,11 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
           <div><label class="flabel" for="dur">ระยะเวลา · ชม.</label><input type="number" id="dur" value="3" min="0.5" max="12" step="0.5"></div>
           <div><label class="flabel" for="inf">อากาศรั่วซึม · ACH</label><input type="number" id="inf" value="0" min="0" max="5" step="0.1"></div>
         </div>
+      </div>
+      <div class="field">
+        <label class="flabel" for="base">ระบบระบายอากาศเดิมของโครงการ · CMH</label>
+        <input type="number" id="base" value="0" min="0" step="100">
+        <div class="hint" id="basehint"></div>
       </div>
     </div>
   </div>
@@ -674,7 +684,7 @@ function state(){
     cat: CATS[+catSel.value], act: ACTS[+actSel.value],
     law: lawArr[+$('law').value] || lawArr[0],
     Pz: Math.max(1, nv('pz')), N: ACTS[+actSel.value][2],
-    Q: Math.max(0, nv('q')), Co: nv('co'), C0: nv('c0'),
+    Q: Math.max(0, nv('q')), base: Math.max(0, nv('base')), Co: nv('co'), C0: nv('c0'),
     dur: Math.max(0.5, nv('dur')), inf: nv('inf')
   };
 }
@@ -731,7 +741,7 @@ function draw(canvas){
   var n = 160, main = [], ghost = [], lo = Infinity, hi = -Infinity, i, t, a, b;
   for(i=0;i<=n;i++){
     t = v.t0 + (v.t1-v.t0)*i/n;
-    a = at(s,t,s.Q); b = at(s,t,0);
+    a = at(s,t,s.Q); b = at(s,t,s.base);
     main.push(a); ghost.push(b);
     if(a<lo) lo=a; if(a>hi) hi=a;
     if(b<lo) lo=b; if(b>hi) hi=b;
@@ -824,6 +834,23 @@ function draw(canvas){
     ctx.fillText(lbl, lx, ey-12);
   }
 
+  /* end marker for the comparison curve */
+  if(endT >= v.t0 && endT <= v.t1){
+    var gv = at(s, endT, s.base), gx = px(endT), gy = py(gv);
+    if(Math.abs(gy - py(at(s, endT, s.Q))) > 14){
+      ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(gx, gy, 3.5, 0, Math.PI*2); ctx.fill();
+      var gl = fmt(Math.round(gv)) + ' ppm';
+      ctx.font = '600 12px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+      var gw = ctx.measureText(gl).width, glx = gx + 10;
+      if(glx + gw > W-R) glx = gx - 10 - gw;
+      var gly = gy > py(at(s, endT, s.Q)) ? gy + 18 : gy - 12;
+      ctx.fillStyle = '#fff'; ctx.globalAlpha = .9;
+      ctx.fillRect(glx-4, gly-12, gw+8, 16); ctx.globalAlpha = 1;
+      ctx.fillStyle = C.red; ctx.textAlign = 'left';
+      ctx.fillText(gl, glx, gly-4);
+    }
+  }
+
   /* legend */
   ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
   ctx.textAlign = 'left';
@@ -834,7 +861,8 @@ function draw(canvas){
   var lg2 = lgx + 24 + ctx.measureText('ตามลมที่ตั้งไว้').width + 16;
   ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle = C.red; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(lg2,lgy); ctx.lineTo(lg2+16,lgy); ctx.stroke(); ctx.restore();
-  ctx.fillStyle = C.txt; ctx.fillText('ไม่มีระบบระบายอากาศ', lg2+22, lgy);
+  ctx.fillStyle = C.txt;
+  ctx.fillText(s.base > 0 ? 'ระบบเดิม ' + fmt(s.base) + ' CMH' : 'ไม่มีระบบระบายอากาศ', lg2+22, lgy);
 }
 
 function redraw(){
@@ -942,6 +970,16 @@ function render(){
     : s.law[1] + ' ACH × ' + fmt(s.V) + ' ลบ.ม. = ' + fmt(s.law[1]*s.V) + ' CMH';
   $('acthint').textContent = 'ปล่อย CO₂ ' + s.N + ' mL/s ต่อคน · รวม ' + fmt(s.Pz*s.N) + ' mL/s ทั้งห้อง';
 
+  var baseEnd = at(s, s.dur, s.base), newEnd = at(s, s.dur, s.Q);
+  $('basehint').textContent = s.base > 0
+    ? 'เส้นเทียบในกราฟ · ' + fmt(s.base/(s.V||1), 2) + ' ACH → ' + fmt(Math.round(baseEnd)) + ' ppm'
+        + (isFinite(baseEnd) && isFinite(newEnd)
+            ? (baseEnd - newEnd >= 0
+                ? ' · ดีขึ้น ' + fmt(Math.round(baseEnd-newEnd)) + ' ppm'
+                : ' · ระบบเดิมดีกว่าอยู่ ' + fmt(Math.round(newEnd-baseEnd)) + ' ppm')
+            : '')
+    : 'ใส่ 0 ถ้าห้องยังไม่มีระบบระบายอากาศ · เส้นเทียบจะเป็นกรณีไม่มีระบบเลย';
+
   var end = at(s, s.dur, s.Q), ss = steady(s, s.Q);
   var ceil = s.cat[5]!=null ? s.Co + s.cat[5] : 1900;
   var cls = end < 1000 ? 'ok' : end < ceil ? 'warn' : 'bad';
@@ -1008,7 +1046,7 @@ function buildTables(filter){
 }
 
 /* ---------------- events ---------------- */
-['w','l','h','pz','co','c0','dur','inf','target'].forEach(function(id){
+['w','l','h','pz','co','c0','dur','inf','base','target'].forEach(function(id){
   $(id).addEventListener('input', render);
 });
 ['cat','act','law'].forEach(function(id){ $(id).addEventListener('change', render); });
@@ -1044,7 +1082,7 @@ $('usedens').addEventListener('click', function(){
 });
 $('resetBtn').addEventListener('click', function(){
   $('w').value=14; $('l').value=21; $('h').value=6; $('pz').value=250;
-  $('co').value=400; $('c0').value=400; $('dur').value=3; $('inf').value=0; $('target').value=1000;
+  $('co').value=400; $('c0').value=400; $('dur').value=3; $('inf').value=0; $('base').value=0; $('target').value=1000;
   AC = 1;
   $('acmode').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.ac==='1'); });
   fillLaw();
@@ -1086,6 +1124,19 @@ $('foot').textContent = 'ตารางหมวดพื้นที่ อั
 
 buildTables('');
 render();
+
+/* ---- embed mode: host page supplies the chrome and controls height ---- */
+if(/[?&]embed=1/.test(location.search)){
+  document.documentElement.classList.add('embed');
+  document.body.style.background = 'transparent';
+  var ping = function(){
+    try { if(window.parent && window.parent !== window) window.parent.postMessage({ iaq:'height', h: document.documentElement.scrollHeight }, location.origin); } catch(e){}
+  };
+  if(window.ResizeObserver) new ResizeObserver(ping).observe(document.body);
+  window.addEventListener('resize', ping);
+  setTimeout(ping, 60); setTimeout(ping, 400);
+  setTimeout(redraw, 80);
+}
 })();
 </script>
 </body>
