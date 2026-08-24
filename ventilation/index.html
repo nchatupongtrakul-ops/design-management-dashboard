@@ -751,51 +751,93 @@ function recommended(s){
    `v(s)` returns null when the reference does not apply.
    --------------------------------------------------------------- */
 var REFS = [
-  { id:'ceiling', on:true, c:'#D44C47',
+  { id:'ceiling', on:true, c:'#D44C47', group:'ASHRAE',
     name:'เพดาน ASHRAE 62.1 ตามหมวด',
     v:function(s){ return s.cat[5] != null ? s.Co + s.cat[5] : null; },
     t:function(s){ return 'เพดาน 62.1 · ' + s.cat[1]; },
-    src:'ASHRAE 62.1 ตารางหมวดพื้นที่ คอลัมน์เพดาน CO₂ ระบุเป็น ppm เหนืออากาศภายนอก',
+    src:'ตารางหมวดพื้นที่ของ ASHRAE 62.1 ระบุเพดาน CO₂ เป็น ppm เหนืออากาศภายนอก ต่างกันไปตามหมวด ตั้งแต่ 600 ถึง 2,100',
+    doc:'ASHRAE 62.1 · ผ่าน room datasheet ของทีม',
     legal:'ภาคผนวกเชิงข้อมูล ใช้อ้างเป็นเกณฑ์ผ่านไม่ได้',
     conf:'ยืนยันแล้ว' },
 
-  { id:'well900', on:true, c:'#6940A5',
+  { id:'p1000', on:true, c:'#2E7D32', group:'ประวัติศาสตร์',
+    name:'ตัวชี้วัดดั้งเดิม · 1,000 ppm',
+    v:function(){ return 1000; },
+    t:function(){ return 'ตัวชี้วัดดั้งเดิม'; },
+    src:'Pettenkofer เสนอไว้ตั้งแต่ศตวรรษที่ 19 ว่าเป็นเครื่องชี้ว่าระบายอากาศไม่พอ · ASHRAE Standard 62 ฉบับแรกเคยกำหนดไว้ที่ 1,000 ppm แต่ภายหลังถอดออกแล้ว · เทียบเท่าอัตราลมราว 8 L/s หรือ 16 cfm ต่อคน',
+    doc:'ASHRAE Position Document on Indoor Carbon Dioxide',
+    legal:'ASHRAE ระบุชัดว่าไม่ใช่ขีดจำกัดของ ASHRAE และเตือนว่าคนเข้าใจผิดเรื่องนี้กันมาก',
+    conf:'ยืนยันแล้ว' },
+
+  { id:'well900', on:true, c:'#6940A5', group:'WELL',
     name:'WELL v2 · 900 ppm',
     v:function(){ return 900; },
     t:function(){ return 'WELL v2'; },
-    src:'WELL Building Standard v2 หมวดคุณภาพอากาศ กำหนดเพดาน CO₂ ที่ 900 ppm',
+    src:'WELL v2 กำหนด CO₂ ไม่เกิน 900 ppm เป็นเกณฑ์พื้นฐาน · หน้าเว็บทางการเปิดไม่ได้ตอนตรวจสอบ และแหล่งข้อมูลรองระบุ feature ไม่ตรงกัน บ้างว่าอยู่ใน A03 Ventilation Design บ้างว่า A06 Enhanced Ventilation',
+    doc:'แหล่งรองหลายแห่งตรงกันที่ค่า 900',
     legal:'เกณฑ์การรับรองอาคาร ใช้เมื่อโครงการยื่นขอ WELL',
-    conf:'ควรยืนยันกับฉบับที่โครงการใช้' },
+    conf:'ค่ายืนยันแล้ว · ตำแหน่ง feature ยังไม่ชัด' },
 
-  { id:'p1000', on:true, c:'#2E7D32',
-    name:'เป้าหมายที่ใช้กันทั่วไป · 1,000 ppm',
-    v:function(){ return 1000; },
-    t:function(){ return 'เป้าหมายทั่วไป'; },
-    src:'ตกทอดจากอัตรา 15 cfm ต่อคนใน ASHRAE 62-1989 ซึ่งตั้งขึ้นให้ CO₂ อยู่ราวระดับนี้',
-    legal:'ธรรมเนียมปฏิบัติ ไม่ใช่ข้อกำหนดของมาตรฐานปัจจุบัน',
+  { id:'well750', on:false, c:'#8B63C7', group:'WELL',
+    name:'WELL v2 ระดับเพิ่มคะแนน · 750 ppm',
+    v:function(){ return 750; },
+    t:function(){ return 'WELL v2 เพิ่มคะแนน'; },
+    src:'ระดับที่ WELL v2 ให้คะแนนเพิ่มเมื่อกด CO₂ ลงมาต่ำกว่า 750 ppm',
+    doc:'แหล่งรองหลายแห่งตรงกัน',
+    legal:'เกณฑ์การรับรองอาคาร ระดับเพิ่มคะแนน',
+    conf:'ค่ายืนยันแล้ว · ตำแหน่ง feature ยังไม่ชัด' },
+
+  { id:'en1', on:false, c:'#1B6FBF', group:'EN 16798-1',
+    name:'EN 16798-1 Cat I',
+    v:function(s){ return s.Co + 550; },
+    t:function(){ return 'EN Cat I'; },
+    src:'EN 16798-1:2019 กำหนด CO₂ เหนืออากาศภายนอก Category I ที่ 550 ppm สำหรับพื้นที่ที่ต้องการคุณภาพอากาศสูง',
+    doc:'CEN 16798-1 (2019) อ้างใน ASHRAE Position Document on Indoor Carbon Dioxide',
+    legal:'มาตรฐานยุโรป ใช้ในไทยเป็นเกณฑ์อ้างอิงเสริมได้',
     conf:'ยืนยันแล้ว' },
 
-  { id:'cogfx', on:false, c:'#CB912F',
-    name:'งานวิจัยด้านสมรรถนะการคิด · 1,400 ppm',
+  { id:'en2', on:false, c:'#2383E2', group:'EN 16798-1',
+    name:'EN 16798-1 Cat II',
+    v:function(s){ return s.Co + 800; },
+    t:function(){ return 'EN Cat II'; },
+    src:'Category II ที่ 800 ppm เหนืออากาศภายนอก ตรงกับความคาดหวังตามปกติของผู้ใช้อาคาร เป็นระดับที่ใช้อ้างอิงบ่อยที่สุดในสามระดับ',
+    doc:'CEN 16798-1 (2019) อ้างใน ASHRAE Position Document on Indoor Carbon Dioxide',
+    legal:'มาตรฐานยุโรป ใช้ในไทยเป็นเกณฑ์อ้างอิงเสริมได้',
+    conf:'ยืนยันแล้ว' },
+
+  { id:'en3', on:false, c:'#5AA0E0', group:'EN 16798-1',
+    name:'EN 16798-1 Cat III–IV',
+    v:function(s){ return s.Co + 1350; },
+    t:function(){ return 'EN Cat III–IV'; },
+    src:'Category III และ IV ที่ 1,350 ppm เหนืออากาศภายนอก เป็นระดับที่ยอมรับได้แบบพอใช้',
+    doc:'CEN 16798-1 (2019) อ้างใน ASHRAE Position Document on Indoor Carbon Dioxide',
+    legal:'มาตรฐานยุโรป ใช้ในไทยเป็นเกณฑ์อ้างอิงเสริมได้',
+    conf:'ยืนยันแล้ว' },
+
+  { id:'leed800', on:false, c:'#0F7B6C', group:'LEED',
+    name:'LEED v5 O+M · 800 ppm',
+    v:function(){ return 800; },
+    t:function(){ return 'LEED v5 ระดับสูงสุด'; },
+    src:'เครดิตตรวจวัดคุณภาพอากาศต่อเนื่องของ LEED v5 O+M ให้คะแนนตามระดับ CO₂ โดย 1,000 ppm ได้ 3 คะแนน และ 800 ppm ได้ 4 คะแนน',
+    doc:'แหล่งรอง ยังไม่ได้เปิดฉบับทางการ',
+    legal:'เกณฑ์การรับรองอาคาร เฉพาะโครงการที่ยื่น LEED',
+    conf:'ยังไม่ยืนยัน ต้องเทียบกับฉบับจริง' },
+
+  { id:'cogfx', on:false, c:'#CB912F', group:'งานวิจัย',
+    name:'สมรรถนะการคิดลดลง · 1,400 ppm',
     v:function(){ return 1400; },
-    t:function(){ return 'สมรรถนะการคิดลดลงชัด'; },
-    src:'Allen et al. 2016 (COGfx, Environmental Health Perspectives) วัดคะแนนการตัดสินใจที่ 550 · 945 · 1,400 ppm พบว่าลดลงชัดเจนที่ระดับสูงสุด',
+    t:function(){ return 'สมรรถนะการคิดลดลง'; },
+    src:'Allen et al. 2016 ทดสอบคะแนนการตัดสินใจที่ 550 · 945 · 1,400 ppm พบว่าลดลงชัดเจนที่ระดับสูงสุด · ASHRAE อ้างงานชุดนี้ในเอกสารแสดงจุดยืนว่ามีผลต่อสมรรถนะที่ราว 1,000 ppm ขึ้นไป',
+    doc:'Allen et al. 2016 · อ้างใน ASHRAE Position Document on Indoor Carbon Dioxide',
     legal:'งานวิจัย ไม่ใช่มาตรฐาน ใช้อธิบายเหตุผลให้เจ้าของงานฟัง',
     conf:'ยืนยันแล้ว' },
 
-  { id:'en2', on:false, c:'#2383E2',
-    name:'EN 16798-1 Category II',
-    v:function(s){ return s.Co + 800; },
-    t:function(){ return 'EN 16798-1 Cat II'; },
-    src:'มาตรฐานยุโรป EN 16798-1 แบ่งคุณภาพอากาศเป็น 4 ระดับ โดยระบุ CO₂ เหนืออากาศภายนอก Cat I ประมาณ 550 · Cat II ประมาณ 800 · Cat III ประมาณ 1,350',
-    legal:'มาตรฐานยุโรป ใช้ในไทยเป็นเกณฑ์อ้างอิงเสริมได้',
-    conf:'ยังไม่ยืนยัน ต้องเทียบกับฉบับจริงก่อนนำไปอ้าง' },
-
-  { id:'occ', on:false, c:'#9B9A97',
+  { id:'occ', on:false, c:'#9B9A97', group:'อาชีวอนามัย',
     name:'ขีดจำกัดอาชีวอนามัย · 5,000 ppm',
     v:function(){ return 5000; },
     t:function(){ return 'ขีดจำกัดอาชีวอนามัย'; },
-    src:'OSHA PEL และ ACGIH TLV กำหนดค่าเฉลี่ยถ่วงน้ำหนักเวลา 8 ชั่วโมงที่ 5,000 ppm',
+    src:'OSHA กำหนดค่าเฉลี่ยถ่วงน้ำหนักเวลา 8 ชั่วโมงที่ 5,000 ppm สำหรับการทำงาน 40 ชั่วโมงต่อสัปดาห์ · เป็นข้อบังคับ ต่างจากค่าของ NIOSH ที่เป็นความสมัครใจ',
+    doc:'OSHA 2017 · อ้างใน ASHRAE Position Document on Indoor Carbon Dioxide',
     legal:'เกณฑ์ความปลอดภัยในการทำงาน ไม่ใช่เกณฑ์ความสบาย สูงกว่าช่วงที่งานออกแบบสนใจมาก',
     conf:'ยืนยันแล้ว' }
 ];
@@ -1100,7 +1142,11 @@ function render(){
       +'<div class="kpi-label">ค่าคงเวลาห้อง</div><div class="kpi-note">'+(tau?'ไล่อากาศก่อนใช้งาน '+fmt(tau*3)+' นาที':'ไม่มีลมเข้า')+'</div></div>';
 
   var shown = activeRefs(s).map(function(r){ return r.id; });
-  $('refchips').innerHTML = REFS.map(function(r){
+  $('refchips').innerHTML = REFS.slice().sort(function(a,b){
+    var av = a.v(s), bv = b.v(s);
+    if(av == null) return 1; if(bv == null) return -1;
+    return av - bv;
+  }).map(function(r){
     var v = r.v(s), na = (v == null);
     var hidden = r.on && !na && shown.indexOf(r.id) < 0;
     return '<button type="button" class="refchip' + (r.on && !na ? ' on' : '')
@@ -1256,7 +1302,8 @@ $('foot').textContent = 'ตารางหมวดพื้นที่ อั
     return '<tr><td><span style="display:inline-block;width:16px;border-top:2px dashed '+r.c+';vertical-align:middle;margin-right:6px"></span>'
       + r.name.split(' · ')[0] + '</td>'
       + '<td class="num">' + (v==null?'ไม่มีในหมวดนี้':fmt(Math.round(v))+' ppm') + '</td>'
-      + '<td style="font-size:12.5px">' + r.src + '</td>'
+      + '<td style="font-size:12.5px">' + r.src
+        + '<br><span style="color:var(--gray)">ที่มา · ' + r.doc + '</span></td>'
       + '<td style="font-size:12.5px;color:var(--text-secondary)">' + r.legal + '</td>'
       + '<td style="font-size:12px">' + (r.conf==='ยืนยันแล้ว'
           ? '<span class="badge ok">ยืนยันแล้ว</span>'
