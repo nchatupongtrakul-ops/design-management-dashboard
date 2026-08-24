@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F7F5">
+<meta name="description" content="เครื่องคำนวณ CO2 และปริมาณลมบริสุทธิ์ ตาม ASHRAE 62.1 และกฎกระทรวงฉบับที่ 39">
+<title>Ventilation &amp; CO₂ Calculator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232383E2'/%3E%3Ctext x='16' y='22' font-size='16' font-family='Helvetica,Arial' font-weight='bold' fill='white' text-anchor='middle'%3ECO%3C/text%3E%3C/svg%3E">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F7F5;
+  --surface: #F4F3F0;
+  --card-bg: #FFFFFF;
+  --border: #E3E2DE;
+  --text: #37352F;
+  --text-secondary: #787774;
+  --blue: #2383E2;
+  --red: #D44C47;
+  --purple: #6940A5;
+  --green: #669BBC;
+  --orange: #CB912F;
+  --gray: #9B9A97;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .sub { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.timestamp { font-size: 12px; color: var(--text-secondary); }
+
+.btn {
+  background: var(--blue); color: #fff; border: none;
+  padding: 6px 14px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; font-weight: 500; transition: opacity .15s; font-family: inherit;
+}
+.btn:hover { opacity: .85; }
+.btn:active { opacity: .7; }
+.btn.ghost { background: none; border: 1px solid var(--border); color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--surface); color: var(--text); opacity: 1; }
+
+.tabs {
+  display: flex; gap: 0; background: var(--card-bg);
+  border-bottom: 1px solid var(--border); padding: 0 32px; flex-wrap: wrap;
+  position: sticky; top: 65px; z-index: 99;
+}
+.tab {
+  padding: 10px 20px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+  user-select: none; background: none; border-top: 0; border-left: 0; border-right: 0; font-family: inherit;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.page { display: none; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+.kpi-value { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi-value.ok { color: #2E7D32; } .kpi-value.warn { color: var(--orange); } .kpi-value.bad { color: var(--red); }
+.kpi-value small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 4px; }
+.kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+.kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
+
+.chart-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+.chart-grid.g1 { grid-template-columns: 1fr; }
+.chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) {
+  .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
+  .page { padding: 16px; }
+  .header { padding: 12px 16px; }
+  .tabs { padding: 0 16px; top: 61px; }
+}
+
+.card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; position: relative; }
+.card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.card-title-row h3 { margin-bottom: 0; }
+
+.card-expand-btn {
+  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px;
+  border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer;
+  color: #787774; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; z-index: 5; font-family: inherit;
+}
+.card:hover .card-expand-btn { opacity: 1; }
+.card-expand-btn:focus-visible { opacity: 1; }
+.card-expand-btn:hover { background: var(--surface); color: #37352F; }
+
+#chartModal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
+#chartModal.open { display: flex; }
+.chart-modal-box { background: #fff; border-radius: 12px; padding: 20px 26px; width: min(1100px, 94vw); height: min(78vh, 700px); display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.chart-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+.chart-modal-head h3 { font-size: 15px; font-weight: 600; }
+.chart-modal-close { border: none; background: none; font-size: 22px; color: #787774; cursor: pointer; line-height: 1; font-family: inherit; }
+.chart-modal-close:hover { color: #37352F; }
+.chart-modal-body { flex: 1; position: relative; min-height: 0; }
+
+.canvas-wrap { position: relative; width: 100%; height: 300px; }
+.canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.canvas-wrap canvas:active { cursor: grabbing; }
+.chart-modal-body .canvas-wrap { height: 100%; }
+.zoomhint { font-size: 11.5px; color: var(--gray); margin-top: 8px; }
+
+/* form controls */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.flabel { font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+input[type=number], select {
+  width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: var(--card-bg); color: var(--text);
+}
+input[type=number] { font-variant-numeric: tabular-nums; }
+select { cursor: pointer; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 11.5px; color: var(--gray); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+.segbar { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segbar button {
+  flex: 1; padding: 6px 8px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  background: var(--card-bg); color: var(--text-secondary); border: 0; border-right: 1px solid var(--border); font-weight: 500;
+}
+.segbar button:last-child { border-right: 0; }
+.segbar button.active { background: var(--text); color: #fff; }
+
+/* airflow slider block */
+.flowhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.flowval { font-size: 38px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.flowval small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 5px; }
+.flowmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { font-size: 12px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); font-weight: 500; }
+.chip.rec { border-color: #BBDDF7; background: #EDF6FD; color: #1B6FBF; }
+.stepbtn { width: 30px; height: 28px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; cursor: pointer; color: var(--text-secondary); font-size: 15px; font-family: inherit; line-height: 1; }
+.stepbtn:hover { background: var(--surface); color: var(--text); }
+
+.slider-wrap { position: relative; padding-top: 4px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer; margin: 8px 0 4px; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-moz-range-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); margin-top: -8px; }
+input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.recmark { position: absolute; top: 0; width: 2px; height: 22px; background: var(--blue); opacity: .45; pointer-events: none; border-radius: 1px; }
+
+/* tables */
+.tablewrap { overflow-x: auto; }
+table.dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.dtable th { background: var(--surface); font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.dtable td { padding: 7px 10px; border-bottom: 1px solid #f0f0ed; }
+table.dtable tr:hover td { background: #FAFAF8; }
+table.dtable td.num, table.dtable th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.gov td { background: #EDF6FD !important; font-weight: 600; }
+.badge { font-size: 11.5px; padding: 2px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; display: inline-block; }
+.badge.ok { background: #E8F3E9; color: #2E7D32; }
+.badge.bad { background: #FBEAE9; color: var(--red); }
+.badge.na { background: var(--surface); color: var(--gray); }
+
+.eq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.9;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue);
+  border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre;
+  font-variant-numeric: tabular-nums; color: var(--text-secondary); margin-bottom: 14px;
+}
+.eq b { color: var(--text); font-weight: 600; }
+.note { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #F6FAFE; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
+.note.warn { border-left-color: var(--orange); background: #FDF8EF; }
+.note b { color: var(--text); }
+.prose { font-size: 14px; color: var(--text); }
+.prose p { margin-bottom: 12px; max-width: 74ch; }
+.prose h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
+.prose ul, .prose ol { margin: 0 0 14px 20px; max-width: 74ch; }
+.prose li { margin-bottom: 6px; }
+.sectitle { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+.footer { color: var(--gray); font-size: 12px; padding: 18px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Ventilation &amp; CO₂ Calculator</h1>
+    <div class="sub">ASHRAE 62.1 · ASHRAE Fundamentals Ch.9 · กฎกระทรวงฉบับที่ 39 (พ.ศ. 2537)</div>
+  </div>
+  <div class="header-right">
+    <span class="timestamp" id="stamp"></span>
+    <button class="btn ghost" id="resetBtn">Reset</button>
+  </div>
+</div>
+
+<div class="tabs" role="tablist">
+  <button class="tab active" data-page="calc">Calculator</button>
+  <button class="tab" data-page="ref">สมการอ้างอิง</button>
+  <button class="tab" data-page="tables">ตารางอ้างอิง</button>
+</div>
+
+<div class="page active" id="page-calc">
+
+  <div class="kpi-row" id="kpis"></div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row">
+        <h3>ปริมาณลมบริสุทธิ์</h3>
+        <div class="flowmeta">
+          <button class="stepbtn" id="qdown" title="ลด 100">−</button>
+          <button class="stepbtn" id="qup" title="เพิ่ม 100">+</button>
+          <button class="btn ghost" id="userec">ใช้ค่าแนะนำ</button>
+        </div>
+      </div>
+      <div class="flowhead">
+        <div class="flowval" id="qval">7,000<small>CMH</small></div>
+        <div class="flowmeta">
+          <span class="chip rec" id="recchip"></span>
+          <span class="chip" id="achchip"></span>
+          <span class="chip" id="lpschip"></span>
+        </div>
+      </div>
+      <div class="slider-wrap">
+        <div class="recmark" id="recmark" hidden></div>
+        <input type="range" id="q" min="0" max="14000" step="100" value="7000" aria-label="ปริมาณลมบริสุทธิ์">
+        <div class="ticks"><span>0</span><span id="tickMid"></span><span id="tickMax"></span></div>
+      </div>
+      <div class="hint" id="qhint"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>ห้อง</h3>
+      <div class="field">
+        <span class="flabel">ขนาด · เมตร</span>
+        <div class="grid3">
+          <div><input type="number" id="w" value="14" min="0.1" step="0.1" aria-label="กว้าง"><div class="hint">กว้าง</div></div>
+          <div><input type="number" id="l" value="21" min="0.1" step="0.1" aria-label="ยาว"><div class="hint">ยาว</div></div>
+          <div><input type="number" id="h" value="6" min="0.1" step="0.1" aria-label="สูง"><div class="hint">สูง</div></div>
+        </div>
+        <div class="hint" id="dims"></div>
+      </div>
+      <div class="field">
+        <label class="flabel" for="cat">หมวดตาม ASHRAE 62.1</label>
+        <select id="cat"></select>
+        <div class="hint" id="cathint"></div>
+      </div>
+      <div class="field">
+        <span class="flabel">หมวดตามกฎกระทรวงฉบับที่ 39</span>
+        <div class="segbar" id="acmode">
+          <button type="button" data-ac="1" class="active">ห้องปรับอากาศ</button>
+          <button type="button" data-ac="0">ไม่ปรับอากาศ</button>
+        </div>
+        <select id="law" style="margin-top:8px"></select>
+        <div class="hint" id="lawhint"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>คน กิจกรรม และเงื่อนไข</h3>
+      <div class="field">
+        <label class="flabel" for="pz">จำนวนคน · <b id="pzval">250</b> คน</label>
+        <input type="range" id="pz" min="1" max="600" step="1" value="250">
+        <div class="ticks"><span>1</span><span>300</span><span>600</span></div>
+        <button class="btn ghost" id="usedens" style="margin-top:6px">ใช้ความหนาแน่นมาตรฐานของหมวดนี้</button>
+      </div>
+      <div class="field">
+        <label class="flabel" for="act">กิจกรรม</label>
+        <select id="act"></select>
+        <div class="hint" id="acthint"></div>
+      </div>
+      <div class="field">
+        <div class="grid2">
+          <div><label class="flabel" for="co">CO₂ ภายนอก · ppm</label><input type="number" id="co" value="400" min="300" max="1000" step="10"></div>
+          <div><label class="flabel" for="c0">CO₂ เริ่มต้น · ppm</label><input type="number" id="c0" value="400" min="300" max="3000" step="10"></div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="grid2">
+          <div><label class="flabel" for="dur">ระยะเวลา · ชม.</label><input type="number" id="dur" value="3" min="0.5" max="12" step="0.5"></div>
+          <div><label class="flabel" for="inf">อากาศรั่วซึม · ACH</label><input type="number" id="inf" value="0" min="0" max="5" step="0.1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <button class="card-expand-btn" id="expandBtn" title="ขยายกราฟ" aria-label="ขยายกราฟ">⤢</button>
+      <h3>CO₂ ตลอดระยะเวลาใช้งาน</h3>
+      <div class="canvas-wrap"><canvas id="chart"></canvas></div>
+      <div class="zoomhint">เลื่อนล้อเมาส์เพื่อซูมแกนเวลา · ลากเพื่อเลื่อน · ดับเบิลคลิกเพื่อรีเซ็ต · กดปุ่ม ⤢ มุมขวาบนเพื่อขยายเต็มจอ</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>เกณฑ์ปริมาณลมขั้นต่ำ</h3>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr><th>เกณฑ์</th><th class="num">CMH</th><th class="num">ACH</th><th>ที่มา</th><th class="num">สถานะ</th></tr></thead>
+          <tbody id="reqs"></tbody>
+        </table>
+      </div>
+      <div class="note" id="gov" style="margin-top:14px; margin-bottom:0"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>ย้อนกลับ · ตั้งเป้า CO₂ แล้วหาลม</h3>
+      <div class="field">
+        <label class="flabel" for="target">เป้าหมาย CO₂ · ppm</label>
+        <input type="number" id="target" value="1000" min="450" step="50">
+      </div>
+      <div class="kpi-card" style="box-shadow:none; border:1px solid var(--border); padding:14px">
+        <div class="kpi-value" id="need" style="font-size:26px">—</div>
+        <div class="kpi-label">ลมที่ต้องใช้</div>
+      </div>
+      <button class="btn" id="applyTarget" style="margin-top:12px; width:100%">ตั้งค่าลมตามเป้าหมายนี้</button>
+    </div>
+    <div class="card">
+      <h3>การแทนค่าจริง</h3>
+      <div class="eq" id="eq" style="margin-bottom:0"></div>
+    </div>
+  </div>
+
+  <div class="footer" id="foot"></div>
+</div>
+
+<div class="page" id="page-ref">
+  <div class="sectitle">สมการอ้างอิง</div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>สัญลักษณ์ทั้งหมด</h3>
+      <div class="note warn" style="margin-bottom:14px"><b>ระวังตัวอักษรชนกัน</b> ASHRAE ใช้ <b>N</b> แทนอัตราปล่อย CO₂ ต่อคน ไม่ใช่จำนวนคน จำนวนคนคือ <b>Pz</b></div>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr><th>สัญลักษณ์</th><th>ความหมาย</th><th>หน่วย</th></tr></thead>
+          <tbody>
+            <tr><td><b>N</b></td><td>CO₂ ที่คน 1 คนปล่อย</td><td>mL/s ต่อคน</td></tr>
+            <tr><td><b>Pz</b></td><td>จำนวนคนในห้อง</td><td>คน</td></tr>
+            <tr><td><b>Vo</b></td><td>ลมบริสุทธิ์ต่อคน</td><td>L/s ต่อคน</td></tr>
+            <tr><td><b>Voz</b> หรือ <b>Q</b></td><td>ลมบริสุทธิ์รวมทั้งห้อง</td><td>CMH</td></tr>
+            <tr><td><b>Cs</b></td><td>CO₂ ในห้อง</td><td>ppm</td></tr>
+            <tr><td><b>Co</b></td><td>CO₂ ในอากาศภายนอก</td><td>ppm</td></tr>
+            <tr><td><b>Vr</b></td><td>ปริมาตรห้อง</td><td>ลบ.ม.</td></tr>
+            <tr><td><b>Az</b></td><td>พื้นที่ห้อง</td><td>ตร.ม.</td></tr>
+            <tr><td><b>Rp / Ra</b></td><td>อัตราลมต่อคน และต่อพื้นที่</td><td>L/s·คน · L/s·ตร.ม.</td></tr>
+            <tr><td><b>Ve / Ce</b></td><td>อัตราหายใจ · CO₂ ในลมหายใจออก</td><td>L/s · ppm</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose" style="margin-top:12px">
+        <p style="font-size:13px;color:var(--text-secondary)"><b>Cs กับ Co ไม่มีหน่วยจริง ๆ</b> ค่าจริงคือสัดส่วนโดยปริมาตร เช่น 1,000 ppm หมายถึงมี CO₂ 0.001 ลบ.ม. ในอากาศ 1 ลบ.ม. คำว่า ppm คือส่วนในล้านส่วน เป็นเพียงวิธีเขียนสัดส่วนนั้นให้อ่านง่าย เหมือน 50% ก็คือ 0.5</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>สมการหลักทั้งชุด</h3>
+      <div class="prose"><p>ทั้งสี่บรรทัดคือสมการเดียวกัน ต่างกันแค่ว่ากำลังถามหาอะไร บรรทัดสุดท้ายคือบรรทัดที่สามบวกมิติเวลาเข้าไป</p></div>
+      <div class="eq"><b>Vo  = N / (Cs − Co)</b>
+      ASHRAE 62.1 Appendix D สมการ D-1 · คิดต่อคน
+
+<b>Voz = Pz × N × 3600 / (Cs − Co)</b>
+      คูณจำนวนคน · ตั้งเป้า CO₂ แล้วหาลม
+
+<b>Cs  = Co + Pz × N × 3600 / Voz</b>
+      ย้ายข้าง · รู้ลมแล้วหา CO₂
+
+<b>Cs(t) = Cs∞ + (C₀ − Cs∞) · e^(−Q·t/Vr)</b>
+      ระหว่างทาง ก่อนเข้าสภาวะคงที่</div>
+      <div class="prose"><p>สองบรรทัดกลางคือสิ่งที่แท็บ Calculator ใช้ และเป็นสมการเดียวกับที่อยู่ในคอลัมน์ AK ของไฟล์ room datasheet</p></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>ที่มาของสมการสมดุล</h3>
+      <div class="prose"><p>เริ่มจากการอนุรักษ์มวลของก๊าซในห้องหนึ่งห้อง ซึ่งมีทางเข้าสองทางและทางออกทางเดียว</p></div>
+      <div class="eq">Vr · dC/dt = <b>Pz·N</b> + <b>Q·Co</b> − <b>Q·Cs</b>
+
+  Pz·N   CO₂ ที่คนปล่อยเข้ามา
+  Q·Co   CO₂ ที่ติดมากับอากาศภายนอก
+  Q·Cs   CO₂ ที่ลมล้นออกไปพาออกไปด้วย</div>
+      <div class="prose"><p>ที่สภาวะคงที่ค่าไม่เปลี่ยนแล้ว จึงให้ dC/dt เป็นศูนย์ ซึ่งแปลว่าเข้าเท่ากับออกพอดี</p></div>
+      <div class="eq">Q·Cs = Pz·N + Q·Co
+Q·Cs − Q·Co = Pz·N
+Q·(Cs − Co) = Pz·N
+<b>Cs = Co + Pz·N / Q</b>   หรือ   <b>Q = Pz·N / (Cs − Co)</b></div>
+      <div class="prose"><p>สิ่งที่เกิดขึ้นจริงคือ ถ้าคนปล่อย CO₂ เร็วกว่าที่ลมพาออกได้ ค่าจะไต่ขึ้น พอไต่ขึ้นแล้วลมที่ล้นออกก็พา CO₂ ออกไปได้มากขึ้นเพราะเข้มข้นขึ้น จนถึงจุดที่เข้าเท่ากับออกพอดีแล้วจึงหยุดอยู่ตรงนั้น</p></div>
+    </div>
+
+    <div class="card">
+      <h3>ตัวเลข 3,600 มาจากไหน</h3>
+      <div class="prose"><p>สมการใช้ได้ต่อเมื่อทุกตัวอยู่ในหน่วยที่สอดคล้องกัน แต่ในทางปฏิบัติเราได้ N มาเป็น mL/s ได้ Q มาเป็น CMH และอยากอ่านผลเป็น ppm ซึ่งเป็นคนละหน่วยกันหมด ตัวเลข 3,600 คือตัวแปลงหน่วยทั้งสามตัวรวบมาไว้ในตัวเดียว</p></div>
+      <div class="eq">แปลงเป็น ppm       × 10⁶
+แปลง mL เป็น L     ÷ 10³
+แปลง L/s เป็น CMH   × 3.6
+                  ───────────────────
+รวมกัน             10⁶ ÷ 10³ × 3.6 = <b>3,600</b></div>
+      <div class="prose"><p>ในไฟล์ room datasheet เขียนแยกไว้เป็น <code>3.6 × (Pz × N × 10³) / (Cs − Co)</code> ซึ่งให้ผลเท่ากันทุกประการ เพราะ 3.6 × 10³ เท่ากับ 3,600</p></div>
+      <div class="note warn" style="margin-bottom:0"><b>กับดักที่พบบ่อยที่สุด</b> คือใส่ตัวแปลงหน่วยซ้ำสองรอบ เช่นคูณ 3,600 ทั้งที่ใช้ตัวรวมไปแล้ว ข้อดีคือถ้าพลาดจะเห็นทันที เพราะผลลัพธ์จะผิดเป็นหลักพันหรือหลักล้านเท่า ไม่ใช่ผิดนิดหน่อยจนมองไม่ออก</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>ตรวจด้วยเครื่องคิดเลขใน 30 วินาที</h3>
+      <div class="prose"><p>ทำทุกอย่างเป็นลิตรต่อวินาทีทั้งเศษและส่วน แล้วผลลัพธ์จะออกมาเป็นสัดส่วนพอดี ไม่ต้องแปลงอะไรเพิ่ม</p></div>
+      <div class="eq">ตัวอย่าง 250 คน นั่งฟัง ลม 7,000 CMH ภายนอก 400 ppm
+
+CO₂ จากคน  250 × 4.4423 mL/s = 1,110.6 mL/s = <b>1.1106 L/s</b>
+ลม         7,000 ÷ 3.6                      = <b>1,944.4 L/s</b>
+
+สัดส่วน    1.1106 ÷ 1,944.4 = 0.000571 → <b>571 ppm</b>
+ในห้อง     571 + 400 = <b>971 ppm</b></div>
+      <div class="prose"><p>ตัวเดียวที่ต้องจำคือ <b>หารด้วย 3.6 เพื่อแปลง CMH เป็น L/s</b> เพราะ 1 ลบ.ม./ชม. เท่ากับ 1,000 ลิตร หารด้วย 3,600 วินาที</p></div>
+    </div>
+
+    <div class="card">
+      <h3>ตรวจซ้ำด้วยกฎที่วงการใช้มา 35 ปี</h3>
+      <div class="prose"><p>ลองคำนวณลมต่อคนที่ทำให้ CO₂ อยู่ที่ 1,000 ppm สำหรับคนนั่งฟัง</p></div>
+      <div class="eq">Vo = N × 10⁶ / (Cs − Co)
+   = 0.0044423 × 10⁶ / (1,000 − 400)
+   = 4,442.3 / 600
+   = <b>7.40 L/s ต่อคน</b>  หรือ 15.7 cfm ต่อคน</div>
+      <div class="prose"><p>ตัวเลขนี้แทบตรงกับ <b>15 cfm ต่อคน</b> ซึ่งเป็นอัตราคลาสสิกของ ASHRAE 62-1989 ที่ตั้งขึ้นมาเพื่อคุม CO₂ ให้อยู่ราว 1,000 ppm พอดี ถือเป็นการยืนยันแบบอิสระว่าหน่วยทั้งหมดถูกต้อง เพราะสมการเดินย้อนไปเจอกฎเก่าที่ตั้งขึ้นมาคนละทางโดยไม่ได้ตั้งใจ</p></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>ที่มาของค่า N และสัญลักษณ์ Ve กับ Ce</h3>
+      <div class="prose"><p>ใน Appendix D มีสัญลักษณ์ Ve กับ Ce อยู่ในรายการ ทั้งที่สมการ D-1 ไม่ได้ใช้ เพราะทั้งสองตัวคือที่มาของ N ในขั้นก่อนหน้า</p></div>
+      <div class="eq"><b>N = Ve × (Ce − Co)  ≈  Ve × Ce</b>
+
+Ve  อัตราหายใจของคนนั่งพัก  ≈ 0.11 L/s = 6.6 ลิตร/นาที
+Ce  CO₂ ในลมหายใจออก       ≈ 40,000 ppm = 4%
+
+N   = 0.11 × 0.04 = <b>0.0044 L/s</b> = 4.4 mL/s</div>
+      <div class="prose">
+        <p>ตัด Co ทิ้งได้เพราะ 400 ppm เล็กมากเมื่อเทียบกับ 40,000 ppm คิดเป็นความคลาดเคลื่อนราว 1% ส่วนค่า Ve ที่ 6.6 ลิตรต่อนาทีก็สอดคล้องกับอัตราหายใจจริงของผู้ใหญ่นั่งพัก ซึ่งอยู่ราว 6 ถึง 8 ลิตรต่อนาที</p>
+        <p>ค่า N ของแต่ละกิจกรรมดึงมาจาก ASHRAE Handbook Fundamentals บทที่ 9 ตาราง 4 ซึ่งคำนวณจากอัตราเมตาบอลิซึม ดูรายการเต็มได้ที่แท็บ ตารางอ้างอิง</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>สมการช่วงเปลี่ยนผ่าน</h3>
+      <div class="prose"><p>สมการสมดุลบอกแค่ว่าสุดท้ายจะไปหยุดที่ไหน แต่ไม่ได้บอกว่าใช้เวลาเท่าไร สมการช่วงเปลี่ยนผ่านจึงเอาสองส่วนมาบวกกัน คือ <b>ปลายทาง บวก ช่องว่างที่ยังเหลือ</b></p></div>
+      <div class="eq"><b>Cs(t) = Cs∞ + (C₀ − Cs∞) · e^(−Q·t/Vr)</b>
+
+Cs∞          ปลายทาง จากสมการสมดุล
+C₀           ค่าตอนเริ่มต้น
+(C₀ − Cs∞)   ระยะทางทั้งหมดที่ต้องเดิน
+e^(−Q·t/Vr)  เหลืออีกกี่ส่วนของระยะทาง
+
+ค่าคงเวลา τ = Vr / Q  คือเวลาเปลี่ยนอากาศทั้งห้องหนึ่งรอบ</div>
+      <div class="prose"><p>ก้อนเลขชี้กำลังแปลเป็นภาษาคนได้ง่ายมาก คือ <b>ทุกครั้งที่ผ่านไปหนึ่งค่าคงเวลา ช่องว่างที่เหลือจะหดลงเหลือราวหนึ่งในสามของเดิม</b></p></div>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr><th>เวลาที่ผ่านไป</th><th class="num">ช่องว่างที่เหลือ</th><th class="num">เดินทางไปแล้ว</th></tr></thead>
+          <tbody>
+            <tr><td>เริ่มต้น</td><td class="num">100%</td><td class="num">0%</td></tr>
+            <tr><td>1 × ค่าคงเวลา</td><td class="num">37%</td><td class="num">63%</td></tr>
+            <tr><td>2 × ค่าคงเวลา</td><td class="num">14%</td><td class="num">86%</td></tr>
+            <tr><td>3 × ค่าคงเวลา</td><td class="num">5%</td><td class="num">95%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note warn" style="margin-top:14px; margin-bottom:0"><b>ถ้าห้องไม่มีระบบระบายอากาศเลย</b> เมื่อ Q เป็นศูนย์ จะไม่มีอะไรพา CO₂ ออกไป ไม่มีปลายทาง ไม่มีเพดาน ค่าจะไต่เป็นเส้นตรงตามสมการ Cs(t) = C₀ + Pz·N·t / Vr สูตรสมดุลใช้อธิบายห้องแบบนี้ไม่ได้ ซึ่งคือเส้นประในกราฟหน้า Calculator</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เกณฑ์แต่ละตัวคำนวณอย่างไร</h3>
+      <div class="eq"><b>ASHRAE 62.1 Table 6-1</b>
+Vbz = (Rp × Pz + Ra × Az) × 3.6      ผลลัพธ์เป็น CMH
+
+<b>LEED และ WELL</b>
+= Vbz × 1.3                          สูงกว่าขั้นต่ำ 30%
+
+<b>กฎกระทรวง 39 · ห้องปรับอากาศ</b>
+= อัตรา (CMH ต่อ ตร.ม.) × Az
+
+<b>กฎกระทรวง 39 · ห้องไม่ปรับอากาศ</b>
+= อัตรา (ACH) × Vr
+
+<b>เพดาน CO₂ ของ ASHRAE 62.1</b>
+= Pz × N × 3600 / เพดานของหมวดนั้น</div>
+      <div class="note warn" style="margin-bottom:0"><b>ข้อควรระวังตอนยื่นแบบ</b> ASHRAE ระบุว่า Appendix D ซึ่งเป็นที่มาของวิธีคิดจาก CO₂ เป็นภาคผนวกเชิงข้อมูล ไม่ใช่ข้อกำหนดบังคับ ใช้ประเมินและอธิบายได้ แต่ใช้อ้างเป็นเกณฑ์ผ่านไม่ได้ ทางที่ใช้อ้างได้คือ Rp กับ Ra ใน Table 6-1</div>
+    </div>
+
+    <div class="card">
+      <h3>สมมติฐานและข้อจำกัด</h3>
+      <div class="prose">
+        <ol>
+          <li><b>สมมติว่าอากาศผสมกันทั่วห้อง</b> — ห้องจริงไม่เคยผสมสมบูรณ์ ค่าในโซนหายใจกลางฝูงชนมักสูงกว่าที่คำนวณ 10 ถึง 20% ถ้าจะรับประกันตัวเลขกับลูกค้า ควรเผื่อส่วนนี้</li>
+          <li><b>สมมติว่าคนอยู่ครบตลอดช่วงเวลา</b> — งานจริงคนทยอยเข้า ค่าจริงช่วงต้นจะต่ำกว่ากราฟ</li>
+          <li><b>ค่า N ผูกกับกิจกรรมที่เลือกอย่างเดียว</b> — เป็นตัวแปรที่อ่อนไหวที่สุด เปลี่ยนจากนั่งเป็นเต้นแล้วค่าเพิ่ม 3.6 เท่า ผลลัพธ์เลื่อนตามสัดส่วนตรง ๆ ต้องยืนยันรูปแบบการใช้งานจริงก่อนเสมอ</li>
+          <li><b>ค่า CO₂ ภายนอกเป็นค่าที่ตั้งเอง</b> — 400 ppm ใช้กันทั่วไป แต่ย่านเมืองจริงมักอยู่ 420 ถึง 480 ppm ถ้าใช้ค่าสูงขึ้น ผลลัพธ์ทุกค่าเลื่อนขึ้นเท่ากันแบบตรง ๆ</li>
+          <li><b>อากาศรั่วซึมตั้งไว้ที่ศูนย์</b> — เป็นการประมาณแบบปลอดภัย วัดค่าจริงได้โดยปล่อยให้คนออกจากห้องจนหมดแล้วบันทึกการลดลงของ CO₂ ตามเวลา</li>
+          <li><b>ไม่ได้นับแหล่ง CO₂ อื่นนอกจากคน</b> — ถ้ามีการเผาไหม้ เช่น เตาแก๊ส ต้องบวกเพิ่มเอง</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ที่มาอ้างอิง</h3>
+      <div class="prose">
+        <ul>
+          <li><b>สมการ D-1 และวิธีคิดจาก CO₂</b> — ASHRAE Standard 62.1 Appendix D (informative)</li>
+          <li><b>Rp, Ra, ความหนาแน่นมาตรฐาน และเพดาน CO₂ รายหมวด</b> — ASHRAE Standard 62.1 Table 6-1</li>
+          <li><b>อัตราปล่อย CO₂ ตามกิจกรรม</b> — ASHRAE Handbook Fundamentals 2017 บทที่ 9 ตาราง 4</li>
+          <li><b>อัตราการระบายอากาศตามกฎหมายไทย</b> — กฎกระทรวงฉบับที่ 39 (พ.ศ. 2537) ออกตามความในพระราชบัญญัติควบคุมอาคาร พ.ศ. 2522</li>
+          <li><b>อัตรา 15 cfm ต่อคนที่ใช้ตรวจซ้ำ</b> — ASHRAE Standard 62-1989</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-tables">
+  <div class="sectitle">ตารางอ้างอิง</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row">
+        <h3>ASHRAE 62.1 Table 6-1 · หมวดพื้นที่</h3>
+        <input type="search" id="catSearch" placeholder="ค้นหาหมวด…" style="width:240px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:inherit">
+      </div>
+      <div class="tablewrap" style="max-height:520px; overflow-y:auto">
+        <table class="dtable">
+          <thead><tr><th>กลุ่ม</th><th>หมวด</th><th class="num">Rp<br>L/s·คน</th><th class="num">Ra<br>L/s·ตร.ม.</th><th class="num">ความหนาแน่น<br>คน/100 ตร.ม.</th><th class="num">เพดาน CO₂<br>ppm เหนือภายนอก</th></tr></thead>
+          <tbody id="catTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>อัตราปล่อย CO₂ ตามกิจกรรม</h3>
+      <div class="prose"><p style="font-size:13px;color:var(--text-secondary)">ASHRAE Handbook Fundamentals 2017 บทที่ 9 ตาราง 4</p></div>
+      <div class="tablewrap" style="max-height:460px; overflow-y:auto">
+        <table class="dtable">
+          <thead><tr><th>กิจกรรม</th><th class="num">met</th><th class="num">CO₂ · mL/s ต่อคน</th></tr></thead>
+          <tbody id="actTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>กฎกระทรวงฉบับที่ 39 (พ.ศ. 2537)</h3>
+      <div class="prose"><p style="font-size:13px;color:var(--text-secondary)">ห้องปรับอากาศคิดเป็น CMH ต่อตารางเมตร ส่วนห้องไม่ปรับอากาศคิดเป็นจำนวนเท่าของปริมาตรห้องต่อชั่วโมง</p></div>
+      <div class="tablewrap" style="max-height:200px; overflow-y:auto; margin-bottom:14px">
+        <table class="dtable">
+          <thead><tr><th>ห้องปรับอากาศ</th><th class="num">CMH/ตร.ม.</th></tr></thead>
+          <tbody id="lawAcTable"></tbody>
+        </table>
+      </div>
+      <div class="tablewrap" style="max-height:200px; overflow-y:auto">
+        <table class="dtable">
+          <thead><tr><th>ห้องไม่ปรับอากาศ</th><th class="num">ACH</th></tr></thead>
+          <tbody id="lawNaTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="chartModal" role="dialog" aria-modal="true" aria-label="กราฟขยาย">
+  <div class="chart-modal-box">
+    <div class="chart-modal-head">
+      <h3>CO₂ ตลอดระยะเวลาใช้งาน</h3>
+      <div style="display:flex; gap:8px; align-items:center">
+        <button class="btn ghost" id="zoomReset">รีเซ็ตซูม</button>
+        <button class="chart-modal-close" id="modalClose" aria-label="ปิด">×</button>
+      </div>
+    </div>
+    <div class="chart-modal-body"><div class="canvas-wrap"><canvas id="chartBig"></canvas></div></div>
+    <div class="zoomhint">เลื่อนล้อเมาส์หรือใช้สองนิ้วเพื่อซูมแกนเวลา · ลากเพื่อเลื่อน · ดับเบิลคลิกเพื่อรีเซ็ต</div>
+  </div>
+</div>
+
+<script>
+var CATS=[["Animal Facilities", "Animal exam room (veterinary office)", 5.0, 0.6, 20.0, null], ["Animal Facilities", "Animal imaging (MRI/CT/PET)", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal operating rooms", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal postoperative recovery room", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal preparation rooms", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal procedure room", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal surgery scrub", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Large-animal holding room", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Necropsy", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Small-animal-cage room (static cages)", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Small-animal-cage room (ventilated cages)", 5.0, 0.9, 20.0, null], ["Correctional Facilities", "Booking/waiting", 3.8, 0.3, 50.0, 1200.0], ["Correctional Facilities", "Cell", 2.5, 0.6, 25.0, null], ["Correctional Facilities", "Dayroom", 2.5, 0.3, 30.0, 1500.0], ["Correctional Facilities", "Guard stations", 2.5, 0.3, 15.0, 1200.0], ["Educational Facilities", "Art classroom", 5.0, 0.9, 20.0, null], ["Educational Facilities", "Classrooms (ages 5 to 8)", 5.0, 0.6, 25.0, 600.0], ["Educational Facilities", "Classrooms (age 9 plus)", 5.0, 0.6, 35.0, 600.0], ["Educational Facilities", "Computer lab", 5.0, 0.6, 25.0, 600.0], ["Educational Facilities", "Daycare sickroom", 5.0, 0.9, 25.0, null], ["Educational Facilities", "Daycare (through age 4)", 5.0, 0.9, 25.0, null], ["Educational Facilities", "Lecture classroom", 3.8, 0.3, 65.0, 1200.0], ["Educational Facilities", "Lecture hall (fixed seats)", 3.8, 0.3, 150.0, 1200.0], ["Educational Facilities", "Libraries", 2.5, 0.6, 10.0, 600.0], ["Educational Facilities", "Media center", 5.0, 0.6, 25.0, 600.0], ["Educational Facilities", "Multiuse assembly", 3.8, 0.3, 100.0, 1200.0], ["Educational Facilities", "Music/theater/dance", 5.0, 0.3, 35.0, 2100.0], ["Educational Facilities", "Science laboratories", 5.0, 0.9, 25.0, null], ["Educational Facilities", "University/college laboratories", 5.0, 0.9, 25.0, null], ["Educational Facilities", "Wood/metal shop", 5.0, 0.9, 20.0, null], ["Food and Beverage Service", "Bars, cocktail lounges", 3.8, 0.9, 100.0, 1200.0], ["Food and Beverage Service", "Cafeteria/fast-food dining", 3.8, 0.9, 100.0, 900.0], ["Food and Beverage Service", "Kitchen (cooking)", 3.8, 0.6, 20.0, null], ["Food and Beverage Service", "Restaurant dining rooms", 3.8, 0.9, 70.0, 1500.0], ["General", "Break rooms", 2.5, 0.3, 25.0, 1500.0], ["General", "Coffee stations", 2.5, 0.3, 20.0, 1200.0], ["General", "Conference/meeting", 2.5, 0.3, 50.0, 1500.0], ["General", "Corridors", 0.0, 0.3, 0.0, null], ["General", "Occupiable storage rooms for liquids or gels", 2.5, 0.6, 2.0, null], ["Hotels, Motels, Resorts, Dormitories", "Barracks sleeping areas", 2.5, 0.3, 20.0, 900.0], ["Hotels, Motels, Resorts, Dormitories", "Bedroom/living room", 2.5, 0.3, 10.0, 600.0], ["Hotels, Motels, Resorts, Dormitories", "Laundry rooms, central", 2.5, 0.6, 10.0, null], ["Hotels, Motels, Resorts, Dormitories", "Laundry rooms within dwelling units", 2.5, 0.6, 10.0, null], ["Hotels, Motels, Resorts, Dormitories", "Lobbies/prefunction", 3.8, 0.3, 30.0, 1500.0], ["Hotels, Motels, Resorts, Dormitories", "Multipurpose assembly", 2.5, 0.3, 120.0, 1800.0], ["Miscellaneous Spaces", "Banks or bank lobbies", 3.8, 0.3, 15.0, 900.0], ["Miscellaneous Spaces", "Bank vaults/safe deposit", 2.5, 0.3, 5.0, 600.0], ["Miscellaneous Spaces", "Computer (not printing)", 2.5, 0.3, 4.0, 600.0], ["Miscellaneous Spaces", "Freezer and refrigerated spaces (<50°F [10°C])", 5.0, 0.0, 0.0, null], ["Miscellaneous Spaces", "Manufacturing where hazardous materials are not used", 5.0, 0.9, 7.0, 600.0], ["Miscellaneous Spaces", "Manufacturing where hazardous materials are used (excludes heavy industrial and chemical processes)", 5.0, 0.9, 7.0, null], ["Miscellaneous Spaces", "Pharmacy (prep. area)", 2.5, 0.9, 10.0, 900.0], ["Miscellaneous Spaces", "Photo studios", 2.5, 0.6, 10.0, null], ["Miscellaneous Spaces", "Shipping/receiving", 5.0, 0.6, 2.0, 700.0], ["Miscellaneous Spaces", "Sorting, packing, light assembly", 3.8, 0.6, 7.0, 900.0], ["Miscellaneous Spaces", "Telephone closets", 0.0, 0.0, 0.0, null], ["Miscellaneous Spaces", "Transportation waiting", 3.8, 0.3, 100.0, 1800.0], ["Miscellaneous Spaces", "Warehouses", 5.0, 0.3, 0.0, 700.0], ["Office Buildings", "Breakrooms", 2.5, 0.6, 50.0, 1500.0], ["Office Buildings", "Main entry lobbies", 2.5, 0.3, 10.0, 1200.0], ["Office Buildings", "Occupiable storage rooms for dry materials", 2.5, 0.3, 2.0, 700.0], ["Office Buildings", "Office space", 2.5, 0.3, 5.0, 600.0], ["Office Buildings", "Reception areas", 2.5, 0.3, 30.0, 2100.0], ["Office Buildings", "Telephone/data entry", 2.5, 0.3, 60.0, 1800.0], ["Public Assembly Spaces", "Auditorium seating area", 2.5, 0.3, 150.0, 1800.0], ["Public Assembly Spaces", "Courtrooms", 2.5, 0.3, 70.0, 1500.0], ["Public Assembly Spaces", "Legislative chambers", 2.5, 0.3, 50.0, 1800.0], ["Public Assembly Spaces", "Libraries", 2.5, 0.6, 10.0, 600.0], ["Public Assembly Spaces", "Lobbies", 2.5, 0.3, 150.0, 1800.0], ["Public Assembly Spaces", "Museums (children’s)", 3.8, 0.6, 40.0, 1800.0], ["Public Assembly Spaces", "Museums/galleries", 3.8, 0.3, 40.0, 1500.0], ["Public Assembly Spaces", "Places of religious worship", 2.5, 0.3, 120.0, 1800.0], ["Residential", "Common corridors", 0.0, 0.3, 120.0, null], ["Retail", "Sales (except as below)", 3.8, 0.6, 15.0, 900.0], ["Retail", "Barbershop", 3.8, 0.3, 25.0, null], ["Retail", "Beauty and nail salons", 10.0, 0.6, 25.0, null], ["Retail", "Coin-operated laundries", 3.8, 0.6, 20.0, 900.0], ["Retail", "Mall common areas", 3.8, 0.3, 40.0, 2100.0], ["Retail", "Pet shops (animal areas)", 3.8, 0.9, 10.0, null], ["Retail", "Supermarket", 3.8, 0.3, 8.0, 1500.0], ["Sports and Entertainment", "Bowling alley (seating)", 5.0, 0.6, 40.0, 900.0], ["Sports and Entertainment", "Disco/dance floors", 10.0, 0.3, 100.0, 1500.0], ["Sports and Entertainment", "Gambling casinos", 3.8, 0.9, 120.0, 1200.0], ["Sports and Entertainment", "Game arcades", 3.8, 0.9, 20.0, 900.0], ["Sports and Entertainment", "Gym, sports arena (play area)", 10.0, 0.9, 7.0, 900.0], ["Sports and Entertainment", "Health club/aerobics room", 10.0, 0.3, 40.0, 1500.0], ["Sports and Entertainment", "Health club/weight rooms", 10.0, 0.3, 10.0, 1500.0], ["Sports and Entertainment", "Spectator areas", 3.8, 0.3, 150.0, 1500.0], ["Sports and Entertainment", "Stages, studios", 5.0, 0.3, 70.0, 1500.0], ["Sports and Entertainment", "Swimming (pool and deck)", 0.0, 2.4, 0.0, null], ["Outpatient Health Care Facilities", "Birthing room", 5.0, 0.9, 15.0, null], ["Outpatient Health Care Facilities", "Class 1 imaging room", 3.8, 0.6, 5.0, null], ["Outpatient Health Care Facilities", "Dental operatory", 5.0, 0.9, 20.0, null], ["Outpatient Health Care Facilities", "General examination room", 3.8, 0.6, 20.0, null], ["Outpatient Health Care Facilities", "Other dental treatment area", 2.5, 0.3, 5.0, null], ["Outpatient Health Care Facilities", "Physical therapy exercise area", 10.0, 0.9, 7.0, null], ["Outpatient Health Care Facilities", "Physical therapy individual room", 5.0, 0.6, 20.0, null], ["Outpatient Health Care Facilities", "Physical therapeutic pool area", 0.0, 2.4, 0.0, null], ["Outpatient Health Care Facilities", "Prosthetics and othotics room", 5.0, 0.9, 20.0, null], ["Outpatient Health Care Facilities", "Psychiatric consultant room", 2.5, 0.3, 20.0, null], ["Outpatient Health Care Facilities", "Psychiatric examination room", 2.5, 0.3, 20.0, null], ["Outpatient Health Care Facilities", "Psychiatric group room", 2.5, 0.3, 50.0, null], ["Outpatient Health Care Facilities", "Psychiatric seclusion room", 5.0, 0.6, 5.0, null], ["Outpatient Health Care Facilities", "Speech therapy room", 2.5, 0.3, 20.0, null], ["Outpatient Health Care Facilities", "Urgent care examination room", 3.8, 0.6, 20.0, null], ["Outpatient Health Care Facilities", "Urgent care observation room", 2.5, 0.3, 20.0, null], ["Outpatient Health Care Facilities", "Urgent care treatment room", 3.8, 0.6, 20.0, null], ["Outpatient Health Care Facilities", "Urgent care triage room", 5.0, 0.9, 20.0, null]];
+var ACTS=[["Sleeping", "0.7", 2.9615], ["Reclining", "0.8", 3.3317], ["Seated, quiet", "1", 4.4423], ["Standing, relaxed", "1.2", 5.1826], ["Walking 3.2 km/h (0.9 m/s)", "2", 8.7128], ["Walking 4.3 km/h (1.2 m/s)", "2.6", 11.6713], ["Walking 6.4 km/h (1.8 m/s)", "3.8", 17.9993], ["Reading, seated", "1", 4.0721], ["Writing", "1", 4.4423], ["Typing", "1.1000000000000001", 4.8125], ["Filing, seated", "1.2", 5.1826], ["Filing, standing", "1.4", 5.923], ["Walking about", "1.7", 7.4731], ["Lifting/packing", "2.1", 9.1328], ["Driving car", "1.0 to 2.0", 6.4783], ["Flying aircraft, routine", "1.2", 5.1826], ["Flying aircraft, instrument landing", "1.8", 7.8829], ["Flying aircraft, combat", "2.4", 10.7982], ["Driving heavy vehicle", "3.2", 14.7677], ["Cooking", "1.6 to 2.0", 7.8829], ["Housecleaning", "2.0 to 3.4", 12.3081], ["Seated, heavy limb movement", "2.2000000000000002", 9.9383], ["Sawing (table saw)", "1.8", 7.8829], ["Light mechine work (electrical industry)", "2.0 to 2.4", 9.7472], ["Heavy mechine work", "4", 19.381], ["Handling 50 kg bags", "4", 19.381], ["Pick and shovel work", "4.0 to 4.8", 21.5728], ["Dancing, social", "2.4 to 4.4", 15.8971], ["Calisthenics/exercise", "3.0 to 4.0", 16.5689], ["Tennis, singles", "3.6 to 4.0", 19.6356], ["Basketball", "5.0 to 7.6", 31.2857], ["Wrestling, competitive", "7.0 to 8.7", 39.2143]];
+
+
+var LAW_AC=[["ห้างสรรพสินค้า (ทางเดินชมสินค้า)",2],["โรงงาน",2],["สำนักงาน",2],["สถานอาบ อบ นวด",2],
+["สถานที่สำหรับติดต่อธุรกิจในธนาคาร",2],["ห้องพักในโรงแรมหรืออาคารชุด",2],["ห้องปฏิบัติการ",2],["ห้องคนไข้",2],
+["ร้านตัดผม",3],["สถานกีฬาในร่ม",4],["โรงมหรสพ (บริเวณที่นั่งสำหรับคนดู)",4],["ห้องเรียน",4],
+["สถานบริหารร่างกาย",5],["ร้านเสริมสวย",5],["ห้องช่วยฉุกเฉิน",5],["ห้อง ไอ.ซี.ยู และห้อง ซี.ซี.ยู",5],
+["ห้องประชุม",6],["ห้องผ่าตัดและห้องคลอด",8],["ห้องน้ำ ห้องส้วม",10],
+["สถานที่จำหน่ายอาหารและเครื่องดื่ม (ห้องรับประทานอาหาร)",10],["ไนท์คลับ บาร์ หรือสถานลีลาศ",10],["ห้องครัว",30]];
+
+var LAW_NA=[["ห้องน้ำ ห้องส้วมของที่พักอาศัยหรือสำนักงาน",2],["ห้องน้ำ ห้องส้วมของอาคารสาธารณะ",4],
+["ที่จอดรถที่อยู่ต่ำกว่าระดับพื้นดิน",4],["โรงงาน",4],["โรงมหรสพ",4],["อาคารพาณิชย์",4],["ห้างสรรพสินค้า",4],
+["สถานที่จำหน่ายอาหารและเครื่องดื่ม",7],["สำนักงาน",7],["ห้องพักในโรงแรมหรืออาคารชุด",7],
+["ห้องครัวของที่พักอาศัย",12],["ห้องครัวของสถานที่จำหน่ายอาหารและเครื่องดื่ม",24]];
+
+(function(){
+'use strict';
+var $ = function(i){ return document.getElementById(i); };
+var C = { blue:'#2383E2', red:'#D44C47', orange:'#CB912F', grid:'#E3E2DE', txt:'#787774', ink:'#37352F', soft:'#F4F3F0' };
+var AC = 1, qTouched = false, view = null, lastDur = null;
+
+function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
+function fmt(n,d){ return (isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:d||0, maximumFractionDigits:d||0}); }
+
+/* ---------------- selects ---------------- */
+var groups = {}, catSel = $('cat');
+CATS.forEach(function(c,i){
+  if(!groups[c[0]]){ var g=document.createElement('optgroup'); g.label=c[0]; catSel.appendChild(g); groups[c[0]]=g; }
+  var o=document.createElement('option'); o.value=i; o.textContent=c[1]; groups[c[0]].appendChild(o);
+});
+var actSel = $('act');
+ACTS.forEach(function(a,i){
+  var o=document.createElement('option'); o.value=i;
+  o.textContent = a[1] ? a[0]+'  ('+a[1]+' met)' : a[0];
+  actSel.appendChild(o);
+});
+function fillLaw(){
+  var src = AC ? LAW_AC : LAW_NA, ls = $('law');
+  ls.innerHTML='';
+  src.forEach(function(r,i){
+    var o=document.createElement('option'); o.value=i;
+    o.textContent = r[0]+'  —  '+r[1]+(AC?' CMH/ตร.ม.':' ACH');
+    ls.appendChild(o);
+  });
+  ls.value = AC ? 20 : 4;
+}
+fillLaw();
+(function(){ for(var i=0;i<CATS.length;i++){ if(CATS[i][1]==='Conference/meeting'){ catSel.value=i; return; } } })();
+(function(){ for(var i=0;i<ACTS.length;i++){ if(ACTS[i][0]==='Seated, quiet'){ actSel.value=i; return; } } })();
+
+/* ---------------- model ---------------- */
+function state(){
+  var A = nv('w')*nv('l'), V = A*nv('h');
+  var lawArr = AC ? LAW_AC : LAW_NA;
+  return {
+    A:A, V:V,
+    cat: CATS[+catSel.value], act: ACTS[+actSel.value],
+    law: lawArr[+$('law').value] || lawArr[0],
+    Pz: Math.max(1, nv('pz')), N: ACTS[+actSel.value][2],
+    Q: Math.max(0, nv('q')), Co: nv('co'), C0: nv('c0'),
+    dur: Math.max(0.5, nv('dur')), inf: nv('inf')
+  };
+}
+function steady(s,Q){ return Q<=0 ? Infinity : s.Co + s.Pz*s.N*3600/Q; }
+function needFor(s,target){ var d = target - s.Co; return d<=0 ? Infinity : s.Pz*s.N*3600/d; }
+function at(s,t,Q){
+  var Qt = Q + s.inf*s.V, gen = s.Pz*s.N*0.0036;
+  if(Qt <= 0.5) return s.C0 + gen/s.V*1e6*t;
+  var e = s.Co + gen/Qt*1e6;
+  return e + (s.C0-e)*Math.exp(-Qt*t/s.V);
+}
+function criteria(s){
+  var out=[], c=s.cat;
+  if(c[2]!=null && c[3]!=null){
+    var v=(c[2]*s.Pz + c[3]*s.A)*3.6;
+    out.push({n:'ASHRAE 62.1 · Table 6-1', q:v, src:'Rp '+c[2]+' L/s·คน + Ra '+c[3]+' L/s·ตร.ม.'});
+    out.push({n:'LEED / WELL', q:v*1.3, src:'62.1 × 1.3'});
+  }
+  out.push({n:'กฎกระทรวงฉบับที่ 39', q: AC ? s.law[1]*s.A : s.law[1]*s.V,
+            src: s.law[0]+' — '+s.law[1]+(AC?' CMH/ตร.ม.':' ACH')});
+  if(c[5]!=null) out.push({n:'เพดาน CO₂ ของ ASHRAE 62.1', q: needFor(s, s.Co+c[5]),
+            src:'ไม่เกิน '+fmt(c[5])+' ppm เหนือภายนอก คือ '+fmt(s.Co+c[5])+' ppm'});
+  out.push({n:'เป้าหมาย 1,000 ppm', q: needFor(s,1000), src:'ระดับที่ถือว่าอากาศดี'});
+  return out;
+}
+function recommended(s){
+  var m=0; criteria(s).forEach(function(r){ if(isFinite(r.q) && r.q>m) m=r.q; });
+  return Math.ceil(m/100)*100;
+}
+
+/* ---------------- chart ---------------- */
+function niceStep(range){
+  var raw = range/5, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw/p;
+  var m = n<1.5?1 : n<3?2 : n<7?5 : 10;
+  return m*p;
+}
+function curView(dur){ return view || {t0:0, t1:dur}; }
+
+function draw(canvas){
+  var rect = canvas.getBoundingClientRect();
+  if(rect.width < 10 || rect.height < 10) return;
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(rect.width*dpr);
+  canvas.height = Math.round(rect.height*dpr);
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,rect.width,rect.height);
+
+  var s = state(), v = curView(s.dur);
+  var W = rect.width, H = rect.height, L = 56, R = 16, T = 18, B = 36;
+  var pw = W-L-R, ph = H-T-B;
+  if(pw < 40 || ph < 40) return;
+
+  var n = 160, main = [], ghost = [], lo = Infinity, hi = -Infinity, i, t, a, b;
+  for(i=0;i<=n;i++){
+    t = v.t0 + (v.t1-v.t0)*i/n;
+    a = at(s,t,s.Q); b = at(s,t,0);
+    main.push(a); ghost.push(b);
+    if(a<lo) lo=a; if(a>hi) hi=a;
+    if(b<lo) lo=b; if(b>hi) hi=b;
+  }
+  if(!isFinite(lo)||!isFinite(hi)){ lo=s.Co; hi=s.Co+1000; }
+  hi = Math.min(hi, 20000);
+  var pad = Math.max(80, (hi-lo)*0.12);
+  var ymin = Math.max(0, Math.min(lo, s.Co) - pad), ymax = hi + pad;
+  if(ymax-ymin < 200){ ymax = ymin+200; }
+  var step = niceStep(ymax-ymin);
+  ymin = Math.floor(ymin/step)*step; ymax = Math.ceil(ymax/step)*step;
+
+  function px(tt){ return L + (tt-v.t0)/(v.t1-v.t0)*pw; }
+  function py(c){ return T + ph - (Math.max(ymin,Math.min(ymax,c))-ymin)/(ymax-ymin)*ph; }
+
+  ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+  ctx.textBaseline = 'middle';
+
+  /* horizontal grid */
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  for(var yv = ymin; yv <= ymax+0.001; yv += step){
+    var y = Math.round(py(yv))+0.5;
+    ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-R,y); ctx.stroke();
+    ctx.fillStyle = C.txt; ctx.textAlign = 'right';
+    ctx.fillText(fmt(yv), L-8, y);
+  }
+
+  /* reference levels */
+  [[1000,'#2E7D32'],[1500,C.orange],[2000,C.red]].forEach(function(pair){
+    if(pair[0] > ymin && pair[0] < ymax){
+      var y = Math.round(py(pair[0]))+0.5;
+      ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = pair[1]; ctx.globalAlpha = .45;
+      ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-R,y); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = pair[1]; ctx.globalAlpha = .85; ctx.textAlign = 'right';
+      ctx.fillText(fmt(pair[0])+' ppm', W-R-4, y-9); ctx.globalAlpha = 1;
+    }
+  });
+
+  /* x axis */
+  var tspan = v.t1-v.t0, tstep = niceStep(tspan*5/6);
+  if(tstep <= 0) tstep = tspan/6;
+  ctx.textAlign = 'center'; ctx.fillStyle = C.txt;
+  var firstT = Math.ceil(v.t0/tstep)*tstep;
+  for(var tt = firstT; tt <= v.t1+1e-9; tt += tstep){
+    var x = Math.round(px(tt))+0.5;
+    ctx.save(); ctx.strokeStyle = C.grid; ctx.globalAlpha=.7;
+    ctx.beginPath(); ctx.moveTo(x,T); ctx.lineTo(x,T+ph); ctx.stroke(); ctx.restore();
+    ctx.fillText(tt.toFixed(tstep<0.5?2:1)+' ชม.', x, T+ph+15);
+  }
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(L, Math.round(T+ph)+0.5); ctx.lineTo(W-R, Math.round(T+ph)+0.5); ctx.stroke();
+
+  function line(arr, color, dash, width){
+    ctx.save(); ctx.beginPath();
+    if(dash) ctx.setLineDash(dash);
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin='round'; ctx.lineCap='round';
+    for(var k=0;k<=n;k++){
+      var xx = px(v.t0 + (v.t1-v.t0)*k/n), yy = py(arr[k]);
+      if(k===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+    }
+    ctx.stroke(); ctx.restore();
+  }
+  /* area under main line */
+  ctx.save();
+  ctx.beginPath();
+  for(var k2=0;k2<=n;k2++){
+    var xx2 = px(v.t0 + (v.t1-v.t0)*k2/n), yy2 = py(main[k2]);
+    if(k2===0) ctx.moveTo(xx2,yy2); else ctx.lineTo(xx2,yy2);
+  }
+  ctx.lineTo(px(v.t1), T+ph); ctx.lineTo(px(v.t0), T+ph); ctx.closePath();
+  ctx.fillStyle = 'rgba(35,131,226,0.07)'; ctx.fill();
+  ctx.restore();
+
+  line(ghost, C.red, [6,5], 1.5);
+  line(main, C.blue, null, 2.5);
+
+  /* end marker */
+  var endT = Math.min(s.dur, v.t1), endV = at(s, endT, s.Q);
+  if(endT >= v.t0 && endT <= v.t1){
+    var ex = px(endT), ey = py(endV);
+    ctx.fillStyle = C.blue; ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey, 1.6, 0, Math.PI*2); ctx.fill();
+    var lbl = fmt(Math.round(endV))+' ppm';
+    ctx.font = '600 12px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+    var tw = ctx.measureText(lbl).width, lx = ex + 10, right = false;
+    if(lx + tw > W-R){ lx = ex - 10 - tw; right = true; }
+    ctx.fillStyle = '#fff'; ctx.globalAlpha=.9;
+    ctx.fillRect(lx-4, ey-20, tw+8, 16); ctx.globalAlpha=1;
+    ctx.fillStyle = C.ink; ctx.textAlign='left';
+    ctx.fillText(lbl, lx, ey-12);
+  }
+
+  /* legend */
+  ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+  ctx.textAlign = 'left';
+  var lgx = L+6, lgy = T+8;
+  ctx.strokeStyle = C.blue; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(lgx,lgy); ctx.lineTo(lgx+16,lgy); ctx.stroke();
+  ctx.fillStyle = C.txt; ctx.fillText('ตามลมที่ตั้งไว้', lgx+22, lgy);
+  var lg2 = lgx + 24 + ctx.measureText('ตามลมที่ตั้งไว้').width + 16;
+  ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle = C.red; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(lg2,lgy); ctx.lineTo(lg2+16,lgy); ctx.stroke(); ctx.restore();
+  ctx.fillStyle = C.txt; ctx.fillText('ไม่มีระบบระบายอากาศ', lg2+22, lgy);
+}
+
+function redraw(){
+  draw($('chart'));
+  if($('chartModal').classList.contains('open')) draw($('chartBig'));
+}
+
+/* ---------------- pan / zoom ---------------- */
+function attachZoom(canvas){
+  var pts = {}, prevDist = 0;
+  function plot(){ var r = canvas.getBoundingClientRect(); return {r:r, L:56, pw: r.width-56-16}; }
+  function setView(t0, span, dur){
+    span = Math.min(dur, Math.max(dur/200, span));
+    t0 = Math.max(0, Math.min(dur-span, t0));
+    view = {t0:t0, t1:t0+span};
+  }
+  canvas.addEventListener('wheel', function(e){
+    e.preventDefault();
+    var s = state(), v = curView(s.dur), p = plot();
+    if(p.pw <= 0) return;
+    var fx = Math.min(1, Math.max(0, (e.clientX - p.r.left - p.L)/p.pw));
+    var tAt = v.t0 + (v.t1-v.t0)*fx;
+    var span = (v.t1-v.t0) * (e.deltaY > 0 ? 1.18 : 1/1.18);
+    span = Math.min(s.dur, Math.max(s.dur/200, span));
+    setView(tAt - fx*span, span, s.dur);
+    redraw();
+  }, {passive:false});
+
+  canvas.addEventListener('pointerdown', function(e){
+    canvas.setPointerCapture(e.pointerId);
+    pts[e.pointerId] = e.clientX;
+    if(Object.keys(pts).length === 2){
+      var k = Object.keys(pts); prevDist = Math.abs(pts[k[0]] - pts[k[1]]);
+    }
+  });
+  canvas.addEventListener('pointermove', function(e){
+    if(!(e.pointerId in pts)) return;
+    var s = state(), v = curView(s.dur), p = plot();
+    if(p.pw <= 0) return;
+    var keys = Object.keys(pts);
+    if(keys.length === 1){
+      var dx = e.clientX - pts[e.pointerId];
+      pts[e.pointerId] = e.clientX;
+      var span = v.t1 - v.t0;
+      setView(v.t0 - dx/p.pw*span, span, s.dur);
+      redraw();
+    } else if(keys.length === 2){
+      pts[e.pointerId] = e.clientX;
+      var d = Math.abs(pts[keys[0]] - pts[keys[1]]);
+      if(prevDist > 4 && d > 4){
+        var mid = (pts[keys[0]] + pts[keys[1]])/2;
+        var fx = Math.min(1, Math.max(0, (mid - p.r.left - p.L)/p.pw));
+        var tAt = v.t0 + (v.t1-v.t0)*fx;
+        var sp = (v.t1-v.t0) * (prevDist/d);
+        setView(tAt - fx*sp, sp, s.dur);
+        redraw();
+      }
+      prevDist = d;
+    }
+  });
+  function up(e){ delete pts[e.pointerId]; prevDist = 0; }
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('dblclick', function(){ view = null; redraw(); });
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  var s = state();
+  if(lastDur !== s.dur){ view = null; lastDur = s.dur; }
+
+  var rec = recommended(s);
+  /* widen the track BEFORE writing a value, otherwise the old max clips it */
+  var sliderMax = Math.max(12000,
+                           Math.ceil(rec*2.2/1000)*1000,
+                           Math.ceil(nv('q')*1.1/1000)*1000);
+  $('q').max = sliderMax;
+  if(!qTouched && rec > 0 && Math.abs(rec - s.Q) > 0.5){
+    $('q').value = Math.min(rec, sliderMax); s = state();
+  }
+  $('tickMid').textContent = fmt(sliderMax/2);
+  $('tickMax').textContent = fmt(sliderMax);
+  var track = $('q').clientWidth || 300;
+  var mk = $('recmark');
+  if(rec > 0 && rec <= sliderMax){
+    mk.hidden = false;
+    mk.style.left = (10 + (rec/sliderMax)*(track-20)) + 'px';
+  } else { mk.hidden = true; }
+
+  $('qval').innerHTML = fmt(s.Q) + '<small>CMH</small>';
+  $('recchip').textContent = 'ค่าแนะนำ ' + fmt(rec) + ' CMH';
+  $('achchip').textContent = fmt(s.Q/(s.V||1), 2) + ' ACH';
+  $('lpschip').textContent = fmt(s.Q/3.6/s.Pz, 1) + ' L/s ต่อคน';
+  $('qhint').textContent = qTouched
+    ? 'ปรับเองอยู่ · กดปุ่ม “ใช้ค่าแนะนำ” เพื่อกลับไปที่ ' + fmt(rec) + ' CMH'
+    : 'ตั้งอัตโนมัติตามเกณฑ์ที่บังคับ · เลื่อนแถบเพื่อปรับเอง';
+
+  $('pzval').textContent = fmt(s.Pz);
+  $('dims').textContent = 'พื้นที่ ' + fmt(s.A,1) + ' ตร.ม. · ปริมาตร ' + fmt(s.V) + ' ลบ.ม.';
+  $('cathint').textContent = 'Rp ' + (s.cat[2]==null?'—':s.cat[2]) + ' · Ra ' + (s.cat[3]==null?'—':s.cat[3])
+    + ' · ความหนาแน่น ' + (s.cat[4]==null?'—':s.cat[4]) + ' คน/100 ตร.ม.'
+    + (s.cat[5]==null ? ' · ไม่มีเกณฑ์ CO₂' : ' · เพดาน CO₂ +' + fmt(s.cat[5]) + ' ppm');
+  $('lawhint').textContent = AC
+    ? s.law[1] + ' × ' + fmt(s.A,1) + ' ตร.ม. = ' + fmt(s.law[1]*s.A) + ' CMH'
+    : s.law[1] + ' ACH × ' + fmt(s.V) + ' ลบ.ม. = ' + fmt(s.law[1]*s.V) + ' CMH';
+  $('acthint').textContent = 'ปล่อย CO₂ ' + s.N + ' mL/s ต่อคน · รวม ' + fmt(s.Pz*s.N) + ' mL/s ทั้งห้อง';
+
+  var end = at(s, s.dur, s.Q), ss = steady(s, s.Q);
+  var ceil = s.cat[5]!=null ? s.Co + s.cat[5] : 1900;
+  var cls = end < 1000 ? 'ok' : end < ceil ? 'warn' : 'bad';
+  var tau = (s.Q + s.inf*s.V) > 0 ? s.V/(s.Q + s.inf*s.V)*60 : null;
+  $('kpis').innerHTML =
+    '<div class="kpi-card"><div class="kpi-value '+cls+'">'+(isFinite(end)?fmt(Math.round(end)):'∞')+'<small>ppm</small></div>'
+      +'<div class="kpi-label">CO₂ ตอนจบช่วงเวลา</div><div class="kpi-note">'
+      +(end<800?'อากาศดีมาก':end<1000?'อยู่ในเกณฑ์ดี':end<1400?'ยอมรับได้':end<ceil?'เริ่มอึดอัด':'เกินเพดานของหมวดนี้')+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-value">'+(isFinite(ss)?fmt(Math.round(ss)):'∞')+'<small>ppm</small></div>'
+      +'<div class="kpi-label">ที่สภาวะคงที่</div><div class="kpi-note">ถ้าใช้งานยาวพอ</div></div>'
+    +'<div class="kpi-card"><div class="kpi-value">'+fmt(s.Q/(s.V||1),2)+'</div>'
+      +'<div class="kpi-label">อัตราเปลี่ยนอากาศ · ACH</div><div class="kpi-note">'+fmt(s.Q/3.6/s.Pz,1)+' L/s ต่อคน</div></div>'
+    +'<div class="kpi-card"><div class="kpi-value">'+(tau?fmt(tau):'—')+'<small>นาที</small></div>'
+      +'<div class="kpi-label">ค่าคงเวลาห้อง</div><div class="kpi-note">'+(tau?'ไล่อากาศก่อนใช้งาน '+fmt(tau*3)+' นาที':'ไม่มีลมเข้า')+'</div></div>';
+
+  var cr = criteria(s), gov = null;
+  $('reqs').innerHTML = cr.map(function(r){
+    if(isFinite(r.q) && (!gov || r.q > gov.q)) gov = r;
+    var inf = !isFinite(r.q), pass = s.Q >= r.q;
+    return '<tr><td>'+r.n+'</td><td class="num">'+(inf?'—':fmt(Math.round(r.q)))+'</td>'
+      +'<td class="num">'+(inf||!s.V?'—':fmt(r.q/s.V,2))+'</td>'
+      +'<td style="color:var(--text-secondary);font-size:12px">'+r.src+'</td>'
+      +'<td class="num"><span class="badge '+(inf?'na':pass?'ok':'bad')+'">'
+      +(inf?'ไม่มีเกณฑ์':pass?'ผ่าน':'ขาด '+fmt(Math.round(r.q-s.Q)))+'</span></td></tr>';
+  }).join('');
+  if(gov){
+    var rows = $('reqs').querySelectorAll('tr');
+    cr.forEach(function(r,i){ if(r === gov && rows[i]) rows[i].className = 'gov'; });
+    $('gov').innerHTML = '<b>เกณฑ์ที่บังคับคือ '+gov.n+'</b> ที่ '+fmt(Math.round(gov.q))+' CMH — '
+      + (s.Q >= gov.q ? 'ลมที่ตั้งไว้ '+fmt(s.Q)+' CMH ผ่านทุกเกณฑ์แล้ว'
+                      : 'ต้องเพิ่มลมอีก '+fmt(Math.round(gov.q-s.Q))+' CMH จึงจะผ่านครบ');
+  } else {
+    $('gov').innerHTML = '<b>ไม่มีเกณฑ์ที่คำนวณได้</b> ลองตรวจว่าเป้าหมาย CO₂ สูงกว่าอากาศภายนอกหรือไม่';
+  }
+
+  var tg = nv('target'), need = needFor(s, tg);
+  $('need').innerHTML = (isFinite(need) ? fmt(Math.round(need)) : '∞') + '<small>CMH</small>';
+  $('eq').innerHTML =
+    'ไปข้างหน้า  Cs = Co + Pz × N × 3600 / Q\n'
+   +'            Cs = '+fmt(s.Co)+' + '+fmt(s.Pz)+' × '+s.N+' × 3600 / '+fmt(s.Q)+'\n'
+   +'            Cs = <b>'+(isFinite(ss)?fmt(Math.round(ss)):'∞')+' ppm</b>\n\n'
+   +'ย้อนกลับ    Q  = Pz × N × 3600 / (Cs − Co)\n'
+   +'            Q  = '+fmt(s.Pz)+' × '+s.N+' × 3600 / ('+fmt(tg)+' − '+fmt(s.Co)+')\n'
+   +'            Q  = <b>'+(isFinite(need)?fmt(Math.round(need))+' CMH':'∞')+'</b>';
+
+  redraw();
+}
+
+/* ---------------- reference tables ---------------- */
+function buildTables(filter){
+  filter = (filter||'').toLowerCase();
+  $('catTable').innerHTML = CATS.filter(function(c){
+    return !filter || (c[0]+' '+c[1]).toLowerCase().indexOf(filter) >= 0;
+  }).map(function(c){
+    return '<tr><td style="color:var(--text-secondary);font-size:12px">'+c[0]+'</td><td>'+c[1]+'</td>'
+      +'<td class="num">'+(c[2]==null?'—':c[2])+'</td><td class="num">'+(c[3]==null?'—':c[3])+'</td>'
+      +'<td class="num">'+(c[4]==null?'—':c[4])+'</td><td class="num">'+(c[5]==null?'NA':fmt(c[5]))+'</td></tr>';
+  }).join('');
+  $('actTable').innerHTML = ACTS.map(function(a){
+    return '<tr><td>'+a[0]+'</td><td class="num">'+(a[1]||'—')+'</td><td class="num">'+a[2]+'</td></tr>';
+  }).join('');
+  $('lawAcTable').innerHTML = LAW_AC.map(function(r){ return '<tr><td>'+r[0]+'</td><td class="num">'+r[1]+'</td></tr>'; }).join('');
+  $('lawNaTable').innerHTML = LAW_NA.map(function(r){ return '<tr><td>'+r[0]+'</td><td class="num">'+r[1]+'</td></tr>'; }).join('');
+}
+
+/* ---------------- events ---------------- */
+['w','l','h','pz','co','c0','dur','inf','target'].forEach(function(id){
+  $(id).addEventListener('input', render);
+});
+['cat','act','law'].forEach(function(id){ $(id).addEventListener('change', render); });
+
+$('q').addEventListener('input', function(){ qTouched = true; render(); });
+$('userec').addEventListener('click', function(){ qTouched = false; render(); });
+function bump(d){
+  qTouched = true;
+  var mx = parseFloat($('q').max) || 14000;
+  $('q').value = Math.max(0, Math.min(mx, nv('q') + d));
+  render();
+}
+$('qup').addEventListener('click', function(){ bump(100); });
+$('qdown').addEventListener('click', function(){ bump(-100); });
+$('applyTarget').addEventListener('click', function(){
+  var s = state(), need = needFor(s, nv('target'));
+  if(!isFinite(need)) return;
+  qTouched = true;
+  var v = Math.ceil(need/100)*100;
+  if(v > (parseFloat($('q').max)||0)) $('q').max = Math.ceil(v*1.2/1000)*1000;
+  $('q').value = v;
+  render();
+});
+$('acmode').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  AC = +b.dataset.ac;
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  fillLaw(); render();
+});
+$('usedens').addEventListener('click', function(){
+  var s = state();
+  if(s.cat[4] != null && s.A > 0){ $('pz').value = Math.max(1, Math.round(s.cat[4]/100*s.A)); render(); }
+});
+$('resetBtn').addEventListener('click', function(){
+  $('w').value=14; $('l').value=21; $('h').value=6; $('pz').value=250;
+  $('co').value=400; $('c0').value=400; $('dur').value=3; $('inf').value=0; $('target').value=1000;
+  AC = 1;
+  $('acmode').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.ac==='1'); });
+  fillLaw();
+  for(var i=0;i<CATS.length;i++){ if(CATS[i][1]==='Conference/meeting'){ catSel.value=i; break; } }
+  for(var j=0;j<ACTS.length;j++){ if(ACTS[j][0]==='Seated, quiet'){ actSel.value=j; break; } }
+  qTouched = false; view = null;
+  render();
+});
+
+document.querySelector('.tabs').addEventListener('click', function(e){
+  var b = e.target.closest('.tab'); if(!b) return;
+  this.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x===b); });
+  ['calc','ref','tables'].forEach(function(p){
+    $('page-'+p).classList.toggle('active', p === b.dataset.page);
+  });
+  window.scrollTo(0,0);
+  if(b.dataset.page === 'calc') setTimeout(redraw, 0);
+});
+
+$('catSearch').addEventListener('input', function(){ buildTables(this.value); });
+
+function openModal(){
+  $('chartModal').classList.add('open');
+  setTimeout(function(){ draw($('chartBig')); }, 30);
+}
+function closeModal(){ $('chartModal').classList.remove('open'); }
+$('expandBtn').addEventListener('click', openModal);
+$('modalClose').addEventListener('click', closeModal);
+$('zoomReset').addEventListener('click', function(){ view = null; redraw(); });
+$('chartModal').addEventListener('click', function(e){ if(e.target === this) closeModal(); });
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeModal(); });
+
+attachZoom($('chart'));
+attachZoom($('chartBig'));
+window.addEventListener('resize', function(){ redraw(); });
+
+$('stamp').textContent = 'สูตรอ้างอิง ASHRAE 62.1 · ปรับปรุง 21/8/2026';
+$('foot').textContent = 'ตารางหมวดพื้นที่ อัตราปล่อย CO₂ และอัตราตามกฎหมาย ดึงมาจากไฟล์ room datasheet ที่ทีมใช้งานอยู่ · แบบจำลองสมมติว่าอากาศผสมกันทั่วห้องและคนอยู่ครบตลอดช่วงเวลา ค่าจริงในโซนหายใจกลางฝูงชนมักสูงกว่าที่คำนวณ 10–20% · เกณฑ์ CO₂ ของ ASHRAE 62.1 เป็นภาคผนวกเชิงข้อมูล ใช้อ้างเป็นเกณฑ์ผ่านไม่ได้';
+
+buildTables('');
+render();
+})();
+</script>
+</body>
+</html>
