@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F7F5">
+<meta name="description" content="คำนวณเสียงที่รั่วออกทางช่องลม">
+<title>Noise Breakout Calculator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23D44C47'/%3E%3Ctext x='16' y='23' font-size='17' font-family='Helvetica,Arial' font-weight='bold' fill='white' text-anchor='middle'%3EdB%3C/text%3E%3C/svg%3E">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F7F5;
+  --surface: #F4F3F0;
+  --card-bg: #FFFFFF;
+  --border: #E3E2DE;
+  --text: #37352F;
+  --text-secondary: #787774;
+  --blue: #2383E2;
+  --red: #D44C47;
+  --purple: #6940A5;
+  --green: #669BBC;
+  --orange: #CB912F;
+  --gray: #9B9A97;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .sub { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.timestamp { font-size: 12px; color: var(--text-secondary); }
+
+.btn {
+  background: var(--blue); color: #fff; border: none;
+  padding: 6px 14px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; font-weight: 500; transition: opacity .15s; font-family: inherit;
+}
+.btn:hover { opacity: .85; }
+.btn:active { opacity: .7; }
+.btn.ghost { background: none; border: 1px solid var(--border); color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--surface); color: var(--text); opacity: 1; }
+
+.tabs {
+  display: flex; gap: 0; background: var(--card-bg);
+  border-bottom: 1px solid var(--border); padding: 0 32px; flex-wrap: wrap;
+  position: sticky; top: 65px; z-index: 99;
+}
+.tab {
+  padding: 10px 20px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+  user-select: none; background: none; border-top: 0; border-left: 0; border-right: 0; font-family: inherit;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.page { display: none; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+.kpi-value { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi-value.ok { color: #2E7D32; } .kpi-value.warn { color: var(--orange); } .kpi-value.bad { color: var(--red); }
+.kpi-value small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 4px; }
+.kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+.kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
+
+.chart-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+.chart-grid.g1 { grid-template-columns: 1fr; }
+.chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) {
+  .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
+  .page { padding: 16px; }
+  .header { padding: 12px 16px; }
+  .tabs { padding: 0 16px; top: 61px; }
+}
+
+.chart-grid > *, .kpi-row > * { min-width: 0; }
+.card > * { max-width: 100%; }
+.card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; position: relative; }
+.card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.card-title-row h3 { margin-bottom: 0; }
+
+.card-expand-btn {
+  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px;
+  border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer;
+  color: #787774; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; z-index: 5; font-family: inherit;
+}
+.card:hover .card-expand-btn { opacity: 1; }
+.card-expand-btn:focus-visible { opacity: 1; }
+.card-expand-btn:hover { background: var(--surface); color: #37352F; }
+
+#chartModal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
+#chartModal.open { display: flex; }
+.chart-modal-box { background: #fff; border-radius: 12px; padding: 20px 26px; width: min(1100px, 94vw); height: min(78vh, 700px); display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.chart-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+.chart-modal-head h3 { font-size: 15px; font-weight: 600; }
+.chart-modal-close { border: none; background: none; font-size: 22px; color: #787774; cursor: pointer; line-height: 1; font-family: inherit; }
+.chart-modal-close:hover { color: #37352F; }
+.chart-modal-body { flex: 1; position: relative; min-height: 0; }
+
+.canvas-wrap { position: relative; width: 100%; height: 300px; }
+.canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.canvas-wrap canvas:active { cursor: grabbing; }
+.chart-modal-body .canvas-wrap { height: 100%; }
+.zoomhint { font-size: 11.5px; color: var(--gray); margin-top: 8px; }
+.refwrap{position:relative; display:inline-block; margin-top:12px}
+.refbtn{
+  display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:12.5px;
+  padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500;
+}
+.refbtn:hover{background:var(--surface); color:var(--text)}
+.refbtn .caret{font-size:9px; opacity:.7; transition:transform .15s}
+.refbtn.open .caret{transform:rotate(180deg)}
+.refmenu{
+  display:none; position:absolute; left:0; top:calc(100% + 6px); z-index:60;
+  background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; min-width:330px;
+  max-height:340px; overflow-y:auto;
+}
+.refmenu.open{display:block}
+.refgroup{
+  font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--gray); padding:8px 10px 3px;
+}
+.refitem{
+  display:flex; align-items:flex-start; gap:9px; width:100%; text-align:left; background:none;
+  border:0; padding:7px 10px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px;
+  color:var(--text); line-height:1.4;
+}
+.refitem:hover{background:var(--surface)}
+.refitem .tick{
+  width:14px; height:14px; border-radius:4px; border:1.5px solid var(--border); flex:none;
+  margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;
+}
+.refitem.on .tick{background:var(--text); border-color:var(--text)}
+.refitem .body{flex:1; min-width:0}
+.refitem .val{font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; margin-left:8px}
+.refitem .note{display:block; font-size:11px; color:var(--gray); margin-top:1px}
+.refitem.na{opacity:.45; cursor:not-allowed}
+.refitem .dash{display:inline-block; width:14px; border-top:2px dashed currentColor; vertical-align:middle; margin-right:5px}
+.refchip{
+  display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:11.5px;
+  padding:4px 10px; border-radius:20px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500; transition:.12s;
+}
+.refchip:hover{border-color:var(--gray); color:var(--text)}
+.refchip .sw{width:14px; height:0; border-top:2px dashed currentColor; opacity:.5; flex:none}
+.refchip.on{color:var(--text); background:var(--surface-2)}
+.refchip.on .sw{opacity:1}
+.refchip.off-scale{opacity:.5}
+
+/* form controls */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.flabel { font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+input[type=number], select {
+  width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: var(--card-bg); color: var(--text);
+}
+input[type=number] { font-variant-numeric: tabular-nums; }
+select { cursor: pointer; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 11.5px; color: var(--gray); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+.segbar { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segbar button {
+  flex: 1; padding: 6px 8px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  background: var(--card-bg); color: var(--text-secondary); border: 0; border-right: 1px solid var(--border); font-weight: 500;
+}
+.segbar button:last-child { border-right: 0; }
+.segbar button.active { background: var(--text); color: #fff; }
+
+/* airflow slider block */
+.flowhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.flowval { font-size: 38px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.flowval small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 5px; }
+.flowmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { font-size: 12px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); font-weight: 500; }
+.chip.rec { border-color: #BBDDF7; background: #EDF6FD; color: #1B6FBF; }
+.stepbtn { width: 30px; height: 28px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; cursor: pointer; color: var(--text-secondary); font-size: 15px; font-family: inherit; line-height: 1; }
+.stepbtn:hover { background: var(--surface); color: var(--text); }
+
+.slider-wrap { position: relative; padding-top: 4px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer; margin: 8px 0 4px; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-moz-range-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); margin-top: -8px; }
+input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.recmark { position: absolute; top: 0; width: 2px; height: 22px; background: var(--blue); opacity: .45; pointer-events: none; border-radius: 1px; }
+
+/* tables */
+.tablewrap { overflow-x: auto; }
+table.dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.dtable th { background: var(--surface); font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.dtable td { padding: 7px 10px; border-bottom: 1px solid #f0f0ed; }
+table.dtable tr:hover td { background: #FAFAF8; }
+table.dtable td.num, table.dtable th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.gov td { background: #EDF6FD !important; font-weight: 600; }
+.badge { font-size: 11.5px; padding: 2px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; display: inline-block; }
+.badge.ok { background: #E8F3E9; color: #2E7D32; }
+.badge.bad { background: #FBEAE9; color: var(--red); }
+.badge.na { background: var(--surface); color: var(--gray); }
+
+.eq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.9;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue);
+  border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre;
+  font-variant-numeric: tabular-nums; color: var(--text-secondary); margin-bottom: 14px;
+}
+.eq b { color: var(--text); font-weight: 600; }
+.note { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #F6FAFE; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
+.note.warn { border-left-color: var(--orange); background: #FDF8EF; }
+.note b { color: var(--text); }
+.prose { font-size: 14px; color: var(--text); }
+.prose p { margin-bottom: 12px; max-width: 74ch; }
+.prose h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
+.prose ul, .prose ol { margin: 0 0 14px 20px; max-width: 74ch; }
+.prose li { margin-bottom: 6px; }
+.sectitle { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+/* embedded inside Design Management Dashboard */
+.embed .header { display: none; }
+.embed .tabs { position: static; top: auto; padding: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; background: transparent; }
+.embed .page { padding: 0; max-width: none; }
+.embed body { background: transparent; height: -moz-fit-content; height: fit-content; overflow: hidden; }
+.footer { color: var(--gray); font-size: 12px; padding: 18px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
+
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px}
+.dtable input[type=number]{padding:4px 6px; font-size:12.5px; border:1px solid var(--border); border-radius:4px; background:var(--card-bg); color:var(--text)}
+.dtable input[type=checkbox]{accent-color:var(--blue); width:15px; height:15px}
+.sectitle{font-size:22px; font-weight:700; margin-bottom:20px}
+.ref h3{font-size:15px}
+.warnbox{border:1px solid var(--border); border-left:4px solid var(--orange, #CB912F); background:#FDF8EF; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text-secondary)}
+.warnbox b{color:var(--text)}
+.prose{font-size:14px}
+.prose p{margin-bottom:12px; max-width:74ch}
+.prose ol,.prose ul{margin:0 0 14px 20px; max-width:74ch}
+.prose li{margin-bottom:6px}
+tfoot td{background:var(--surface); font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Noise Breakout Calculator</h1>
+    <div class="sub">เสียงที่รั่วออกทางช่องลม · ประกาศคณะกรรมการสิ่งแวดล้อมแห่งชาติ ฉบับที่ 15 และ 29</div>
+  </div>
+  <div class="header-right">
+    <span class="timestamp" id="stamp"></span>
+    <button class="btn ghost" id="resetBtn">Reset</button>
+  </div>
+</div>
+
+<div class="tabs" role="tablist">
+  <button class="tab active" data-page="calc">Calculator</button>
+  <button class="tab" data-page="ref">สมการอ้างอิง</button>
+  <button class="tab" data-page="law">กฎหมายและที่มา</button>
+</div>
+
+<div class="page active" id="page-calc">
+
+  <div class="kpi-row" id="kpis"></div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เสียงในห้อง</h3>
+      <div class="field">
+        <label class="flabel" for="lroom">ระดับเสียงรวม · dB(A)</label>
+        <input type="range" id="lroom" min="60" max="115" step="1" value="100">
+        <div class="ticks"><span>60</span><span>88</span><span>115</span></div>
+        <div class="hint"><b id="lroomVal">100</b> dB(A)</div>
+      </div>
+      <div class="field">
+        <span class="flabel">รูปร่างสเปกตรัม · เติมค่าให้อัตโนมัติแล้วแก้เองได้</span>
+        <div class="segbar" id="spectrum">
+          <button type="button" data-sp="music" class="active">ดนตรีขยายเสียง</button>
+          <button type="button" data-sp="speech">เสียงพูด</button>
+          <button type="button" data-sp="plant">ห้องเครื่อง</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="flabel">ระดับเสียงแยกย่านความถี่ · dB (แก้ได้ทุกช่อง)</span>
+        <div class="tablewrap">
+          <table class="dtable"><thead><tr id="bandHead"></tr></thead>
+          <tbody><tr id="bandRow"></tr></tbody></table>
+        </div>
+        <div class="hint" id="spechint"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>ช่องเปิด ระยะทาง และผนัง</h3>
+      <div class="field">
+        <span class="flabel">ขนาดช่องเปิด</span>
+        <div class="segbar" id="areaMode">
+          <button type="button" data-am="direct" class="active">ใส่พื้นที่เอง</button>
+          <button type="button" data-am="flow">คำนวณจากลม</button>
+        </div>
+      </div>
+      <div class="field" id="areaDirect">
+        <label class="flabel" for="area">พื้นที่ช่องเปิด · ตร.ม.</label>
+        <input type="number" id="area" value="1.0" min="0.01" step="0.05">
+      </div>
+      <div class="field" id="areaFlow" hidden>
+        <div class="grid2">
+          <div><label class="flabel" for="cmh">ปริมาณลม · CMH</label><input type="number" id="cmh" value="7000" min="0" step="100"></div>
+          <div><label class="flabel" for="fv">ความเร็วหน้าช่อง · ม./วิ</label><input type="number" id="fv" value="2.0" min="0.3" max="6" step="0.1"></div>
+        </div>
+        <div class="hint" id="areahint"></div>
+      </div>
+      <div class="field">
+        <label class="flabel" for="dist">ระยะถึงผู้รับเสียง · เมตร</label>
+        <input type="range" id="dist" min="3" max="80" step="1" value="10">
+        <div class="ticks"><span>3</span><span>40</span><span>80</span></div>
+        <div class="hint"><b id="distVal">10</b> เมตร</div>
+      </div>
+      <div class="field">
+        <label class="flabel" for="bg">ระดับเสียงพื้นฐานที่ผู้รับ · dB(A)</label>
+        <input type="range" id="bg" min="30" max="70" step="1" value="50">
+        <div class="ticks"><span>30</span><span>50</span><span>70</span></div>
+        <div class="hint"><b id="bgVal">50</b> dB(A) · เพดานเสียงรบกวน <b id="limVal">60</b> dB(A)</div>
+      </div>
+      <div class="field">
+        <div class="grid2">
+          <div><label class="flabel" for="wallA">พื้นที่ผนังด้านนั้น · ตร.ม.</label><input type="number" id="wallA" value="126" min="1" step="1"></div>
+          <div><label class="flabel" for="wallRw">ค่ากันเสียงผนัง Rw · dB</label><input type="number" id="wallRw" value="45" min="10" max="80" step="1"></div>
+        </div>
+        <div class="hint" id="wallhint"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row">
+        <h3>ชุดลดเสียงในเส้นทางลม</h3>
+        <span class="hint" id="ilsum"></span>
+      </div>
+      <div class="prose" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">
+        ค่าในตารางแก้ได้ทุกช่อง เมื่อได้ข้อมูลจากผู้ผลิตแล้วให้พิมพ์ทับลงไป แถวที่ติดป้ายว่าประมาณการคือค่าที่ยังไม่มีที่มายืนยัน
+      </div>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr id="elHead"></tr></thead>
+          <tbody id="elBody"></tbody>
+          <tfoot><tr id="elFoot"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <button class="card-expand-btn" id="expandBtn" title="ขยายกราฟ" aria-label="ขยายกราฟ">⤢</button>
+      <h3>ระดับเสียงที่ผู้รับ แยกตามย่านความถี่</h3>
+      <div class="canvas-wrap"><canvas id="chart"></canvas></div>
+      <div class="zoomhint" id="chartnote"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>เดินเลขทีละขั้น</h3>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr id="walkHead"></tr></thead>
+          <tbody id="walkBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เกณฑ์ที่ช่องเปิดต้องไม่ทำให้ผนังแย่ลง</h3>
+      <div class="eq" id="composite"></div>
+      <div class="note" id="compnote" style="margin-bottom:0"></div>
+    </div>
+    <div class="card">
+      <h3>ถ้าค่าที่ใส่คลาดเคลื่อน</h3>
+      <div class="prose" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">
+        สมมติว่าอุปกรณ์ทุกชิ้นทำงานได้ต่างจากที่ใส่ไว้เท่ากันทุกชิ้น ดูว่าข้อสรุปยังยืนอยู่ไหม
+      </div>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr><th>สมมติฐาน</th><th class="num">รวม dB(A)</th><th class="num">63 Hz</th><th>ผลต่อข้อสรุป</th></tr></thead>
+          <tbody id="sensBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer" id="foot"></div>
+</div>
+
+<div class="page ref" id="page-ref">
+  <div class="sectitle">สมการอ้างอิง</div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เส้นทางของเสียงจากห้องถึงเพื่อนบ้าน</h3>
+      <div class="prose"><p>เสียงในห้องเดินทางผ่านชุดลดเสียงในท่อ ออกทางช่องเปิด แล้วกระจายออกไปตามระยะทาง สามขั้นนี้คำนวณแยกกันแล้วต่อกัน</p></div>
+      <div class="eq"><b>ขั้นที่ 1 · ผ่านชุดลดเสียง</b>
+L<i>face</i> = L<i>room</i> − Σ IL
+
+<b>ขั้นที่ 2 · ช่องเปิดแผ่กำลังเสียงออกไป</b>
+L<i>w</i> = L<i>face</i> + 10·log₁₀(S) − 6
+
+<b>ขั้นที่ 3 · ระยะทางลดทอนแบบครึ่งทรงกลม</b>
+L<i>p</i>(r) = L<i>w</i> − 10·log₁₀(2πr²)
+
+ที่ระยะ 10 เมตร  10·log₁₀(2π × 100) = <b>28.0 dB</b>
+ที่ระยะ 20 เมตร  ลดเพิ่มอีก <b>6 dB</b> ทุกครั้งที่ระยะเพิ่มเป็นสองเท่า</div>
+      <div class="prose"><p>ทำทีละย่านความถี่ทั้ง 7 ย่าน แล้วค่อยรวมเป็น dB(A) ตอนท้าย ไม่ใช่คำนวณด้วย dB(A) ตั้งแต่ต้น เพราะอุปกรณ์ลดเสียงทำงานต่างกันมากในแต่ละย่าน</p></div>
+    </div>
+
+    <div class="card">
+      <h3>รวมค่าเป็น dB(A)</h3>
+      <div class="prose"><p>เดซิเบลบวกกันตรง ๆ ไม่ได้ ต้องแปลงกลับเป็นพลังงานก่อน</p></div>
+      <div class="eq"><b>L<i>A</i> = 10·log₁₀( Σ 10^((L<i>p,i</i> + A<i>i</i>)/10) )</b>
+
+ค่าถ่วงน้ำหนัก A ตามย่านความถี่
+  63 Hz   −26.2      1 kHz    0.0
+  125 Hz  −16.1      2 kHz   +1.2
+  250 Hz   −8.6      4 kHz   +1.0
+  500 Hz   −3.2</div>
+      <div class="warnbox" style="margin-bottom:0"><b>นี่คือเหตุผลที่ dB(A) หลอกตาเรื่องเสียงเบส</b> ที่ 63 Hz การถ่วงน้ำหนักหักออกถึง 26 dB เสียงเบสที่ดังจริง 60 dB จะนับเป็นแค่ 34 dB(A) ในผลรวม ทั้งที่คนได้ยินและรำคาญ ต้องดูค่าแยกย่านเสมอ</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เกณฑ์ผนังไม่แย่ลง</h3>
+      <div class="prose"><p>ถ้าเจาะช่องบนผนังที่กันเสียงดีอยู่แล้ว ช่องนั้นต้องไม่กลายเป็นทางลัดของเสียง เงื่อนไขคือกำลังเสียงที่ผ่านช่องต้องไม่มากกว่าที่ผ่านผนังทั้งผืน</p></div>
+      <div class="eq"><b>S<i>open</i> · 10^(−IL/10)  ≤  S<i>wall</i> · 10^(−Rw/10)</b>
+
+จัดรูปเป็นค่า IL ขั้นต่ำที่ต้องมี
+
+<b>IL ≥ Rw + 10·log₁₀( S<i>open</i> / S<i>wall</i> )</b></div>
+      <div class="prose"><p>ตัวอย่างผนัง 126 ตร.ม. ที่ Rw 45 dB เจาะช่อง 1 ตร.ม. จะได้ <span style="font-family:var(--mono)">45 + 10·log₁₀(1/126) = 45 − 21 = 24 dB</span> แปลว่าเส้นทางลมต้องลดเสียงได้อย่างน้อย 24 dB จึงจะไม่ทำให้ผนังเดิมเสียของ</p></div>
+      <div class="warnbox" style="margin-bottom:0"><b>acoustic louver ตัวเดียวไม่พอแน่นอน</b> ค่าจากแคตตาล็อกจริงของ louver 300 มม. อยู่ที่ 6 ถึง 18 dB ตามย่านความถี่ ต่ำกว่าเกณฑ์ 24 dB ที่ต้องการ จึงต้องมี silencer และท่อบุฉนวนเสริมเสมอ</div>
+    </div>
+
+    <div class="card">
+      <h3>ข้อจำกัดของแบบจำลองนี้</h3>
+      <div class="prose">
+        <ol>
+          <li><b>คิดเฉพาะเสียงที่ออกทางช่องลม</b> ไม่ได้คิดเสียงที่ทะลุผนัง ทะลุหลังคา ออกทางประตู หรือเสียงที่แผ่ออกทางผนังท่อระหว่างทาง ในงานจริงต้องรวมทุกทางแล้วบวกกันแบบพลังงาน</li>
+          <li><b>สมมติว่าแผ่กระจายแบบครึ่งทรงกลมในที่โล่ง</b> ถ้ามีผนังสะท้อนใกล้ช่อง เสียงจะดังกว่านี้ ถ้ามีสิ่งกีดขวางหรือกำแพงกันเสียงจะเบากว่านี้</li>
+          <li><b>ไม่ได้คิดการลดทอนของอากาศและพื้นดิน</b> ซึ่งมีผลที่ระยะไกลและที่ความถี่สูง การละไว้ทำให้ผลออกมาปลอดภัยไว้ก่อน</li>
+          <li><b>ค่า IL ของแต่ละชิ้นบวกกันตรง ๆ</b> ในงานจริงการต่อกันหลายชิ้นอาจได้ผลรวมน้อยกว่าผลบวก โดยเฉพาะเมื่อมีเสียงลอดข้างทาง</li>
+          <li><b>ไม่ได้คิดเสียงที่ตัวพัดลมสร้างเอง</b> ซึ่งออกทางช่องเดียวกัน ต้องคำนวณแยกแล้วบวกเข้าไป</li>
+          <li><b>ใช้ตัดสินใจเชิงทิศทางได้ ใช้เซ็นแบบก่อสร้างไม่ได้</b> ต้องให้วิศวกรอะคูสติกทวนสอบ</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page ref" id="page-law">
+  <div class="sectitle">กฎหมายและที่มา</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>กฎหมายเสียงของไทยที่เกี่ยวกับงานนี้</h3>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr><th>ประกาศ</th><th>กำหนดอะไร</th><th class="num">ค่า</th><th>ใช้กับงานนี้อย่างไร</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>คณะกรรมการสิ่งแวดล้อมแห่งชาติ ฉบับที่ 15 (พ.ศ. 2540)</b><br><span style="color:var(--gray);font-size:12px">มาตรฐานระดับเสียงโดยทั่วไป</span></td>
+              <td>ระดับเสียงเฉลี่ย 24 ชั่วโมง และระดับเสียงสูงสุด</td>
+              <td class="num">Leq 24 ชม. ≤ 70<br>L<sub>max</sub> ≤ 115</td>
+              <td>งานลักษณะนี้ผ่านสบาย ไม่ใช่ข้อจำกัดที่แท้จริง</td>
+            </tr>
+            <tr class="gov">
+              <td><b>คณะกรรมการสิ่งแวดล้อมแห่งชาติ ฉบับที่ 29 (พ.ศ. 2550)</b><br><span style="color:var(--gray);font-size:12px">ค่าระดับเสียงรบกวน · ราชกิจจานุเบกษา เล่ม 124 ตอนพิเศษ 98 ง</span></td>
+              <td>ระดับการรบกวน คือผลต่างระหว่างระดับเสียงขณะมีการรบกวน กับระดับเสียงพื้นฐาน</td>
+              <td class="num">เกิน 10 dB(A)<br>ถือเป็นเสียงรบกวน</td>
+              <td><b>ตัวนี้คือเกณฑ์ที่ตัดสินงานนี้จริง</b> และขึ้นกับว่าเสียงพื้นฐานที่แนวเขตเป็นเท่าไร</td>
+            </tr>
+            <tr>
+              <td><b>กรมควบคุมมลพิษ</b><br><span style="color:var(--gray);font-size:12px">วิธีตรวจวัด</span></td>
+              <td>วิธีวัดระดับเสียงพื้นฐาน ระดับเสียงขณะมีการรบกวน และการคำนวณระดับการรบกวน</td>
+              <td class="num">—</td>
+              <td>ต้องวัดตามวิธีนี้ผลจึงใช้อ้างได้</td>
+            </tr>
+            <tr>
+              <td><b>กฎกระทรวง พ.ศ. 2549</b><br><span style="color:var(--gray);font-size:12px">ตาม พ.ร.บ. คุ้มครองแรงงาน</span></td>
+              <td>ระดับเสียงในสถานประกอบการ</td>
+              <td class="num">90 dB(A) ที่ 8 ชม.</td>
+              <td>เกี่ยวกับพนักงานในห้อง ไม่ใช่เพื่อนบ้าน คนละเรื่องกับงานนี้</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="warnbox"><b>สิ่งที่ต้องวัดก่อนเขียนสัญญา</b> เกณฑ์ที่บังคับจริงคือ 10 dB(A) เหนือ<b>ระดับเสียงพื้นฐาน</b> ซึ่งไม่มีตัวเลขตายตัว ต้องไปวัดที่แนวเขตในช่วงเวลาที่จัดงานจริง ถ้าพื้นฐานกลางคืนเป็น 50 dB(A) เพดานคือ 60 แต่ถ้าเป็น 42 เพดานเหลือ 52 ซึ่งต่างกันมาก</div>
+      <div class="warnbox" style="border-left-color:#2383E2;background:#EBF4FC;margin-bottom:0"><b>หมายเหตุเรื่องเลขที่ประกาศ</b> แหล่งข้อมูลบางแห่งอ้างฉบับที่ 17 (พ.ศ. 2543) สำหรับเรื่องเสียงรบกวน ส่วนเว็บกรมควบคุมมลพิษระบุฉบับที่ 29 (พ.ศ. 2550) เป็นฉบับเรื่องค่าระดับเสียงรบกวน ผมใช้ฉบับที่ 29 เป็นหลัก แต่ยังไม่ได้เปิดตัวบทเพื่อยืนยันว่าฉบับ 29 ยกเลิกฉบับ 17 หรือไม่ ถ้าจะอ้างในเอกสารสัญญาควรตรวจตัวบทก่อน</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ที่มาของค่าลดเสียงแต่ละชิ้น</h3>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr><th>ชิ้นส่วน</th><th>ที่มา</th><th>ความมั่นใจ</th></tr></thead>
+          <tbody id="srcTable"></tbody>
+        </table>
+      </div>
+      <div class="warnbox" style="margin-bottom:0"><b>ทำไมต้องแก้ค่าเองได้</b> ค่าลดเสียงต่างกันมากระหว่างยี่ห้อและรุ่น แม้ความยาวเท่ากัน ตัวเลขที่ใส่มาให้เป็นเพียงจุดตั้งต้น เมื่อเลือกรุ่นจริงแล้วให้เปิดแคตตาล็อกแล้วพิมพ์ค่าทับลงไปในตารางหน้า Calculator ผลลัพธ์จะอัปเดตทันที</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ข้อมูลอ้างอิงของ acoustic louver ที่ใช้เป็นค่าตั้งต้น</h3>
+      <div class="prose"><p>ค่าเริ่มต้นของ acoustic louver ในเครื่องมือนี้มาจากแคตตาล็อกจริง ไม่ใช่ค่าประมาณ</p></div>
+      <div class="tablewrap">
+        <table class="dtable">
+          <thead><tr><th>รายการ</th><th>ค่า</th></tr></thead>
+          <tbody>
+            <tr><td>รุ่น</td><td>IAC Acoustics Slimshield SL-300 ลึก 300 มม. · เอกสารปรับปรุง 23/12/2019</td></tr>
+            <tr><td>Transmission Loss แยกย่าน</td><td class="mono">63 Hz 6 · 125 Hz 7 · 250 Hz 10 · 500 Hz 12 · 1k 18 · 2k 18 · 4k 14 · 8k 13 dB</td></tr>
+            <tr><td>Acoustic Rating</td><td>Rw 17 dB · Dnew 23 dB</td></tr>
+            <tr><td>พื้นที่เปิดสุทธิ</td><td>45% เฉลี่ยตลอดความลึก · Cd 0.233</td></tr>
+            <tr><td>ความดันตกคร่อม</td><td class="mono">0.94 ม./วิ → 10 Pa · 1.83 → 40 Pa · 2.13 → 50 Pa · 2.99 → 100 Pa</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="warnbox" style="margin-bottom:0"><b>ข้อสังเกตจากการเทียบกับค่าที่เคยประเมินไว้</b> ค่าที่เคยใช้ในข้อเสนอ Music Hall ต่ำกว่าแคตตาล็อกจริง 1 ถึง 6 dB ทุกย่าน แปลว่าประเมินไว้ปลอดภัยแล้ว แต่ <b>ความดันตกคร่อมประเมินต่ำไป</b> เคยเขียนว่า 25 ถึง 40 Pa ที่ 2 ม./วิ ขณะที่แคตตาล็อกให้ราว 46 Pa ต้องแก้ในสเปกพัดลม</div>
+    </div>
+  </div>
+</div>
+
+<div id="chartModal" role="dialog" aria-modal="true" aria-label="กราฟขยาย">
+  <div class="chart-modal-box">
+    <div class="chart-modal-head">
+      <h3>ระดับเสียงที่ผู้รับ แยกตามย่านความถี่</h3>
+      <button class="chart-modal-close" id="modalClose" aria-label="ปิด">×</button>
+    </div>
+    <div class="chart-modal-body"><div class="canvas-wrap"><canvas id="chartBig"></canvas></div></div>
+  </div>
+</div>
+
+
+<script>
+(function(){
+'use strict';
+var $ = function(i){ return document.getElementById(i); };
+var C = { blue:'#2383E2', red:'#D44C47', orange:'#CB912F', green:'#2E7D32',
+          grid:'#E3E2DE', txt:'#787774', ink:'#37352F', purple:'#6940A5' };
+
+var BANDS = [63,125,250,500,1000,2000,4000];
+var AW    = [-26.2,-16.1,-8.6,-3.2,0,1.2,1.0];
+/* indicative background spectrum shape relative to the overall dB(A);
+   an estimate, used only to draw the comparison line per band */
+var BGSHAPE = [11,5,0,-4,-6,-9,-14];
+
+/* room spectrum presets: offsets from the overall dB(A). Estimates —
+   they only prefill the editable row, which is the value actually used. */
+var SPECTRA = {
+  music:  [3,0,-3,-5,-6,-10,-15],
+  speech: [-8,-5,-1,2,1,-3,-8],
+  plant:  [-2,-1,0,0,-2,-5,-9]
+};
+
+/* ---------------------------------------------------------------
+   ATTENUATION ELEMENTS
+   `conf` says whether the numbers came from a real product sheet.
+   Everything is editable in the UI; these are only starting points.
+   --------------------------------------------------------------- */
+var ELEMENTS = [
+  { id:'duct',   on:true,  name:'ท่อลมบุฉนวน 6 ม.',        il:[1,3,6,12,18,18,15],
+    src:'ค่ากลางทั่วไปของท่อบุใยแก้ว 25 มม.', conf:'ประมาณการ' },
+  { id:'elbow',  on:true,  name:'ข้องอบุฉนวน 2 ตัว',        il:[1,2,4,6,8,8,7],
+    src:'ค่ากลางทั่วไป', conf:'ประมาณการ' },
+  { id:'sil1',   on:true,  name:'Silencer หลัก 1.5–2.4 ม.', il:[5,9,16,28,35,30,22],
+    src:'ค่ากลางทั่วไปของ splitter silencer', conf:'ประมาณการ' },
+  { id:'erv',    on:true,  name:'ตัวเครื่อง ERV',           il:[3,5,8,10,12,12,10],
+    src:'ค่ากลางทั่วไปของตัวถังบุฉนวนพร้อมแกนแลกเปลี่ยน', conf:'ประมาณการ' },
+  { id:'sil2',   on:true,  name:'Silencer ตัวที่สอง 0.9–1.5 ม.', il:[2,5,12,22,28,24,18],
+    src:'ค่ากลางทั่วไป', conf:'ประมาณการ' },
+  { id:'louver', on:true,  name:'Acoustic louver 300 มม.',  il:[6,7,10,12,18,18,14],
+    src:'IAC Slimshield SL-300 · Transmission Loss จากแคตตาล็อก rev 23/12/2019 · free area 45%',
+    conf:'ข้อมูลผู้ผลิต' },
+  { id:'plenum', on:false, name:'ห้องลดเสียงก่ออิฐ 2 หักเลี้ยว', il:[6,9,14,20,24,22,18],
+    src:'ค่ากลางทั่วไปของห้องลดเสียงบุฉนวน', conf:'ประมาณการ' }
+];
+
+/* IAC SL-300 static pressure drop vs face velocity, from the same sheet */
+var LOUVER_DP = [[0.94,10],[1.31,20],[1.61,30],[1.83,40],[2.13,50],
+                 [2.27,60],[2.46,70],[2.63,80],[2.84,90],[2.99,100]];
+function louverDp(v){
+  if(v <= LOUVER_DP[0][0]) return LOUVER_DP[0][1] * v / LOUVER_DP[0][0];
+  for(var i=0;i<LOUVER_DP.length-1;i++){
+    var a = LOUVER_DP[i], b = LOUVER_DP[i+1];
+    if(v >= a[0] && v <= b[0]) return a[1] + (b[1]-a[1])*(v-a[0])/(b[0]-a[0]);
+  }
+  var last = LOUVER_DP[LOUVER_DP.length-1];
+  return last[1] * Math.pow(v/last[0], 2);
+}
+
+var AREA_MODE = 'direct', SPEC = 'music', roomBand = null;
+
+function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
+function fmt(n,d){ return (isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
+function esum(a){ var s=0; for(var i=0;i<a.length;i++){ s += Math.pow(10, a[i]/10); } return s>0 ? 10*Math.log10(s) : 0; }
+
+/* ---------------- model ---------------- */
+function openArea(){
+  if(AREA_MODE === 'direct') return Math.max(0.01, nv('area'));
+  var fv = Math.max(0.3, nv('fv'));
+  return Math.max(0.01, (Math.max(0,nv('cmh'))/3600) / fv);
+}
+function totalIL(){
+  var t = [0,0,0,0,0,0,0];
+  ELEMENTS.forEach(function(e){ if(e.on){ for(var i=0;i<7;i++) t[i] += e.il[i]; } });
+  return t;
+}
+function bandsAtReceiver(offset){
+  offset = offset || 0;
+  var S = openArea(), r = Math.max(1, nv('dist')), il = totalIL(), out = [];
+  var geo = 10*Math.log10(2*Math.PI*r*r);
+  for(var i=0;i<7;i++){
+    var face = roomBand[i] - Math.max(0, il[i] + offset);
+    out.push(face + 10*Math.log10(S) - 6 - geo);
+  }
+  return out;
+}
+function bgBands(){ var b = nv('bg'); return BGSHAPE.map(function(o){ return b + o; }); }
+function overallA(lp){ return esum(lp.map(function(v,i){ return v + AW[i]; })); }
+function requiredIL(){
+  var Sw = Math.max(1, nv('wallA'));
+  return nv('wallRw') + 10*Math.log10(openArea()/Sw);
+}
+function achievedILA(){
+  var il = totalIL();
+  var before = esum(roomBand.map(function(v,i){ return v + AW[i]; }));
+  var after  = esum(roomBand.map(function(v,i){ return v - il[i] + AW[i]; }));
+  return before - after;
+}
+
+/* ---------------- chart ---------------- */
+function draw(canvas){
+  var rect = canvas.getBoundingClientRect();
+  if(rect.width < 10 || rect.height < 10) return;
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(rect.width*dpr);
+  canvas.height = Math.round(rect.height*dpr);
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,rect.width,rect.height);
+
+  var W = rect.width, H = rect.height, L = 46, R = 14, T = 26, B = 40;
+  var pw = W-L-R, ph = H-T-B;
+  if(pw < 40 || ph < 40) return;
+
+  var lp = bandsAtReceiver(), bg = bgBands();
+  var hi = Math.max.apply(null, lp.concat(bg)) ;
+  var ymax = Math.max(40, Math.ceil((hi+8)/10)*10), ymin = 0;
+
+  function py(v){ return T + ph - (Math.max(ymin,Math.min(ymax,v))-ymin)/(ymax-ymin)*ph; }
+
+  ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+  ctx.textBaseline = 'middle';
+  var step = ymax > 80 ? 20 : 10;
+  for(var yv=ymin; yv<=ymax; yv+=step){
+    var y = Math.round(py(yv))+0.5;
+    ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-R,y); ctx.stroke();
+    ctx.fillStyle = C.txt; ctx.textAlign='right'; ctx.fillText(yv, L-8, y);
+  }
+
+  var slot = pw/7, bw = Math.min(46, slot*0.5);
+  for(var i=0;i<7;i++){
+    var cx = L + slot*(i+0.5), v = Math.max(0, lp[i]), over = lp[i] - bg[i];
+    var col = over >= 10 ? C.red : over >= 0 ? C.orange : C.blue;
+    ctx.fillStyle = col;
+    var top = py(v), h = Math.max(0, py(ymin)-top);
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(cx-bw/2, top, bw, h, [3,3,0,0]); else ctx.rect(cx-bw/2, top, bw, h);
+    ctx.fill();
+    if(v > 1){
+      ctx.fillStyle = C.ink; ctx.textAlign='center';
+      ctx.font = '600 11.5px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+      ctx.fillText(Math.round(v), cx, top-9);
+      ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+    }
+    /* background reference for this band */
+    ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = C.ink; ctx.globalAlpha=.55; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(cx-slot*0.42, Math.round(py(bg[i]))+0.5);
+    ctx.lineTo(cx+slot*0.42, Math.round(py(bg[i]))+0.5); ctx.stroke(); ctx.restore();
+
+    ctx.fillStyle = C.txt; ctx.textAlign='center';
+    ctx.fillText(BANDS[i] >= 1000 ? (BANDS[i]/1000)+'k' : BANDS[i], cx, T+ph+16);
+  }
+  ctx.strokeStyle = C.grid;
+  ctx.beginPath(); ctx.moveTo(L, Math.round(T+ph)+0.5); ctx.lineTo(W-R, Math.round(T+ph)+0.5); ctx.stroke();
+  ctx.fillStyle = C.txt; ctx.textAlign='center';
+  ctx.fillText('ความถี่ · Hz', (L+W-R)/2, T+ph+33);
+  ctx.textAlign='left'; ctx.fillText('dB', L-38, T-10);
+
+  /* legend */
+  ctx.textAlign='left';
+  var lx = L+4, ly = T-12;
+  ctx.fillStyle = C.blue; ctx.fillRect(lx, ly-4, 9, 9);
+  ctx.fillStyle = C.txt; ctx.fillText('ต่ำกว่าพื้นฐาน', lx+14, ly);
+  var x2 = lx + 16 + ctx.measureText('ต่ำกว่าพื้นฐาน').width + 12;
+  ctx.fillStyle = C.orange; ctx.fillRect(x2, ly-4, 9, 9);
+  ctx.fillStyle = C.txt; ctx.fillText('สูงกว่าพื้นฐาน', x2+14, ly);
+  var x3 = x2 + 16 + ctx.measureText('สูงกว่าพื้นฐาน').width + 12;
+  ctx.fillStyle = C.red; ctx.fillRect(x3, ly-4, 9, 9);
+  ctx.fillStyle = C.txt; ctx.fillText('เกิน 10 dB', x3+14, ly);
+  var x4 = x3 + 16 + ctx.measureText('เกิน 10 dB').width + 12;
+  ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = C.ink; ctx.globalAlpha=.55; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(x4, ly); ctx.lineTo(x4+14, ly); ctx.stroke(); ctx.restore();
+  ctx.fillStyle = C.txt; ctx.fillText('เสียงพื้นฐาน', x4+19, ly);
+}
+function redraw(){
+  draw($('chart'));
+  if($('chartModal').classList.contains('open')) draw($('chartBig'));
+}
+
+/* ---------------- render ---------------- */
+function buildBandRow(){
+  $('bandHead').innerHTML = '<th></th>' + BANDS.map(function(b){
+    return '<th class="num">' + (b>=1000 ? (b/1000)+'k' : b) + ' Hz</th>';
+  }).join('');
+  $('bandRow').innerHTML = '<td style="white-space:nowrap;color:var(--text-secondary)">dB</td>' + BANDS.map(function(b,i){
+    return '<td class="num"><input type="number" class="bandin" data-i="' + i + '" step="1" style="width:62px;text-align:right"></td>';
+  }).join('');
+  $('bandRow').querySelectorAll('.bandin').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      roomBand[+inp.dataset.i] = parseFloat(inp.value) || 0;
+      render(true);
+    });
+  });
+}
+function fillBandRow(){
+  $('bandRow').querySelectorAll('.bandin').forEach(function(inp){
+    inp.value = Math.round(roomBand[+inp.dataset.i]);
+  });
+}
+function applySpectrum(){
+  var l = nv('lroom');
+  roomBand = SPECTRA[SPEC].map(function(o){ return l + o; });
+  fillBandRow();
+}
+
+function buildElements(){
+  $('elHead').innerHTML = '<th style="min-width:210px">ชิ้นส่วน</th>'
+    + BANDS.map(function(b){ return '<th class="num">' + (b>=1000?(b/1000)+'k':b) + '</th>'; }).join('')
+    + '<th>ที่มา</th>';
+  $('elBody').innerHTML = ELEMENTS.map(function(e){
+    return '<tr data-el="' + e.id + '">'
+      + '<td><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">'
+      + '<input type="checkbox" class="eltog" data-el="' + e.id + '"' + (e.on?' checked':'') + ' style="margin-top:3px">'
+      + '<span>' + e.name + '</span></label></td>'
+      + BANDS.map(function(b,i){
+          return '<td class="num"><input type="number" class="ilin" data-el="' + e.id + '" data-i="' + i
+               + '" value="' + e.il[i] + '" step="1" style="width:54px;text-align:right"></td>';
+        }).join('')
+      + '<td style="font-size:12px;color:var(--text-secondary);min-width:220px">' + e.src
+      + '<br><span class="badge ' + (e.conf === 'ข้อมูลผู้ผลิต' ? 'ok' : 'bad') + '">' + e.conf + '</span></td>'
+      + '</tr>';
+  }).join('');
+  $('elBody').querySelectorAll('.eltog').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      ELEMENTS.find(function(x){ return x.id === cb.dataset.el; }).on = cb.checked;
+      render(true);
+    });
+  });
+  $('elBody').querySelectorAll('.ilin').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      var e = ELEMENTS.find(function(x){ return x.id === inp.dataset.el; });
+      e.il[+inp.dataset.i] = parseFloat(inp.value) || 0;
+      render(true);
+    });
+  });
+  $('srcTable').innerHTML = ELEMENTS.map(function(e){
+    return '<tr><td>' + e.name + '</td><td style="font-size:12.5px">' + e.src + '</td>'
+      + '<td><span class="badge ' + (e.conf === 'ข้อมูลผู้ผลิต' ? 'ok' : 'bad') + '">' + e.conf + '</span></td></tr>';
+  }).join('');
+}
+
+function render(skipInputs){
+  if(!roomBand) applySpectrum();
+  if(!skipInputs){ $('lroomVal').textContent = fmt(nv('lroom')); }
+  $('distVal').textContent = fmt(nv('dist'));
+  $('bgVal').textContent = fmt(nv('bg'));
+  $('limVal').textContent = fmt(nv('bg')+10);
+
+  var S = openArea();
+  $('areahint').textContent = 'ได้พื้นที่ช่องเปิด ' + fmt(S,2) + ' ตร.ม. · ความดันตกคร่อม louver ราว '
+    + fmt(louverDp(Math.max(0.3,nv('fv'))),0) + ' Pa ตามเส้นโค้งของ SL-300';
+  $('spechint').textContent = 'รวมเป็น ' + fmt(esum(roomBand.map(function(v,i){ return v+AW[i]; })),1)
+    + ' dB(A) · แก้ตัวเลขในช่องได้ ค่าที่ใช้คำนวณคือค่าในช่อง ไม่ใช่ค่าจากปุ่มสเปกตรัม';
+
+  var il = totalIL();
+  $('ilsum').textContent = 'รวมทั้งชุด ' + il.map(function(v){ return Math.round(v); }).join(' / ') + ' dB';
+  $('elFoot').innerHTML = '<td><b>รวม</b></td>' + il.map(function(v){
+    return '<td class="num"><b>' + Math.round(v) + '</b></td>'; }).join('') + '<td></td>';
+
+  var lp = bandsAtReceiver(), bg = bgBands(), dba = overallA(lp), lim = nv('bg')+10;
+  var worst = -99, wi = 0;
+  for(var i=0;i<7;i++){ var d = lp[i]-bg[i]; if(d > worst){ worst = d; wi = i; } }
+  var okA = dba <= lim, okBand = worst < 10;
+  var reqIL = requiredIL(), gotIL = achievedILA();
+
+  $('kpis').innerHTML =
+    '<div class="kpi-card"><div class="kpi-value ' + (okA?'ok':'bad') + '">' + fmt(dba,0) + '<small>dB(A)</small></div>'
+      + '<div class="kpi-label">เสียงรวมที่ผู้รับ</div><div class="kpi-note">' + (okA ? 'ต่ำกว่าเพดาน ' + fmt(lim) + ' dB(A)' : 'เกินเพดาน ' + fmt(lim) + ' อยู่ ' + fmt(dba-lim,0) + ' dB') + '</div></div>'
+    + '<div class="kpi-card"><div class="kpi-value ' + (okBand?'ok':'warn') + '">' + BANDS[wi] + '<small>Hz</small></div>'
+      + '<div class="kpi-label">ย่านที่เข้าใกล้เกณฑ์ที่สุด</div><div class="kpi-note">' + (worst>=0 ? 'สูงกว่าพื้นฐาน ' + fmt(worst,0) + ' dB' : 'ต่ำกว่าพื้นฐาน ' + fmt(-worst,0) + ' dB') + '</div></div>'
+    + '<div class="kpi-card"><div class="kpi-value ' + (gotIL>=reqIL?'ok':'bad') + '">' + fmt(gotIL,0) + '<small>dB(A)</small></div>'
+      + '<div class="kpi-label">ค่าลดเสียงรวมของชุด</div><div class="kpi-note">ต้องการอย่างน้อย ' + fmt(reqIL,0) + ' dB</div></div>'
+    + '<div class="kpi-card"><div class="kpi-value">' + fmt(S,2) + '<small>ตร.ม.</small></div>'
+      + '<div class="kpi-label">ช่องเปิด</div><div class="kpi-note">ที่ระยะ ' + fmt(nv('dist')) + ' เมตร</div></div>';
+
+  /* band walkthrough */
+  $('walkHead').innerHTML = '<th>ขั้นตอน</th>' + BANDS.map(function(b){
+    return '<th class="num">' + (b>=1000?(b/1000)+'k':b) + ' Hz</th>'; }).join('');
+  var geo = 10*Math.log10(2*Math.PI*Math.max(1,nv('dist'))*Math.max(1,nv('dist')));
+  var face = roomBand.map(function(v,i){ return v - il[i]; });
+  var lw = face.map(function(v){ return v + 10*Math.log10(S) - 6; });
+  function row(label, arr, cls){
+    return '<tr' + (cls?' class="'+cls+'"':'') + '><td>' + label + '</td>'
+      + arr.map(function(v){ return '<td class="num">' + (v<=-20 ? '—' : fmt(v,0)) + '</td>'; }).join('') + '</tr>';
+  }
+  $('walkBody').innerHTML =
+      row('ระดับเสียงในห้อง', roomBand)
+    + row('ลบค่าลดเสียงทั้งชุด', il.map(function(v){ return -v; }))
+    + row('ที่หน้าช่องเปิด', face)
+    + row('กำลังเสียงที่แผ่ออก L<sub>w</sub>', lw)
+    + row('ที่ระยะ ' + fmt(nv('dist')) + ' เมตร', lp, 'gov')
+    + row('ถ่วงน้ำหนัก A', lp.map(function(v,i){ return v+AW[i]; }))
+    + row('เสียงพื้นฐานโดยประมาณ', bg);
+
+  /* composite wall criterion */
+  $('composite').innerHTML =
+      'IL ≥ Rw + 10·log₁₀( S<sub>open</sub> / S<sub>wall</sub> )\n'
+    + 'IL ≥ ' + fmt(nv('wallRw')) + ' + 10·log₁₀( ' + fmt(S,2) + ' / ' + fmt(nv('wallA')) + ' )\n'
+    + 'IL ≥ <b>' + fmt(reqIL,1) + ' dB</b>   ·   ชุดที่ใส่ไว้ให้ <b>' + fmt(gotIL,1) + ' dB(A)</b>';
+  $('compnote').className = 'note' + (gotIL >= reqIL ? '' : ' warn');
+  $('compnote').innerHTML = gotIL >= reqIL
+    ? '<b>ผ่าน</b> ช่องเปิดนี้ไม่ทำให้ผนังเดิมเสียของ ยังเหลือระยะปลอดภัย ' + fmt(gotIL-reqIL,1) + ' dB'
+    : '<b>ยังไม่ผ่าน</b> ขาดอีก ' + fmt(reqIL-gotIL,1) + ' dB ช่องเปิดนี้จะกลายเป็นทางลัดของเสียงผ่านผนัง ต้องเพิ่ม silencer หรือลดขนาดช่อง';
+
+  $('wallhint').textContent = 'ผนัง ' + fmt(nv('wallA')) + ' ตร.ม. ที่ Rw ' + fmt(nv('wallRw'))
+    + ' dB เจาะช่อง ' + fmt(S,2) + ' ตร.ม. ต้องการค่าลดเสียงอย่างน้อย ' + fmt(reqIL,1) + ' dB';
+
+  /* sensitivity */
+  $('sensBody').innerHTML = [-8,-5,-3,0,3,5].map(function(off){
+    var l2 = bandsAtReceiver(off), d2 = overallA(l2), b2 = bgBands();
+    var pass = d2 <= lim, bandOk = l2[0]-b2[0] < 10;
+    var label = off === 0 ? 'ตามค่าที่ใส่ไว้' : (off < 0 ? 'แย่กว่าชิ้นละ ' + (-off) + ' dB' : 'ดีกว่าชิ้นละ ' + off + ' dB');
+    return '<tr' + (off===0?' class="gov"':'') + '><td>' + label + '</td>'
+      + '<td class="num">' + fmt(d2,1) + '</td><td class="num">' + fmt(l2[0],0) + '</td>'
+      + '<td style="font-size:12.5px">' + (pass && bandOk ? 'ผ่านทั้งค่ารวมและรายย่าน'
+          : pass ? 'ค่ารวมผ่าน แต่ย่าน 63 Hz เกินพื้นฐาน 10 dB' : 'ไม่ผ่านเพดานเสียงรบกวน') + '</td></tr>';
+  }).join('');
+
+  $('chartnote').innerHTML = 'เส้นประคือเสียงพื้นฐานโดยประมาณของแต่ละย่าน คำนวณจากค่ารวม '
+    + fmt(nv('bg')) + ' dB(A) ตามรูปร่างสเปกตรัมทั่วไปของเสียงเมือง ซึ่งเป็นค่าประมาณ '
+    + '<b>ถ้าจะใช้อ้างจริงต้องวัดเสียงพื้นฐานแยกย่านที่หน้างาน</b>';
+
+  redraw();
+}
+
+/* ---------------- events ---------------- */
+['lroom','dist','bg','area','cmh','fv','wallA','wallRw'].forEach(function(id){
+  $(id).addEventListener('input', function(){
+    if(id === 'lroom') applySpectrum();
+    render();
+  });
+});
+$('spectrum').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  SPEC = b.dataset.sp;
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  applySpectrum(); render();
+});
+$('areaMode').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  AREA_MODE = b.dataset.am;
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  $('areaDirect').hidden = AREA_MODE !== 'direct';
+  $('areaFlow').hidden   = AREA_MODE !== 'flow';
+  render();
+});
+$('resetBtn').addEventListener('click', function(){
+  $('lroom').value=100; $('dist').value=10; $('bg').value=50;
+  $('area').value=1.0; $('cmh').value=7000; $('fv').value=2.0;
+  $('wallA').value=126; $('wallRw').value=45;
+  SPEC='music'; AREA_MODE='direct';
+  $('spectrum').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.sp==='music'); });
+  $('areaMode').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.am==='direct'); });
+  $('areaDirect').hidden=false; $('areaFlow').hidden=true;
+  ELEMENTS.forEach(function(e){ e.on = e.id !== 'plenum'; });
+  buildElements(); applySpectrum(); render();
+});
+document.querySelector('.tabs').addEventListener('click', function(e){
+  var b = e.target.closest('.tab'); if(!b) return;
+  this.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x===b); });
+  ['calc','ref','law'].forEach(function(p){ $('page-'+p).classList.toggle('active', p === b.dataset.page); });
+  window.scrollTo(0,0);
+  if(b.dataset.page === 'calc') setTimeout(redraw, 0);
+});
+$('expandBtn').addEventListener('click', function(){
+  $('chartModal').classList.add('open');
+  setTimeout(function(){ draw($('chartBig')); }, 30);
+});
+$('modalClose').addEventListener('click', function(){ $('chartModal').classList.remove('open'); });
+$('chartModal').addEventListener('click', function(e){ if(e.target === this) this.classList.remove('open'); });
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') $('chartModal').classList.remove('open'); });
+window.addEventListener('resize', redraw);
+
+$('stamp').textContent = 'ค่าอ้างอิงตรวจสอบเมื่อ 24/8/2569';
+$('foot').innerHTML = 'ค่าลดเสียงของ acoustic louver มาจากแคตตาล็อก IAC Slimshield SL-300 · ชิ้นส่วนอื่นเป็นค่ากลางทั่วไป ต้องแทนที่ด้วยข้อมูลผู้ผลิตที่เลือกใช้จริง · '
+  + 'เกณฑ์เสียงรบกวนอ้างประกาศคณะกรรมการสิ่งแวดล้อมแห่งชาติ ฉบับที่ 29 (พ.ศ. 2550) · '
+  + '<b>เครื่องมือนี้ใช้ตัดสินใจเชิงทิศทาง ใช้เซ็นแบบก่อสร้างไม่ได้ ต้องให้วิศวกรอะคูสติกทวนสอบ</b>';
+
+buildBandRow();
+buildElements();
+applySpectrum();
+render();
+})();
+
+</script>
+</body>
+</html>
