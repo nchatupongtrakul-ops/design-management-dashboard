@@ -129,7 +129,42 @@ body {
 .canvas-wrap canvas:active { cursor: grabbing; }
 .chart-modal-body .canvas-wrap { height: 100%; }
 .zoomhint { font-size: 11.5px; color: var(--gray); margin-top: 8px; }
-.refchips{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+.refwrap{position:relative; display:inline-block; margin-top:12px}
+.refbtn{
+  display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:12.5px;
+  padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500;
+}
+.refbtn:hover{background:var(--surface); color:var(--text)}
+.refbtn .caret{font-size:9px; opacity:.7; transition:transform .15s}
+.refbtn.open .caret{transform:rotate(180deg)}
+.refmenu{
+  display:none; position:absolute; left:0; top:calc(100% + 6px); z-index:60;
+  background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; min-width:330px;
+  max-height:340px; overflow-y:auto;
+}
+.refmenu.open{display:block}
+.refgroup{
+  font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--gray); padding:8px 10px 3px;
+}
+.refitem{
+  display:flex; align-items:flex-start; gap:9px; width:100%; text-align:left; background:none;
+  border:0; padding:7px 10px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px;
+  color:var(--text); line-height:1.4;
+}
+.refitem:hover{background:var(--surface)}
+.refitem .tick{
+  width:14px; height:14px; border-radius:4px; border:1.5px solid var(--border); flex:none;
+  margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;
+}
+.refitem.on .tick{background:var(--text); border-color:var(--text)}
+.refitem .body{flex:1; min-width:0}
+.refitem .val{font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; margin-left:8px}
+.refitem .note{display:block; font-size:11px; color:var(--gray); margin-top:1px}
+.refitem.na{opacity:.45; cursor:not-allowed}
+.refitem .dash{display:inline-block; width:14px; border-top:2px dashed currentColor; vertical-align:middle; margin-right:5px}
 .refchip{
   display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:11.5px;
   padding:4px 10px; border-radius:20px; border:1px solid var(--border); background:var(--card-bg);
@@ -336,7 +371,12 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
       <button class="card-expand-btn" id="expandBtn" title="ขยายกราฟ" aria-label="ขยายกราฟ">⤢</button>
       <h3>CO₂ ตลอดระยะเวลาใช้งาน</h3>
       <div class="canvas-wrap"><canvas id="chart"></canvas></div>
-      <div class="refchips" id="refchips" role="group" aria-label="เส้นอ้างอิง"></div>
+      <div class="refwrap">
+        <button type="button" class="refbtn" id="refBtn" aria-haspopup="true" aria-expanded="false">
+          <span id="refBtnLabel">เส้นอ้างอิง</span><span class="caret">&#9660;</span>
+        </button>
+        <div class="refmenu" id="refMenu" role="group" aria-label="เลือกเส้นอ้างอิง"></div>
+      </div>
       <div class="zoomhint" id="refnote"></div>
       <div class="zoomhint">เลื่อนล้อเมาส์เพื่อซูมแกนเวลา · ลากเพื่อเลื่อน · ดับเบิลคลิกเพื่อรีเซ็ต · กดปุ่ม ⤢ มุมขวาบนเพื่อขยายเต็มจอ</div>
     </div>
@@ -672,7 +712,7 @@ var LAW_NA=[["ห้องน้ำ ห้องส้วมของที่�
 'use strict';
 var $ = function(i){ return document.getElementById(i); };
 var C = { blue:'#2383E2', red:'#D44C47', orange:'#CB912F', grid:'#E3E2DE', txt:'#787774', ink:'#37352F', soft:'#F4F3F0' };
-var AC = 1, qTouched = false, view = null, lastDur = null;
+var AC = 1, qTouched = false, view = null, lastDur = null, refMenuOpen = false;
 
 function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
 function fmt(n,d){ return (isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:d||0, maximumFractionDigits:d||0}); }
@@ -769,7 +809,7 @@ var REFS = [
     legal:'ASHRAE ระบุชัดว่าไม่ใช่ขีดจำกัดของ ASHRAE และเตือนว่าคนเข้าใจผิดเรื่องนี้กันมาก',
     conf:'ยืนยันแล้ว' },
 
-  { id:'well900', on:true, c:'#6940A5', group:'WELL',
+  { id:'well900', on:false, c:'#6940A5', group:'WELL',
     name:'WELL v2 · 900 ppm',
     v:function(){ return 900; },
     t:function(){ return 'WELL v2'; },
@@ -823,7 +863,7 @@ var REFS = [
     legal:'เกณฑ์การรับรองอาคาร เฉพาะโครงการที่ยื่น LEED',
     conf:'ยังไม่ยืนยัน ต้องเทียบกับฉบับจริง' },
 
-  { id:'cogfx', on:false, c:'#CB912F', group:'งานวิจัย',
+  { id:'cogfx', on:true, c:'#CB912F', group:'งานวิจัย',
     name:'สมรรถนะการคิดลดลง · 1,400 ppm',
     v:function(){ return 1400; },
     t:function(){ return 'สมรรถนะการคิดลดลง'; },
@@ -921,8 +961,15 @@ function draw(canvas){
       var ly = y - 5;
       if(Math.abs(ly - lastY) < 13) ly = lastY + 13;
       lastY = ly;
-      ctx.fillStyle = r.c; ctx.globalAlpha = .9; ctx.textAlign = 'right';
-      ctx.fillText(fmt(Math.round(r.v)) + ' ppm · ' + r.t, W-R-4, ly); ctx.globalAlpha = 1;
+      /* label sits just inside the y-axis: the right edge belongs to the
+         curve end-values and the two used to overlap */
+      var lt = fmt(Math.round(r.v)) + ' ppm · ' + r.t;
+      ctx.textAlign = 'left';
+      var lw = ctx.measureText(lt).width;
+      ctx.fillStyle = '#fff'; ctx.globalAlpha = .82;
+      ctx.fillRect(L + 4, ly - 8, lw + 6, 13);
+      ctx.globalAlpha = 1; ctx.fillStyle = r.c;
+      ctx.fillText(lt, L + 7, ly - 1);
     }
   });
 
@@ -1000,7 +1047,7 @@ function draw(canvas){
   /* legend */
   ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
   ctx.textAlign = 'left';
-  var lgx = L+6, lgy = T+8;
+  var lgx = L+6, lgy = T+6;
   ctx.strokeStyle = C.blue; ctx.lineWidth=2.5;
   ctx.beginPath(); ctx.moveTo(lgx,lgy); ctx.lineTo(lgx+16,lgy); ctx.stroke();
   ctx.fillStyle = C.txt; ctx.fillText('ตามลมที่ตั้งไว้', lgx+22, lgy);
@@ -1142,26 +1189,30 @@ function render(){
       +'<div class="kpi-label">ค่าคงเวลาห้อง</div><div class="kpi-note">'+(tau?'ไล่อากาศก่อนใช้งาน '+fmt(tau*3)+' นาที':'ไม่มีลมเข้า')+'</div></div>';
 
   var shown = activeRefs(s).map(function(r){ return r.id; });
-  $('refchips').innerHTML = REFS.slice().sort(function(a,b){
-    var av = a.v(s), bv = b.v(s);
-    if(av == null) return 1; if(bv == null) return -1;
-    return av - bv;
-  }).map(function(r){
-    var v = r.v(s), na = (v == null);
-    var hidden = r.on && !na && shown.indexOf(r.id) < 0;
-    return '<button type="button" class="refchip' + (r.on && !na ? ' on' : '')
-      + (hidden ? ' off-scale' : '') + '" data-ref="' + r.id + '"'
-      + (na ? ' title="หมวดนี้ไม่มีค่ากำหนดไว้"' : '') + '>'
-      + '<i class="sw" style="color:' + r.c + '"></i>'
-      + r.name + (na ? ' · ไม่มีในหมวดนี้' : ' · ' + fmt(Math.round(v)))
-      + (hidden ? ' · ทับเส้นอื่น' : '') + '</button>';
+  var groups = [];
+  REFS.forEach(function(r){ if(groups.indexOf(r.group) < 0) groups.push(r.group); });
+  $('refMenu').innerHTML = groups.map(function(g){
+    return '<div class="refgroup">' + g + '</div>' + REFS.filter(function(r){ return r.group === g; }).map(function(r){
+      var v = r.v(s), na = (v == null);
+      var hidden = r.on && !na && shown.indexOf(r.id) < 0;
+      return '<button type="button" class="refitem' + (r.on && !na ? ' on' : '') + (na ? ' na' : '')
+        + '" data-ref="' + r.id + '"' + (na ? ' disabled' : '') + '>'
+        + '<span class="tick">' + (r.on && !na ? '&#10003;' : '') + '</span>'
+        + '<span class="body"><span style="color:' + r.c + '"><i class="dash"></i></span>' + r.name
+        + '<span class="note">' + (na ? 'หมวดนี้ไม่มีค่ากำหนดไว้' : (hidden ? 'ค่าทับเส้นอื่น จึงไม่วาด' : r.conf)) + '</span></span>'
+        + '<span class="val">' + (na ? '—' : fmt(Math.round(v))) + '</span></button>';
+    }).join('');
   }).join('');
-  $('refchips').querySelectorAll('.refchip').forEach(function(b){
-    b.addEventListener('click', function(){
+  $('refMenu').classList.toggle('open', refMenuOpen);
+  $('refBtn').classList.toggle('open', refMenuOpen);
+  $('refMenu').querySelectorAll('.refitem').forEach(function(b){
+    b.addEventListener('click', function(ev){
+      ev.stopPropagation();
       var r = REFS.find(function(x){ return x.id === b.dataset.ref; });
       if(r && r.v(s) != null){ r.on = !r.on; render(); }
     });
   });
+  $('refBtnLabel').textContent = 'เส้นอ้างอิง · ' + shown.length + ' เส้น';
 
   var onCount = shown.length;
   $('refnote').textContent = onCount
@@ -1287,6 +1338,22 @@ $('modalClose').addEventListener('click', closeModal);
 $('zoomReset').addEventListener('click', function(){ view = null; redraw(); });
 $('chartModal').addEventListener('click', function(e){ if(e.target === this) closeModal(); });
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeModal(); });
+
+$('refBtn').addEventListener('click', function(e){
+  e.stopPropagation();
+  refMenuOpen = !refMenuOpen;
+  $('refMenu').classList.toggle('open', refMenuOpen);
+  $('refBtn').classList.toggle('open', refMenuOpen);
+  $('refBtn').setAttribute('aria-expanded', refMenuOpen ? 'true' : 'false');
+});
+document.addEventListener('click', function(e){
+  if(refMenuOpen && !e.target.closest('.refwrap')){
+    refMenuOpen = false;
+    $('refMenu').classList.remove('open');
+    $('refBtn').classList.remove('open');
+    $('refBtn').setAttribute('aria-expanded', 'false');
+  }
+});
 
 attachZoom($('chart'));
 attachZoom($('chartBig'));
