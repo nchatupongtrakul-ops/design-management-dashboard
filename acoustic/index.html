@@ -431,7 +431,10 @@ tfoot td{background:var(--surface); font-weight:600}
     <div class="card">
       <div class="card-title-row">
         <h3>ชุดลดเสียงในเส้นทางลม</h3>
-        <span class="hint" id="ilsum"></span>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span class="hint" id="ilsum"></span>
+          <button type="button" class="btn ghost" id="addComp">+ เพิ่มชิ้นส่วน</button>
+        </div>
       </div>
       <div class="prose" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">
         ค่าในตารางแก้ได้ทุกช่อง เมื่อได้ข้อมูลจากผู้ผลิตแล้วให้พิมพ์ทับลงไป แถวที่ติดป้ายว่าประมาณการคือค่าที่ยังไม่มีที่มายืนยัน
@@ -443,6 +446,18 @@ tfoot td{background:var(--surface); font-weight:600}
           <tfoot><tr id="elFoot"></tr></tfoot>
         </table>
       </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ไล่ดูทีละชิ้น · เสียงลดลงตรงไหนบ้าง</h3>
+      <div class="prose" style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">
+        แต่ละจุดคือ <b>ระดับที่ผู้รับจะได้ยิน ถ้าเส้นทางจบลงที่ชิ้นนั้น</b> จุดสุดท้ายคือคำตอบจริง
+        เส้นสองเส้นบอกคนละเรื่อง เส้นหนึ่งคือค่ารวมที่ใช้เทียบกฎหมาย อีกเส้นคือย่านเสียงเบสที่คนบ่นกันจริง
+      </div>
+      <div class="canvas-wrap" style="height:280px"><canvas id="cascade"></canvas></div>
+      <div class="zoomhint" id="cascadenote"></div>
     </div>
   </div>
 
@@ -761,6 +776,21 @@ function openArea(){
   var fv = Math.max(0.3, nv('fv'));
   return Math.max(0.01, (Math.max(0,nv('cmh'))/3600) / fv);
 }
+var customSeq = 0;
+function addComponent(){
+  customSeq++;
+  ELEMENTS.push({ id:'custom'+customSeq, on:true, custom:true,
+    name:'ชิ้นส่วนที่เพิ่มเอง ' + customSeq,
+    il:[0,0,0,0,0,0,0],
+    src:'กำหนดเอง ยังไม่ได้ใส่ที่มา', conf:'ประมาณการ' });
+  buildElements(); render();
+}
+function removeComponent(id){
+  var i = ELEMENTS.findIndex(function(x){ return x.id === id; });
+  if(i >= 0) ELEMENTS.splice(i,1);
+  buildElements(); render();
+}
+
 function goManualDuct(){
   DUCT_AUTO = false;
   var e = ELEMENTS.find(function(x){ return x.id === 'duct'; });
@@ -826,6 +856,109 @@ function achievedILA(){
   var before = esum(roomBand.map(function(v,i){ return v + AW[i]; }));
   var after  = esum(roomBand.map(function(v,i){ return v - il[i] + AW[i]; }));
   return before - after;
+}
+
+/* ── cascade ──
+   Same quantity at every step: what would reach the receiver if the
+   path ended there. Monotonic, so each drop is what that item buys. */
+function cascadeSteps(){
+  var S = openArea(), r = Math.max(1, nv('dist'));
+  var geo = 10*Math.log10(4*Math.PI*r*r/QDIR);
+  var on = ELEMENTS.filter(function(e){ return e.on; });
+  var run = [0,0,0,0,0,0,0], steps = [];
+  function pt(label){
+    var lp = BANDS.map(function(f,i){ return roomBand[i] - run[i] + 10*Math.log10(S) - 6 - geo; });
+    steps.push({ label:label, lp:lp, b63:lp[0], dba:overallA(lp) });
+  }
+  pt('ในห้อง');
+  on.forEach(function(e){
+    for(var i=0;i<7;i++) run[i] += e.il[i];
+    pt(e.name.length > 18 ? e.name.slice(0,17) + '…' : e.name);
+  });
+  return steps;
+}
+
+function drawCascade(){
+  var canvas = $('cascade');
+  var rect = canvas.getBoundingClientRect();
+  if(rect.width < 10 || rect.height < 10) return;
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(rect.width*dpr); canvas.height = Math.round(rect.height*dpr);
+  var ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,rect.width,rect.height);
+
+  var steps = cascadeSteps();
+  if(steps.length < 2) return;
+  var W = rect.width, H = rect.height, L = 44, R = 16, T = 24, B = 62;
+  var pw = W-L-R, ph = H-T-B;
+  if(pw < 40 || ph < 40) return;
+
+  var vals = steps.map(function(s){ return s.b63; }).concat(steps.map(function(s){ return s.dba; }));
+  var lim = nv('bg') + 10;
+  var hi = Math.max.apply(null, vals.concat([lim])), lo = Math.min.apply(null, vals);
+  var ymax = Math.ceil((hi+6)/10)*10, ymin = Math.floor((lo-6)/10)*10;
+  if(ymax - ymin < 30) ymax = ymin + 30;
+  function px(i){ return L + (steps.length===1?0:i/(steps.length-1))*pw; }
+  function py(v){ return T + ph - (Math.max(ymin,Math.min(ymax,v))-ymin)/(ymax-ymin)*ph; }
+
+  ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+  ctx.textBaseline = 'middle';
+  var step = (ymax-ymin) > 80 ? 20 : 10;
+  for(var yv=ymin; yv<=ymax; yv+=step){
+    var y = Math.round(py(yv))+0.5;
+    ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-R,y); ctx.stroke();
+    ctx.fillStyle = C.txt; ctx.textAlign='right'; ctx.fillText(yv, L-8, y);
+  }
+  /* legal ceiling */
+  if(lim > ymin && lim < ymax){
+    var yl = Math.round(py(lim))+0.5;
+    ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = C.red; ctx.globalAlpha=.5;
+    ctx.beginPath(); ctx.moveTo(L,yl); ctx.lineTo(W-R,yl); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = C.red; ctx.globalAlpha=.9; ctx.textAlign='left';
+    ctx.fillText('เพดาน ' + fmt(lim) + ' dB(A)', L+6, yl-9); ctx.globalAlpha=1;
+  }
+
+  function line(key, color, width){
+    ctx.save(); ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=width;
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    steps.forEach(function(s,i){ var x=px(i), y=py(s[key]); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    ctx.stroke(); ctx.restore();
+    steps.forEach(function(s,i){
+      ctx.fillStyle=color; ctx.beginPath(); ctx.arc(px(i), py(s[key]), 3.4, 0, Math.PI*2); ctx.fill();
+    });
+  }
+  line('b63', C.orange, 2);
+  line('dba', C.blue, 2.5);
+
+  /* end labels */
+  var last = steps[steps.length-1];
+  ctx.font = '600 12px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+  ctx.textAlign='right';
+  ctx.fillStyle=C.orange; ctx.fillText(fmt(last.b63,0)+' dB', W-R-2, py(last.b63)-12);
+  ctx.fillStyle=C.blue;   ctx.fillText(fmt(last.dba,0)+' dB(A)', W-R-2, py(last.dba)+14);
+
+  /* step labels, rotated-free: alternate two rows so they do not collide */
+  ctx.font = '10px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+  ctx.textAlign='center'; ctx.fillStyle=C.txt;
+  steps.forEach(function(s,i){
+    var y = T+ph+14 + (i%2)*15;
+    ctx.save(); ctx.strokeStyle=C.grid; ctx.globalAlpha=.6;
+    ctx.beginPath(); ctx.moveTo(px(i), T+ph); ctx.lineTo(px(i), y-9); ctx.stroke(); ctx.restore();
+    ctx.fillText(s.label, px(i), y);
+  });
+
+  /* legend */
+  ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+  ctx.textAlign='left';
+  var lx=L+6, ly=T+4;
+  ctx.strokeStyle=C.blue; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx+16,ly); ctx.stroke();
+  ctx.fillStyle=C.txt; ctx.fillText('ค่ารวม dB(A)', lx+22, ly);
+  var x2 = lx+24+ctx.measureText('ค่ารวม dB(A)').width+14;
+  ctx.strokeStyle=C.orange; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(x2,ly); ctx.lineTo(x2+16,ly); ctx.stroke();
+  ctx.fillStyle=C.txt; ctx.fillText('ย่าน 63 Hz', x2+22, ly);
 }
 
 /* ---------------- chart ---------------- */
@@ -905,6 +1038,7 @@ function draw(canvas){
   ctx.fillStyle = C.txt; ctx.fillText('เสียงพื้นฐาน', x4+19, ly);
 }
 function redraw(){
+  drawCascade();
   draw($('chart'));
   if($('chartModal').classList.contains('open')) draw($('chartBig'));
 }
@@ -941,9 +1075,16 @@ function buildElements(){
     + '<th>ที่มา</th>';
   $('elBody').innerHTML = ELEMENTS.map(function(e){
     return '<tr data-el="' + e.id + '">'
-      + '<td><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">'
+      + '<td><div style="display:flex;gap:8px;align-items:flex-start">'
       + '<input type="checkbox" class="eltog" data-el="' + e.id + '"' + (e.on?' checked':'') + ' style="margin-top:3px">'
-      + '<span>' + e.name + '</span></label></td>'
+      + (e.custom
+          ? '<input type="text" class="elname" data-el="' + e.id + '" value="' + e.name.replace(/"/g,'&quot;')
+            + '" style="flex:1;min-width:120px;padding:3px 6px;font-size:12.5px;font-family:inherit;'
+            + 'border:1px solid var(--border);border-radius:4px;background:var(--card-bg);color:var(--text)">'
+            + '<button type="button" class="eldel" data-el="' + e.id + '" title="ลบชิ้นส่วนนี้" '
+            + 'style="border:0;background:none;cursor:pointer;color:var(--gray);font-size:15px;line-height:1;padding:2px 4px">&times;</button>'
+          : '<span>' + e.name + '</span>')
+      + '</div></td>'
       + BANDS.map(function(b,i){
           return '<td class="num"><input type="number" class="ilin" data-el="' + e.id + '" data-i="' + i
                + '" value="' + e.il[i] + '" step="1" style="width:54px;text-align:right"></td>';
@@ -957,6 +1098,15 @@ function buildElements(){
       ELEMENTS.find(function(x){ return x.id === cb.dataset.el; }).on = cb.checked;
       render(true);
     });
+  });
+  $('elBody').querySelectorAll('.elname').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      var e = ELEMENTS.find(function(x){ return x.id === inp.dataset.el; });
+      if(e) e.name = inp.value;
+    });
+  });
+  $('elBody').querySelectorAll('.eldel').forEach(function(b){
+    b.addEventListener('click', function(){ removeComponent(b.dataset.el); });
   });
   $('elBody').querySelectorAll('.ilin').forEach(function(inp){
     inp.addEventListener('input', function(){
@@ -1064,6 +1214,11 @@ function render(skipInputs){
           : pass ? 'ค่ารวมผ่าน แต่ย่าน 63 Hz เกินพื้นฐาน 10 dB' : 'ไม่ผ่านเพดานเสียงรบกวน') + '</td></tr>';
   }).join('');
 
+  var cs = cascadeSteps(), c0 = cs[0], cn = cs[cs.length-1];
+  $('cascadenote').innerHTML = 'ตลอดทั้งชุด ค่ารวมลดลง <b>' + fmt(c0.dba-cn.dba,0) + ' dB(A)</b>'
+    + ' แต่ย่าน 63 Hz ลดลงแค่ <b>' + fmt(c0.b63-cn.b63,0) + ' dB</b>'
+    + ' · ระยะห่างระหว่างสองเส้นคือปัญหาเสียงเบสที่ dB(A) มองไม่เห็น';
+
   var other = nv('other');
   if(other > 0){
     var comb = esum([dba, other]);
@@ -1133,6 +1288,7 @@ $('areaMode').addEventListener('click', function(e){
   $('areaFlow').hidden   = AREA_MODE !== 'flow';
   render();
 });
+$('addComp').addEventListener('click', addComponent);
 $('resetBtn').addEventListener('click', function(){
   $('lroom').value=100; $('dist').value=10; $('bg').value=50;
   $('area').value=1.0; $('cmh').value=7000; $('fv').value=2.0;
@@ -1147,6 +1303,8 @@ $('resetBtn').addEventListener('click', function(){
   $('spectrum').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.sp==='music'); });
   $('areaMode').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.am==='direct'); });
   $('areaDirect').hidden=false; $('areaFlow').hidden=true;
+  for(var k=ELEMENTS.length-1;k>=0;k--){ if(ELEMENTS[k].custom) ELEMENTS.splice(k,1); }
+  customSeq = 0;
   ELEMENTS.forEach(function(e){ e.on = e.id !== 'plenum'; });
   buildElements(); applySpectrum(); render();
 });
