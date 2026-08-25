@@ -1054,19 +1054,46 @@ function buildBandRow(){
   $('bandRow').querySelectorAll('.bandin').forEach(function(inp){
     inp.addEventListener('input', function(){
       roomBand[+inp.dataset.i] = parseFloat(inp.value) || 0;
+      syncRoomSlider();
       render(true);
     });
   });
 }
 function fillBandRow(){
+  /* round the model, not just the display, so hand-checking the seven
+     numbers reproduces the overall shown above them */
+  roomBand = roomBand.map(function(v){ return Math.round(v); });
   $('bandRow').querySelectorAll('.bandin').forEach(function(inp){
-    inp.value = Math.round(roomBand[+inp.dataset.i]);
+    inp.value = roomBand[+inp.dataset.i];
   });
 }
-function applySpectrum(){
-  var l = nv('lroom');
-  roomBand = SPECTRA[SPEC].map(function(o){ return l + o; });
+function overallRoom(){
+  return esum(roomBand.map(function(v,i){ return v + AW[i]; }));
+}
+
+/* keep the slider showing the real overall; clamp the handle, not the value */
+function syncRoomSlider(){
+  var o = overallRoom(), s = $('lroom');
+  s.value = Math.round(Math.max(+s.min, Math.min(+s.max, o)));
+  $('lroomVal').textContent = fmt(o,1);
+}
+
+/* dragging the slider moves the whole spectrum, keeping its shape */
+function shiftRoomTo(target){
+  var d = target - overallRoom();
+  roomBand = roomBand.map(function(v){ return v + d; });
   fillBandRow();
+  $('lroomVal').textContent = fmt(overallRoom(),1);
+}
+
+/* a preset lands exactly on the slider value, not near it */
+function applySpectrum(){
+  var target = nv('lroom');
+  roomBand = SPECTRA[SPEC].map(function(o){ return target + o; });
+  var d = target - overallRoom();
+  roomBand = roomBand.map(function(v){ return v + d; });
+  fillBandRow();
+  $('lroomVal').textContent = fmt(overallRoom(),1);
 }
 
 function buildElements(){
@@ -1132,7 +1159,7 @@ function render(skipInputs){
       + (ductInfo.capped ? ' · <b>บางย่านถูกตัดที่เพดาน 40 dB</b>' : '')
       + '<br>ได้ ' + ductInfo.il.map(function(v){ return Math.round(v); }).join(' / ') + ' dB';
   }
-  if(!skipInputs){ $('lroomVal').textContent = fmt(nv('lroom')); }
+  if(!skipInputs){ $('lroomVal').textContent = fmt(overallRoom(),1); }
   $('distVal').textContent = fmt(nv('dist'));
   $('bgVal').textContent = fmt(nv('bg'));
   $('limVal').textContent = fmt(nv('bg')+10);
@@ -1145,8 +1172,8 @@ function render(skipInputs){
   var S = openArea();
   $('areahint').textContent = 'ได้พื้นที่ช่องเปิด ' + fmt(S,2) + ' ตร.ม. · ความดันตกคร่อม louver ราว '
     + fmt(louverDp(Math.max(0.3,nv('fv'))),0) + ' Pa ตามเส้นโค้งของ SL-300';
-  $('spechint').textContent = 'รวมเป็น ' + fmt(esum(roomBand.map(function(v,i){ return v+AW[i]; })),1)
-    + ' dB(A) · แก้ตัวเลขในช่องได้ ค่าที่ใช้คำนวณคือค่าในช่อง ไม่ใช่ค่าจากปุ่มสเปกตรัม';
+  $('spechint').textContent = 'ค่าในช่องคือค่าที่ใช้คำนวณ · แก้ช่องไหนก็ได้ แถบด้านบนจะขยับตามผลรวมทันที'
+    + ' · ลากแถบด้านบนจะเลื่อนทุกย่านพร้อมกันโดยรักษารูปร่างสเปกตรัมไว้';
 
   if(ductInfo && !skipInputs) buildElements();
   var il = totalIL();
@@ -1245,7 +1272,7 @@ function render(skipInputs){
 /* ---------------- events ---------------- */
 ['lroom','dist','bg','area','cmh','fv','wallA','wallRw','wallMass','dw','dh','dt','dl','other'].forEach(function(id){
   $(id).addEventListener('input', function(){
-    if(id === 'lroom') applySpectrum();
+    if(id === 'lroom') shiftRoomTo(nv('lroom'));
     render();
   });
 });
@@ -1332,6 +1359,7 @@ $('foot').innerHTML = 'ค่าลดเสียงของ acoustic louver �
 buildBandRow();
 buildElements();
 applySpectrum();
+syncRoomSlider();
 render();
 })();
 
