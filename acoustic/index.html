@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F7F7F5">
-<meta name="description" content="คำนวณเสียงที่รั่วออกทางช่องลม">
 <title>Noise Breakout Calculator</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23D44C47'/%3E%3Ctext x='16' y='23' font-size='17' font-family='Helvetica,Arial' font-weight='bold' fill='white' text-anchor='middle'%3EdB%3C/text%3E%3C/svg%3E">
 <style>
@@ -259,13 +258,15 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
 .dtable input[type=checkbox]{accent-color:var(--blue); width:15px; height:15px}
 .sectitle{font-size:22px; font-weight:700; margin-bottom:20px}
 .ref h3{font-size:15px}
-.warnbox{border:1px solid var(--border); border-left:4px solid var(--orange, #CB912F); background:#FDF8EF; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text-secondary)}
+.warnbox{border:1px solid var(--border); border-left:4px solid #CB912F; background:#FDF8EF; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text-secondary)}
 .warnbox b{color:var(--text)}
 .prose{font-size:14px}
 .prose p{margin-bottom:12px; max-width:74ch}
 .prose ol,.prose ul{margin:0 0 14px 20px; max-width:74ch}
 .prose li{margin-bottom:6px}
 tfoot td{background:var(--surface); font-weight:600}
+.card-title-row .segbar{flex:none}
+.card-title-row .segbar button{padding:4px 10px; font-size:11.5px}
 </style>
 </head>
 <body>
@@ -351,12 +352,78 @@ tfoot td{background:var(--surface); font-weight:600}
         <div class="hint"><b id="bgVal">50</b> dB(A) · เพดานเสียงรบกวน <b id="limVal">60</b> dB(A)</div>
       </div>
       <div class="field">
-        <div class="grid2">
-          <div><label class="flabel" for="wallA">พื้นที่ผนังด้านนั้น · ตร.ม.</label><input type="number" id="wallA" value="126" min="1" step="1"></div>
-          <div><label class="flabel" for="wallRw">ค่ากันเสียงผนัง Rw · dB</label><input type="number" id="wallRw" value="45" min="10" max="80" step="1"></div>
+        <span class="flabel">ทิศทางการแผ่เสียงของช่องเปิด · ค่า Q</span>
+        <div class="segbar" id="qsel">
+          <button type="button" data-q="1">กลางอากาศ</button>
+          <button type="button" data-q="2" class="active">กลางผนัง</button>
+          <button type="button" data-q="4">ชิดพื้น/ฝ้า</button>
+          <button type="button" data-q="8">อยู่มุม</button>
+        </div>
+        <div class="hint" id="qhint"></div>
+      </div>
+      <div class="field">
+        <label class="flabel" for="wallA">พื้นที่ผนังด้านนั้น · ตร.ม.</label>
+        <input type="number" id="wallA" value="126" min="1" step="1">
+      </div>
+      <div class="field">
+        <span class="flabel">ค่ากันเสียงของผนัง</span>
+        <div class="segbar" id="wallmode">
+          <button type="button" data-wm="rw" class="active">ใส่ Rw เอง</button>
+          <button type="button" data-wm="mass">คำนวณจากมวล</button>
+        </div>
+        <div class="grid2" style="margin-top:8px">
+          <div id="wrapRw"><label class="flabel" for="wallRw">Rw · dB</label><input type="number" id="wallRw" value="45" min="10" max="80" step="1"></div>
+          <div id="wrapMass" hidden><label class="flabel" for="wallMass">มวลต่อพื้นที่ · kg/ตร.ม.</label><input type="number" id="wallMass" value="180" min="1" step="5"></div>
         </div>
         <div class="hint" id="wallhint"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <div class="card-title-row">
+        <h3>ท่อลมบุฉนวน · คำนวณตาม SMACNA</h3>
+        <div class="segbar" id="ductmode" style="width:auto;margin:0">
+          <button type="button" data-da="1" class="active">คำนวณให้</button>
+          <button type="button" data-da="0">พิมพ์เอง</button>
+        </div>
+      </div>
+      <div id="ductInputs">
+        <div class="field">
+          <div class="grid3">
+            <div><label class="flabel" for="dw">กว้าง · มม.</label><input type="number" id="dw" value="1200" min="50" step="50"></div>
+            <div><label class="flabel" for="dh">สูง · มม.</label><input type="number" id="dh" value="700" min="50" step="50"></div>
+            <div><label class="flabel" for="dt">ฉนวน · มม.</label><input type="number" id="dt" value="25" min="0" step="5"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label class="flabel" for="dl">ความยาวท่อ · เมตร</label>
+          <input type="number" id="dl" value="6" min="0.5" step="0.5">
+        </div>
+        <div class="hint" id="ducthint"></div>
+      </div>
+      <div class="prose" style="font-size:12.5px;color:var(--text-secondary);margin-top:10px">
+        สมการ 11-102 กับตาราง 14-51 ของ SMACNA บวกท่อเปล่าจากตาราง 14-50 ตามสมการ 11-103
+        และตัดที่เพดาน 40 dB ที่ตัวบทกำหนดไว้
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>รวมหลายเส้นทาง</h3>
+      <div class="prose" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">
+        SMACNA คิดเสียงจากทุกเส้นทางแล้วบวกกันแบบพลังงาน เครื่องมือนี้คำนวณเส้นทางผ่านช่องลมให้
+        ถ้ามีเส้นทางอื่นที่ประเมินไว้แล้ว เช่นเสียงทะลุผนังท่อหรือทะลุผนังอาคาร ใส่ค่ารวมเป็น dB(A) ตรงนี้
+      </div>
+      <div class="field">
+        <label class="flabel" for="other">เส้นทางอื่นรวมกัน · dB(A) ที่ผู้รับ</label>
+        <input type="number" id="other" value="0" min="0" max="120" step="1">
+      </div>
+      <div class="kpi-card" style="box-shadow:none;border:1px solid var(--border);padding:14px">
+        <div class="kpi-value" id="combined" style="font-size:26px">—</div>
+        <div class="kpi-label">รวมทุกเส้นทาง</div>
+      </div>
+      <div class="hint" id="otherhint" style="margin-top:8px"></div>
     </div>
   </div>
 
@@ -631,7 +698,58 @@ function louverDp(v){
   return last[1] * Math.pow(v/last[0], 2);
 }
 
-var AREA_MODE = 'direct', SPEC = 'music', roomBand = null;
+/* ── ASHRAE Fundamentals 2017 eq 25 · directivity ──
+   Q = 1 free field · 2 on a large flat surface · 4 at a two-surface
+   junction · 8 in a corner. Worth 6 dB between the extremes. */
+var QDIR = 2;
+
+/* ── SMACNA eq 11-102 + table 14-51 · lined rectangular duct ──
+   IL = B (P/A)^C t^D L   with P/A in 1/ft, t in inches, L in feet */
+var SM_BCD = { 63:[0.0133,1.959,0.917], 125:[0.0574,1.410,0.941],
+               250:[0.2710,0.824,1.079], 500:[1.0147,0.500,1.087],
+               1000:[1.7700,0.695,0], 2000:[1.3920,0.802,0], 4000:[1.5180,0.451,0] };
+
+/* ── SMACNA table 14-50 · unlined duct, dB/ft, by P/A ──
+   columns are 63 / 125 / 250 / above 250 */
+var SM_UNLINED = [[0.7,[0.10,0.10,0.05,0.02]], [1.0,[0.15,0.10,0.07,0.02]],
+                  [2.0,[0.25,0.20,0.10,0.03]], [3.0,[0.40,0.20,0.10,0.05]],
+                  [4.0,[0.35,0.20,0.10,0.06]], [8.0,[0.30,0.20,0.10,0.10]]];
+
+function unlinedPerFt(pa){
+  if(pa <= SM_UNLINED[0][0]) return SM_UNLINED[0][1];
+  for(var i=0;i<SM_UNLINED.length-1;i++){
+    var a=SM_UNLINED[i], b=SM_UNLINED[i+1];
+    if(pa>=a[0] && pa<=b[0]){
+      var f=(pa-a[0])/(b[0]-a[0]);
+      return a[1].map(function(v,k){ return v + (b[1][k]-v)*f; });
+    }
+  }
+  return SM_UNLINED[SM_UNLINED.length-1][1];
+}
+
+/* returns { il:[7], pa, inRange, capped } — SMACNA eq 11-103, capped at 40 dB
+   because structure-borne sound flanks through the duct wall */
+function smacnaDuct(w_mm, h_mm, t_mm, L_m){
+  var w=w_mm/25.4, h=h_mm/25.4, t=Math.max(0.01,t_mm/25.4), L=L_m/0.3048;
+  var P=2*(w+h)/12, A=(w*h)/144, pa = A>0 ? P/A : 0;
+  var un = unlinedPerFt(pa), capped=false;
+  var il = BANDS.map(function(f,i){
+    var c = SM_BCD[f];
+    var lined = c[0]*Math.pow(pa,c[1])*Math.pow(t,c[2])*L;
+    var bare  = (i===0?un[0] : i===1?un[1] : i===2?un[2] : un[3]) * L;
+    var tot = lined + bare;
+    if(tot > 40){ tot = 40; capped = true; }
+    return tot;
+  });
+  return { il:il, pa:pa, inRange:(pa>=1.1667 && pa<=6), capped:capped };
+}
+
+/* ── ASHRAE Fundamentals 2017 eq 39 · mass law ── */
+function massLawTL(ws){
+  return BANDS.map(function(f){ return Math.max(0, 20*Math.log10(ws*f) - 47); });
+}
+
+var AREA_MODE = 'direct', SPEC = 'music', roomBand = null, WALL_MODE = 'rw', DUCT_AUTO = true;
 
 function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
 function fmt(n,d){ return (isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
@@ -643,6 +761,38 @@ function openArea(){
   var fv = Math.max(0.3, nv('fv'));
   return Math.max(0.01, (Math.max(0,nv('cmh'))/3600) / fv);
 }
+function goManualDuct(){
+  DUCT_AUTO = false;
+  var e = ELEMENTS.find(function(x){ return x.id === 'duct'; });
+  e.name = 'ท่อลมบุฉนวน'; e.src = 'พิมพ์ค่าเอง ไม่ได้คำนวณจากสมการ'; e.conf = 'ประมาณการ';
+  var bar = $('ductmode');
+  if(bar) bar.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.da === '0'); });
+  if($('ductInputs')) $('ductInputs').hidden = true;
+  if($('ducthint')) $('ducthint').textContent = '';
+
+  var row = document.querySelector('#elBody tr[data-el="duct"]');
+  if(row){
+    var cells = row.querySelectorAll('td');
+    var label = cells[0] && cells[0].querySelector('span:last-of-type');
+    if(label) label.textContent = e.name;
+    var last = cells[cells.length-1];
+    if(last) last.innerHTML = e.src + '<br><span class="badge bad">' + e.conf + '</span>';
+  }
+}
+
+function applyDuctAuto(){
+  if(!DUCT_AUTO) return null;
+  var d = smacnaDuct(nv('dw'), nv('dh'), nv('dt'), nv('dl'));
+  var e = ELEMENTS.find(function(x){ return x.id === 'duct'; });
+  e.il = d.il.map(function(v){ return Math.round(v*10)/10; });
+  e.name = 'ท่อลมบุฉนวน ' + fmt(nv('dl'),1) + ' ม. · คำนวณ';
+  e.src = 'SMACNA สมการ 11-102 + ตาราง 14-51 และ 14-50 · P/A = ' + fmt(d.pa,2) + ' 1/ft'
+        + (d.inRange ? '' : ' · นอกช่วงที่สูตรรับรอง 1.17–6')
+        + (d.capped ? ' · บางย่านถูกตัดที่เพดาน 40 dB' : '');
+  e.conf = d.inRange ? 'คำนวณตาม SMACNA' : 'นอกช่วงสูตร';
+  return d;
+}
+
 function totalIL(){
   var t = [0,0,0,0,0,0,0];
   ELEMENTS.forEach(function(e){ if(e.on){ for(var i=0;i<7;i++) t[i] += e.il[i]; } });
@@ -651,7 +801,7 @@ function totalIL(){
 function bandsAtReceiver(offset){
   offset = offset || 0;
   var S = openArea(), r = Math.max(1, nv('dist')), il = totalIL(), out = [];
-  var geo = 10*Math.log10(2*Math.PI*r*r);
+  var geo = 10*Math.log10(4*Math.PI*r*r/QDIR);   /* ASHRAE eq 25 */
   for(var i=0;i<7;i++){
     var face = roomBand[i] - Math.max(0, il[i] + offset);
     out.push(face + 10*Math.log10(S) - 6 - geo);
@@ -660,9 +810,16 @@ function bandsAtReceiver(offset){
 }
 function bgBands(){ var b = nv('bg'); return BGSHAPE.map(function(o){ return b + o; }); }
 function overallA(lp){ return esum(lp.map(function(v,i){ return v + AW[i]; })); }
+function wallRw(){
+  if(WALL_MODE === 'mass'){
+    /* single-number stand-in: mass law at 500 Hz, the usual Rw anchor band */
+    return Math.round(Math.max(0, 20*Math.log10(Math.max(1,nv('wallMass'))*500) - 47));
+  }
+  return nv('wallRw');
+}
 function requiredIL(){
   var Sw = Math.max(1, nv('wallA'));
-  return nv('wallRw') + 10*Math.log10(openArea()/Sw);
+  return wallRw() + 10*Math.log10(openArea()/Sw);
 }
 function achievedILA(){
   var il = totalIL();
@@ -805,6 +962,7 @@ function buildElements(){
     inp.addEventListener('input', function(){
       var e = ELEMENTS.find(function(x){ return x.id === inp.dataset.el; });
       e.il[+inp.dataset.i] = parseFloat(inp.value) || 0;
+      if(e.id === 'duct' && DUCT_AUTO) goManualDuct();
       render(true);
     });
   });
@@ -816,10 +974,23 @@ function buildElements(){
 
 function render(skipInputs){
   if(!roomBand) applySpectrum();
+  var ductInfo = applyDuctAuto();
+  if(ductInfo){
+    $('ducthint').innerHTML = 'P/A = <b>' + fmt(ductInfo.pa,2) + ' 1/ft</b> · '
+      + (ductInfo.inRange ? 'อยู่ในช่วงที่สูตรรับรอง 1.17 ถึง 6'
+                          : '<b>นอกช่วงที่สูตรรับรอง</b> ผลที่ได้เป็นการคาดการณ์เกินข้อมูลต้นทาง')
+      + (ductInfo.capped ? ' · <b>บางย่านถูกตัดที่เพดาน 40 dB</b>' : '')
+      + '<br>ได้ ' + ductInfo.il.map(function(v){ return Math.round(v); }).join(' / ') + ' dB';
+  }
   if(!skipInputs){ $('lroomVal').textContent = fmt(nv('lroom')); }
   $('distVal').textContent = fmt(nv('dist'));
   $('bgVal').textContent = fmt(nv('bg'));
   $('limVal').textContent = fmt(nv('bg')+10);
+
+  var QLABEL = {1:'กลางอากาศ ไม่มีผิวสะท้อน', 2:'บนผิวเรียบขนาดใหญ่', 4:'รอยต่อผิวสองผืน', 8:'อยู่ในมุม'};
+  $('qhint').innerHTML = 'Q = <b>' + QDIR + '</b> · ' + QLABEL[QDIR]
+    + ' · เทียบกับกลางผนัง ' + (QDIR===2 ? 'อ้างอิง' : (10*Math.log10(QDIR/2)>0?'+':'') + fmt(10*Math.log10(QDIR/2),1) + ' dB')
+    + ' · ASHRAE Fundamentals สมการ 25';
 
   var S = openArea();
   $('areahint').textContent = 'ได้พื้นที่ช่องเปิด ' + fmt(S,2) + ' ตร.ม. · ความดันตกคร่อม louver ราว '
@@ -827,6 +998,7 @@ function render(skipInputs){
   $('spechint').textContent = 'รวมเป็น ' + fmt(esum(roomBand.map(function(v,i){ return v+AW[i]; })),1)
     + ' dB(A) · แก้ตัวเลขในช่องได้ ค่าที่ใช้คำนวณคือค่าในช่อง ไม่ใช่ค่าจากปุ่มสเปกตรัม';
 
+  if(ductInfo && !skipInputs) buildElements();
   var il = totalIL();
   $('ilsum').textContent = 'รวมทั้งชุด ' + il.map(function(v){ return Math.round(v); }).join(' / ') + ' dB';
   $('elFoot').innerHTML = '<td><b>รวม</b></td>' + il.map(function(v){
@@ -851,7 +1023,8 @@ function render(skipInputs){
   /* band walkthrough */
   $('walkHead').innerHTML = '<th>ขั้นตอน</th>' + BANDS.map(function(b){
     return '<th class="num">' + (b>=1000?(b/1000)+'k':b) + ' Hz</th>'; }).join('');
-  var geo = 10*Math.log10(2*Math.PI*Math.max(1,nv('dist'))*Math.max(1,nv('dist')));
+  var _r = Math.max(1,nv('dist'));
+  var geo = 10*Math.log10(4*Math.PI*_r*_r/QDIR);   /* ASHRAE eq 25 */
   var face = roomBand.map(function(v,i){ return v - il[i]; });
   var lw = face.map(function(v){ return v + 10*Math.log10(S) - 6; });
   function row(label, arr, cls){
@@ -877,7 +1050,7 @@ function render(skipInputs){
     ? '<b>ผ่าน</b> ช่องเปิดนี้ไม่ทำให้ผนังเดิมเสียของ ยังเหลือระยะปลอดภัย ' + fmt(gotIL-reqIL,1) + ' dB'
     : '<b>ยังไม่ผ่าน</b> ขาดอีก ' + fmt(reqIL-gotIL,1) + ' dB ช่องเปิดนี้จะกลายเป็นทางลัดของเสียงผ่านผนัง ต้องเพิ่ม silencer หรือลดขนาดช่อง';
 
-  $('wallhint').textContent = 'ผนัง ' + fmt(nv('wallA')) + ' ตร.ม. ที่ Rw ' + fmt(nv('wallRw'))
+  $('wallhint').textContent = 'ผนัง ' + fmt(nv('wallA')) + ' ตร.ม. ที่ Rw ' + fmt(wallRw())
     + ' dB เจาะช่อง ' + fmt(S,2) + ' ตร.ม. ต้องการค่าลดเสียงอย่างน้อย ' + fmt(reqIL,1) + ' dB';
 
   /* sensitivity */
@@ -891,6 +1064,22 @@ function render(skipInputs){
           : pass ? 'ค่ารวมผ่าน แต่ย่าน 63 Hz เกินพื้นฐาน 10 dB' : 'ไม่ผ่านเพดานเสียงรบกวน') + '</td></tr>';
   }).join('');
 
+  var other = nv('other');
+  if(other > 0){
+    var comb = esum([dba, other]);
+    var gap = Math.abs(dba - other);
+    $('combined').innerHTML = fmt(comb,1) + '<small>dB(A)</small>';
+    $('otherhint').innerHTML = 'ช่องลม ' + fmt(dba,1) + ' + เส้นทางอื่น ' + fmt(other,1)
+      + ' = <b>' + fmt(comb,1) + ' dB(A)</b>'
+      + (gap >= 10
+          ? ' · ต่างกัน ' + fmt(gap,0) + ' dB เส้นที่เบากว่าแทบไม่มีผล ทุ่มไปที่เส้นที่ดังกว่า'
+          : ' · ต่างกันแค่ ' + fmt(gap,0) + ' dB <b>ต้องแก้ทั้งสองเส้นทาง</b> แก้เส้นเดียวไม่พอ')
+      + (comb > lim ? ' · <b>เกินเพดาน ' + fmt(lim) + ' dB(A)</b>' : '');
+  } else {
+    $('combined').innerHTML = fmt(dba,1) + '<small>dB(A)</small>';
+    $('otherhint').textContent = 'ยังไม่ได้ใส่เส้นทางอื่น ค่าที่แสดงคือเส้นทางผ่านช่องลมอย่างเดียว';
+  }
+
   $('chartnote').innerHTML = 'เส้นประคือเสียงพื้นฐานโดยประมาณของแต่ละย่าน คำนวณจากค่ารวม '
     + fmt(nv('bg')) + ' dB(A) ตามรูปร่างสเปกตรัมทั่วไปของเสียงเมือง ซึ่งเป็นค่าประมาณ '
     + '<b>ถ้าจะใช้อ้างจริงต้องวัดเสียงพื้นฐานแยกย่านที่หน้างาน</b>';
@@ -899,11 +1088,36 @@ function render(skipInputs){
 }
 
 /* ---------------- events ---------------- */
-['lroom','dist','bg','area','cmh','fv','wallA','wallRw'].forEach(function(id){
+['lroom','dist','bg','area','cmh','fv','wallA','wallRw','wallMass','dw','dh','dt','dl','other'].forEach(function(id){
   $(id).addEventListener('input', function(){
     if(id === 'lroom') applySpectrum();
     render();
   });
+});
+$('qsel').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  QDIR = +b.dataset.q;
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  render();
+});
+$('wallmode').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  WALL_MODE = b.dataset.wm;
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  $('wrapRw').hidden   = WALL_MODE !== 'rw';
+  $('wrapMass').hidden = WALL_MODE !== 'mass';
+  render();
+});
+$('ductmode').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  if(b.dataset.da === '1'){
+    DUCT_AUTO = true;
+    this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+    $('ductInputs').hidden = false;
+  } else {
+    goManualDuct();
+  }
+  buildElements(); render();
 });
 $('spectrum').addEventListener('click', function(e){
   var b = e.target.closest('button'); if(!b) return;
@@ -922,7 +1136,13 @@ $('areaMode').addEventListener('click', function(e){
 $('resetBtn').addEventListener('click', function(){
   $('lroom').value=100; $('dist').value=10; $('bg').value=50;
   $('area').value=1.0; $('cmh').value=7000; $('fv').value=2.0;
-  $('wallA').value=126; $('wallRw').value=45;
+  $('wallA').value=126; $('wallRw').value=45; $('wallMass').value=180;
+  $('dw').value=1200; $('dh').value=700; $('dt').value=25; $('dl').value=6; $('other').value=0;
+  QDIR=2; WALL_MODE='rw'; DUCT_AUTO=true;
+  $('qsel').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.q==='2'); });
+  $('wallmode').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.wm==='rw'); });
+  $('ductmode').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.da==='1'); });
+  $('wrapRw').hidden=false; $('wrapMass').hidden=true; $('ductInputs').hidden=false;
   SPEC='music'; AREA_MODE='direct';
   $('spectrum').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.sp==='music'); });
   $('areaMode').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.am==='direct'); });
