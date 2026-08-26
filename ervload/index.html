@@ -300,33 +300,46 @@ table.dtable td.st{white-space:nowrap}
 
 /* floating explanation panel */
 .cinfo{
-  position:absolute; z-index:20; display:none; width:min(310px,calc(100% - 12px));
+  position:absolute; z-index:20; display:none; width:min(286px,calc(100% - 12px));
   background:var(--card-bg); border:1px solid var(--border2,#D6D4CE); border-radius:9px;
-  box-shadow:0 6px 22px rgba(0,0,0,.16); padding:10px 12px; font-size:12.5px;
+  box-shadow:0 6px 22px rgba(0,0,0,.16); padding:9px 11px; font-size:12.5px;
   max-height:calc(100% - 12px); overflow-y:auto;   /* never taller than the chart */
 }
 .cinfo.open{display:block}
+.cinfo{touch-action:none}
 .cinfo-x{
   position:absolute; top:6px; right:7px; border:0; background:none; cursor:pointer;
   font-size:17px; line-height:1; color:var(--gray); font-family:inherit; padding:2px 4px;
 }
 .cinfo-x:hover{color:var(--text)}
-.cinfo-h{font-weight:700; font-size:12.5px; color:var(--text); margin-bottom:7px; padding-right:20px;
-         display:flex; align-items:center}
+.cinfo-h{font-weight:700; font-size:12px; color:var(--text); margin-bottom:6px; padding-right:20px;
+         display:flex; align-items:center; cursor:grab; user-select:none;
+         margin:-2px -4px 7px; padding:2px 20px 2px 4px; border-radius:5px}
+.cinfo-h:hover{background:var(--surface)}
+.cinfo.dragging .cinfo-h{cursor:grabbing}
+.cinfo.dragging{box-shadow:0 12px 34px rgba(0,0,0,.24); opacity:.97}
+.cinfo.reflow{transition:left .22s ease, top .22s ease}
+/* grip dots, so it reads as something you can pick up */
+.cinfo-grip{
+  width:9px; height:12px; flex:none; margin-right:7px; opacity:.42;
+  background-image:radial-gradient(currentColor 1px, transparent 1.1px);
+  background-size:4px 4px; background-position:0 1px; color:var(--gray);
+}
 .cinfo-eq{
-  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; line-height:1.6;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:10.5px; line-height:1.45;
   background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--blue);
-  border-radius:5px; padding:7px 9px; margin-bottom:9px; white-space:pre; overflow-x:auto;
+  border-radius:5px; padding:6px 8px; margin-bottom:7px; white-space:pre; overflow-x:auto;
   color:var(--text-secondary);
 }
 .cinfo-eq b{color:var(--text); font-weight:600}
-.cinfo-t{width:100%; border-collapse:collapse; margin-bottom:9px}
-.cinfo-t td{padding:2px 0; border-bottom:1px solid #F2F1EE; color:var(--text-secondary); font-size:12px}
+.cinfo-t{width:100%; border-collapse:collapse; margin-bottom:7px}
+.cinfo-t td{padding:1px 0; border-bottom:1px solid #F2F1EE; color:var(--text-secondary); font-size:11.5px;
+            line-height:1.5}
 .cinfo-t tr:last-child td{border-bottom:0}
 .cinfo-t td.v{text-align:right; font-variant-numeric:tabular-nums; font-weight:600;
               color:var(--text); white-space:nowrap; padding-left:10px}
-.cinfo-m{font-size:11.5px; line-height:1.55; color:var(--text-secondary);
-         border-top:1px solid var(--border); padding-top:8px}
+.cinfo-m{font-size:11px; line-height:1.45; color:var(--text-secondary);
+         border-top:1px solid var(--border); padding-top:7px}
 .cinfo-m b{color:var(--text)}
 @media (max-width:560px){ .cinfo{width:calc(100% - 12px)} }
 </style>
@@ -480,14 +493,14 @@ table.dtable td.st{white-space:nowrap}
       <button class="card-expand-btn" data-chart="psy" type="button" title="ขยายเต็มจอ">⤢</button>
       <div class="card-title-row"><h3>แผนภูมิไซโครเมตริก</h3>
         <span class="pill src">ASHRAE 2021 บทที่ 1</span></div>
-      <div class="canvas-wrap" style="height:340px"><canvas id="psy"></canvas></div>
+      <div class="canvas-wrap" style="height:400px"><canvas id="psy"></canvas></div>
       <div class="zoomhint" id="psyLegend"></div>
     </div>
     <div class="card">
       <button class="card-expand-btn" data-chart="sens" type="button" title="ขยายเต็มจอ">⤢</button>
       <div class="card-title-row"><h3>ถ้าเปลี่ยนปริมาณลม ERV</h3>
         <span class="pill" id="sensPill"></span></div>
-      <div class="canvas-wrap" style="height:340px"><canvas id="sens"></canvas></div>
+      <div class="canvas-wrap" style="height:400px"><canvas id="sens"></canvas></div>
       <div class="zoomhint">เส้นทึบคือภาระที่เพิ่ม อ่านแกนซ้าย · เส้นประคืออุณหภูมิห้องที่เปลี่ยน อ่านแกนขวา · จุดคือค่าที่ตั้งอยู่ตอนนี้</div>
     </div>
   </div>
@@ -1168,6 +1181,66 @@ function closeInfo(cv){
   var el = cv.parentElement.querySelector('.cinfo');
   if(el) el.classList.remove('open');
 }
+/* The panel covers a good part of a small chart, so it can be dragged out of
+   the way by its header. Once moved it stays where it was put - reopening a
+   different point should not send it back over the picture. Double-click the
+   header to hand positioning back to the tool. */
+function makeDraggable(el, wrap){
+  if(el._drag) return; el._drag = true;
+  var sx, sy, ox, oy, on = false;
+  function pt(e){ return e.touches && e.touches[0] ? e.touches[0] : e; }
+  function down(e){
+    if(e.target.closest('.cinfo-x')) return;
+    var p = pt(e); on = true;
+    sx = p.clientX; sy = p.clientY;
+    ox = parseFloat(el.style.left) || 0; oy = parseFloat(el.style.top) || 0;
+    el.classList.add('dragging'); e.preventDefault();
+  }
+  function move(e){
+    if(!on) return;
+    var p = pt(e);
+    var x = ox + (p.clientX - sx), y = oy + (p.clientY - sy);
+    x = Math.min(Math.max(0, x), Math.max(0, wrap.clientWidth  - el.offsetWidth));
+    y = Math.min(Math.max(0, y), Math.max(0, wrap.clientHeight - el.offsetHeight));
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    wrap._cinfoPos = { x:x, y:y };
+    e.preventDefault();
+  }
+  function up(){ on = false; el.classList.remove('dragging'); }
+  el.addEventListener('mousedown', function(e){
+    if(e.target.closest('.cinfo-h')) down(e); });
+  el.addEventListener('touchstart', function(e){
+    if(e.target.closest('.cinfo-h')) down(e); }, { passive:false });
+  document.addEventListener('mousemove', move);
+  document.addEventListener('touchmove', move, { passive:false });
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchend', up);
+  el.addEventListener('dblclick', function(e){
+    if(!e.target.closest('.cinfo-h')) return;
+    wrap._cinfoPos = null;            /* back to automatic placement */
+    el.classList.add('reflow');
+    setTimeout(function(){ el.classList.remove('reflow'); }, 260);
+    placeInfo(el, wrap, el._px, el._py);
+  });
+}
+
+/* put the panel near the click, unless the reader has parked it somewhere */
+function placeInfo(el, wrap, px, py){
+  var w = wrap.clientWidth, h = wrap.clientHeight;
+  var bw = el.offsetWidth, bh = el.offsetHeight;
+  var x, y;
+  if(wrap._cinfoPos){
+    x = wrap._cinfoPos.x; y = wrap._cinfoPos.y;
+  } else {
+    /* Open in the corner furthest from what was clicked, rather than right
+       beside it - beside the click is almost always on top of the data. */
+    x = (px < w/2) ? w - bw - 6 : 6;
+    y = (py < h/2) ? h - bh - 6 : 6;
+  }
+  el.style.left = Math.min(Math.max(6, x), Math.max(6, w - bw - 6)) + 'px';
+  el.style.top  = Math.min(Math.max(6, y), Math.max(6, h - bh - 6)) + 'px';
+}
+
 function showInfo(cv, hit, px, py){
   var wrap = cv.parentElement;
   var el = wrap.querySelector('.cinfo');
@@ -1175,7 +1248,9 @@ function showInfo(cv, hit, px, py){
   var i = hit.info;
   el.innerHTML =
       '<button class="cinfo-x" type="button" aria-label="ปิด">×</button>'
-    + '<div class="cinfo-h"><span class="statedot" style="background:'+i.col+'"></span>'+i.title+'</div>'
+    + '<div class="cinfo-h" title="ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งอัตโนมัติ">'
+    + '<span class="cinfo-grip" aria-hidden="true"></span>'
+    + '<span class="statedot" style="background:'+i.col+'"></span>'+i.title+'</div>'
     + (i.eq ? '<div class="cinfo-eq">'+i.eq+'</div>' : '')
     + '<table class="cinfo-t"><tbody>'
     + i.rows.map(function(r){
@@ -1184,15 +1259,10 @@ function showInfo(cv, hit, px, py){
     + '<div class="cinfo-m">'+i.mean+'</div>';
   el.classList.add('open');
   el.querySelector('.cinfo-x').onclick = function(e){ e.stopPropagation(); el.classList.remove('open'); };
-
-  var w = wrap.clientWidth, h = wrap.clientHeight;
-  el.style.left = '0px'; el.style.top = '0px';
-  var bw = el.offsetWidth, bh = el.offsetHeight;
-  var x = Math.min(Math.max(6, px + 14), Math.max(6, w - bw - 6));
-  var y = py - bh - 14;
-  if(y < 6) y = Math.min(py + 16, Math.max(6, h - bh - 6));
-  y = Math.min(Math.max(6, y), Math.max(6, h - bh - 6));
-  el.style.left = x + 'px'; el.style.top = y + 'px';
+  el._px = px; el._py = py;
+  el.style.left = '0px'; el.style.top = '0px';   /* measure before placing */
+  placeInfo(el, wrap, px, py);
+  makeDraggable(el, wrap);
 }
 function attachChart(cv){
   if(cv._wired) return; cv._wired = true;
