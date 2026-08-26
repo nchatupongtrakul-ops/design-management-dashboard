@@ -527,7 +527,7 @@ table.dtable td.st{white-space:nowrap}
       <div class="card-title-row"><h3>ถ้าเปลี่ยนปริมาณลม ERV</h3>
         <span class="pill" id="sensPill"></span></div>
       <div class="canvas-wrap" style="height:400px"><canvas id="sens"></canvas></div>
-      <div class="zoomhint">เส้นทึบคือภาระที่เพิ่ม อ่านแกนซ้าย · เส้นประคืออุณหภูมิห้องที่เปลี่ยน อ่านแกนขวา · จุดคือค่าที่ตั้งอยู่ตอนนี้</div>
+      <div class="zoomhint">เส้นทึบคือภาระที่เพิ่ม อ่านแกนซ้าย · เส้นประคืออุณหภูมิห้องที่เปลี่ยน อ่านแกนขวา · จุดสองจุดบนเส้นตั้งจาง ๆ คือค่าที่ตั้งอยู่ตอนนี้ กดดูรายละเอียดได้</div>
     </div>
   </div>
 
@@ -1531,6 +1531,11 @@ function drawSens(cv){
   g.textAlign='left';  g.fillStyle=C.blue;   g.fillText('RT', 6, T-4);
   g.textAlign='right'; g.fillStyle=C.orange; g.fillText('°C', p.w-4, T-4);
 
+  /* where the slider currently sits, so both axes can be read off one line */
+  g.beginPath(); g.moveTo(px(cur.Q), T); g.lineTo(px(cur.Q), p.h-B);
+  g.strokeStyle = C.gray; g.lineWidth = 1; g.setLineDash([3,3]); g.globalAlpha = .5;
+  g.stroke(); g.globalAlpha = 1; g.setLineDash([]);
+
   g.beginPath(); pts.forEach(function(o,i){ i?g.lineTo(px(o.q),pyR(o.rt)):g.moveTo(px(o.q),pyR(o.rt)); });
   g.strokeStyle=C.blue; g.lineWidth = big?2.8:2.2; g.setLineDash([]); g.stroke();
   g.beginPath(); pts.forEach(function(o,i){ i?g.lineTo(px(o.q),pyT(o.dT)):g.moveTo(px(o.q),pyT(o.dT)); });
@@ -1574,14 +1579,60 @@ function drawSens(cv){
        + 'จุดที่มันเริ่มออกจากศูนย์คือขีดจำกัดจริงของระบบเดิม '
        + 'ถ้าเส้นนี้ทับกับเส้นทึบตั้งแต่ต้น แปลว่าแอร์เต็มกำลังอยู่แล้ว' });
 
-  dot(g, px(cur.Q), pyR(cur.qt/RTW), C.blue);
-  cv._hits.push({ kind:'point', x:px(cur.Q), y:pyR(cur.qt/RTW), info:{
-    col:C.blue, title:'จุดที่ตั้งอยู่ตอนนี้', eq:null,
+  /* Both markers are always drawn, including when the temperature curve is
+     still flat on zero. Leaving the orange one out whenever it read 0.00
+     removed the only cue for where you were on the dashed line.
+
+     At low airflow the two sit on top of each other - the load curve is near
+     the baseline and the temperature curve is still on it - so below 13px
+     apart they become one marker carrying both readings, rather than two
+     that overlap and hide each other from the click test. */
+  var atLimit = cur.dT <= 0.005;
+  var mx = px(cur.Q), yR = pyR(cur.qt/RTW), yT = pyT(cur.dT);
+  var dRH = (cur.RHr2 - cur.RHr)*100;
+  var rowRH = ['ความชื้นสัมพัทธ์เปลี่ยน', (Math.abs(dRH)<0.05?'0.0':sgn(dRH,1))+' %RH'];
+
+  if(Math.abs(yR - yT) < 13){
+    g.beginPath(); g.arc(mx, (yR+yT)/2, 7.5, 0, 6.2832);
+    g.fillStyle = C.orange; g.fill();
+    g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+    dot(g, mx, (yR+yT)/2, C.blue);
+    cv._hits.push({ kind:'point', x:mx, y:(yR+yT)/2, info:{
+      col:C.blue, title:'ตอนนี้อยู่ตรงนี้', eq:null,
+      rows:[['ปริมาณลม', fmt(cur.Q)+' CMH'],
+            ['ภาระที่เพิ่ม  แกนซ้าย', fmt(cur.qt/RTW,2)+' RT'],
+            ['คิดเป็นสัดส่วนของแอร์', fmt(cur.cap>0?cur.qt/RTW/cur.cap*100:0,1)+' %'],
+            ['อุณหภูมิห้องเปลี่ยน  แกนขวา', (atLimit?'0.00':sgn(cur.dT,2))+' °C'],
+            rowRH,
+            ['กำลังแอร์ที่เหลืออยู่', fmt(cur.spareW/RTW,2)+' RT']],
+      mean:'ที่ปริมาณลมนี้ทั้งสองเส้นอยู่ใกล้กันมากจนเป็นจุดเดียว จึงรวมค่าไว้ด้วยกัน '
+         + (atLimit ? '<b>อุณหภูมิยังไม่ขยับ เพราะแอร์เดิมยังรับไหว</b>'
+                    : 'ลากแถบลมแล้วสองจุดจะแยกออกจากกัน') }});
+    return;
+  }
+
+  dot(g, mx, yT, C.orange);
+  cv._hits.push({ kind:'point', x:mx, y:yT, info:{
+    col:C.orange, title:'ตอนนี้อยู่ตรงนี้บนเส้นประ', eq:null,
+    rows:[['ปริมาณลม', fmt(cur.Q)+' CMH'],
+          ['อุณหภูมิห้องเปลี่ยน', (atLimit?'0.00':sgn(cur.dT,2))+' °C'],
+          rowRH,
+          ['กำลังแอร์ที่เหลืออยู่', fmt(cur.spareW/RTW,2)+' RT'],
+          ['ภาระที่แอร์รับไม่ไหว', fmt(cur.deficitW/RTW,2)+' RT']],
+    mean: atLimit
+      ? 'ยังอยู่บนเส้นศูนย์ แปลว่า<b>แอร์เดิมยังรับไหว ห้องไม่เปลี่ยน</b> '
+        + 'ลากแถบลมเพิ่มไปเรื่อย ๆ จุดนี้จะเริ่มไต่ขึ้นตรงจุดที่แอร์เอาไม่อยู่'
+      : '<b>ออกจากเส้นศูนย์แล้ว</b> แปลว่าแอร์เดิมรับภาระนี้ไม่หมด '
+        + 'ส่วนที่เหลือค้างในห้องและดันอุณหภูมิขึ้นเท่าที่เห็น' }});
+
+  dot(g, mx, yR, C.blue);
+  cv._hits.push({ kind:'point', x:mx, y:yR, info:{
+    col:C.blue, title:'ตอนนี้อยู่ตรงนี้บนเส้นทึบ', eq:null,
     rows:[['ปริมาณลม', fmt(cur.Q)+' CMH'], ['ภาระที่เพิ่ม', fmt(cur.qt/RTW,2)+' RT'],
           ['คิดเป็นสัดส่วนของแอร์', fmt(cur.cap>0?cur.qt/RTW/cur.cap*100:0,1)+' %'],
-          ['อุณหภูมิห้องเปลี่ยน', (cur.dT<0.005?'0.00':sgn(cur.dT,2))+' °C']],
-    mean:'ค่าที่แถบเลื่อนตั้งอยู่ · ลากแถบแล้วจุดนี้จะวิ่งตามเส้น' }});
-  if(cur.dT > 0.005) dot(g, px(cur.Q), pyT(cur.dT), C.orange);
+          ['อุณหภูมิห้องเปลี่ยน', (atLimit?'0.00':sgn(cur.dT,2))+' °C']],
+    mean:'ค่าที่แถบเลื่อนตั้งอยู่ · ลากแถบแล้วจุดทั้งสองจะวิ่งตามเส้นของตัวเอง '
+       + 'เส้นตั้งจาง ๆ เชื่อมทั้งสองไว้ ให้อ่านแกนซ้ายและแกนขวาที่ลมเดียวกันได้' }});
 }
 
 /* ─────────────── render ─────────────── */
