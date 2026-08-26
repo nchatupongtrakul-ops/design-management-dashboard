@@ -303,7 +303,8 @@ table.dtable td.st{white-space:nowrap}
   position:absolute; z-index:20; display:none; width:min(286px,calc(100% - 12px));
   background:var(--card-bg); border:1px solid var(--border2,#D6D4CE); border-radius:9px;
   box-shadow:0 6px 22px rgba(0,0,0,.16); padding:9px 11px; font-size:12.5px;
-  max-height:calc(100% - 12px); overflow-y:auto;   /* never taller than the chart */
+  /* always leave room to drag it vertically; longer content scrolls inside */
+  max-height:calc(100% - 66px); overflow-y:auto;
 }
 .cinfo.open{display:block}
 .cinfo{touch-action:none}
@@ -342,6 +343,31 @@ table.dtable td.st{white-space:nowrap}
          border-top:1px solid var(--border); padding-top:7px}
 .cinfo-m b{color:var(--text)}
 @media (max-width:560px){ .cinfo{width:calc(100% - 12px)} }
+
+/* symbol key, folded away so the panel stays small enough to move */
+.cinfo-symt{
+  display:flex; align-items:center; gap:5px; width:100%; border:0; background:none;
+  font-family:inherit; font-size:11px; font-weight:600; color:var(--blue);
+  cursor:pointer; padding:0 0 4px; text-align:left;
+}
+.cinfo-symt:hover{text-decoration:underline}
+.cinfo-symt .cv{font-size:9px; transition:transform .15s; display:inline-block}
+.cinfo-symt.open .cv{transform:rotate(180deg)}
+.cinfo-syms{margin:0 0 7px}
+.cinfo-syms table{width:100%; border-collapse:collapse}
+.cinfo-syms td{padding:1.5px 0; vertical-align:top; font-size:10.5px; line-height:1.45;
+               border-bottom:1px solid #F4F3F0}
+.cinfo-syms tr:last-child td{border-bottom:0}
+.cinfo-syms td.s{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-weight:600;
+  color:var(--text); white-space:nowrap; padding-right:8px; width:1%;
+}
+.cinfo-syms td.s sub{font-size:8px}
+.cinfo-syms td.d{color:var(--text-secondary)}
+.cinfo-syms td.v{
+  text-align:right; white-space:nowrap; padding-left:8px; color:var(--gray);
+  font-variant-numeric:tabular-nums; width:1%;
+}
 </style>
 </head>
 <body>
@@ -1030,6 +1056,7 @@ function fmt(n,d){ d = d||0; return (isFinite(n)?n:0).toLocaleString('en-US',
 function sgn(n,d){ return (n>=0?'+':'−') + fmt(Math.abs(n), d); }
 
 var MODE = 'return';
+var SHOW_SYMS = false;   /* opened once, stays open for the rest of the session */
 var DENS = 'std';      /* 'std' = ASHRAE standard air, 'act' = real outdoor density */
 
 /* ─────────────── the model ─────────────── */
@@ -1241,6 +1268,36 @@ function placeInfo(el, wrap, px, py){
   el.style.top  = Math.min(Math.max(6, y), Math.max(6, h - bh - 6)) + 'px';
 }
 
+/* What every symbol in the equation above actually means. Folded away by
+   default so the panel stays small enough to move around; once opened it
+   stays open for every other point in the session. */
+function buildSymbols(el, wrap, syms){
+  var eq = el.querySelector('.cinfo-eq');
+  if(!eq) return;
+  var t = document.createElement('button');
+  t.type = 'button'; t.className = 'cinfo-symt';
+  t.innerHTML = 'ตัวแปรในสมการ<span class="cv">▾</span>';
+  var body = document.createElement('div');
+  body.className = 'cinfo-syms';
+  body.innerHTML = '<table>' + syms.map(function(s){
+      return '<tr><td class="s">'+s[0]+'</td><td class="d">'+s[1]+'</td>'
+           + '<td class="v">'+(s[2]||'')+'</td></tr>'; }).join('') + '</table>';
+  eq.parentNode.insertBefore(t, eq.nextSibling);
+  eq.parentNode.insertBefore(body, t.nextSibling);
+
+  function paint(){
+    t.classList.toggle('open', SHOW_SYMS);
+    body.style.display = SHOW_SYMS ? 'block' : 'none';
+  }
+  paint();
+  t.addEventListener('click', function(e){
+    e.stopPropagation();
+    SHOW_SYMS = !SHOW_SYMS;
+    paint();
+    placeInfo(el, wrap, el._px, el._py);   /* height changed, keep it on screen */
+  });
+}
+
 function showInfo(cv, hit, px, py){
   var wrap = cv.parentElement;
   var el = wrap.querySelector('.cinfo');
@@ -1258,6 +1315,7 @@ function showInfo(cv, hit, px, py){
     + '</tbody></table>'
     + '<div class="cinfo-m">'+i.mean+'</div>';
   el.classList.add('open');
+  if(i.syms) buildSymbols(el, wrap, i.syms);
   el.querySelector('.cinfo-x').onclick = function(e){ e.stopPropagation(); el.classList.remove('open'); };
   el._px = px; el._py = py;
   el.style.left = '0px'; el.style.top = '0px';   /* measure before placing */
@@ -1338,6 +1396,14 @@ function drawPsy(cv, m){
   cv._hits.push({ kind:'seg', x1:P.oa[0],y1:P.oa[1], x2:P.sa[0],y2:P.sa[1], info:{
     col:C.purple, title:'เส้นม่วง · งานที่แกน ERV ทำให้',
     eq:'T<b>sa</b> = T<b>oa</b> + η<b>s</b>·(T<b>r</b> − T<b>oa</b>)\nh<b>sa</b> = h<b>oa</b> + η<b>t</b>·(h<b>r</b> − h<b>oa</b>)',
+    syms:[['T<sub>oa</sub>','อุณหภูมิอากาศภายนอก', f2(m.Toa,1)+' °C'],
+          ['T<sub>r</sub>','อุณหภูมิอากาศในห้อง', f2(m.Tr,1)+' °C'],
+          ['T<sub>sa</sub>','อุณหภูมิลมที่ออกจากแกน', f2(m.Tsa,1)+' °C'],
+          ['h<sub>oa</sub>','เอนทัลปีอากาศภายนอก', f2(m.hoa,1)+' kJ/kg'],
+          ['h<sub>r</sub>','เอนทัลปีอากาศในห้อง', f2(m.hr,1)+' kJ/kg'],
+          ['h<sub>sa</sub>','เอนทัลปีลมที่ออกจากแกน', f2(m.hsa,1)+' kJ/kg'],
+          ['η<sub>s</sub>','ประสิทธิภาพด้านอุณหภูมิ', f2(m.es*100,0)+' %'],
+          ['η<sub>t</sub>','ประสิทธิภาพด้านพลังงานรวม', f2(m.et*100,0)+' %']],
     rows:[['ประสิทธิภาพสัมผัส ηs', f2(m.es*100,0)+' %'],
           ['ประสิทธิภาพเอนทัลปี ηt', f2(m.et*100,0)+' %'],
           ['อุณหภูมิลดลง', f2(m.Toa-m.Tsa,2)+' K'],
@@ -1350,6 +1416,15 @@ function drawPsy(cv, m){
     col:C.blue, title:'เส้นประน้ำเงิน · ภาระที่เหลือให้แอร์',
     eq:'q<b>t</b> = 1.2 · Q · (h<b>sa</b> − h<b>r</b>)      สมการ (7)\n'
       +'q<b>s</b> = C<b>s</b> · Q · (T<b>sa</b> − T<b>r</b>)     สมการ (9)',
+    syms:[['q<sub>t</sub>','ภาระรวมที่ตกกับแอร์', f2(m.qt,0)+' W'],
+          ['q<sub>s</sub>','ภาระสัมผัส ส่วนที่ทำให้ห้องร้อน', f2(m.qs,0)+' W'],
+          ['Q','ปริมาณลม ERV', f2(m.Ql,1)+' L/s'],
+          ['1.2','ความหนาแน่นอากาศแห้ง', f2(m.rho,3)+' kg/m³'],
+          ['C<sub>s</sub>','ตัวคูณภาระสัมผัส จากสมการ (8)', f2(m.Cs,4)],
+          ['h<sub>sa</sub>','เอนทัลปีลมที่เข้าห้อง', f2(m.hsa,1)+' kJ/kg'],
+          ['h<sub>r</sub>','เอนทัลปีอากาศในห้อง', f2(m.hr,1)+' kJ/kg'],
+          ['T<sub>sa</sub>','อุณหภูมิลมที่เข้าห้อง', f2(m.Tsa,1)+' °C'],
+          ['T<sub>r</sub>','อุณหภูมิอากาศในห้อง', f2(m.Tr,1)+' °C']],
     rows:[['ส่วนต่างเอนทัลปี', f2(m.hsa-m.hr,2)+' kJ/kg'],
           ['ส่วนต่างอุณหภูมิ', f2(m.Tsa-m.Tr,2)+' K'],
           ['ส่วนต่างความชื้น', (m.Wsa-m.Wr).toFixed(5)+' kg/kg'],
@@ -1369,11 +1444,23 @@ function drawPsy(cv, m){
   }
   var eqPt = 'W = 0.621945 · p<b>w</b> / (p − p<b>w</b>)     สมการ (21)\n'
            + 'h = 1.006·t + W·(2501 + 1.86·t)     สมการ (32)';
+  var symPt = [
+    ['t','อุณหภูมิกระเปาะแห้ง','°C'],
+    ['W','อัตราส่วนความชื้น มวลน้ำต่อมวลอากาศแห้ง','kg/kg'],
+    ['h','เอนทัลปี พลังงานรวมต่อมวลอากาศแห้ง','kJ/kg'],
+    ['p','ความดันบรรยากาศ','101.325 kPa'],
+    ['p<sub>w</sub>','ความดันไอน้ำจริง คือ RH คูณความดันอิ่มตัว','kPa'],
+    ['0.621945','อัตราส่วนมวลโมเลกุล น้ำต่ออากาศแห้ง',''],
+    ['1.006','ความร้อนจำเพาะของอากาศแห้ง','kJ/(kg·K)'],
+    ['2501','ความร้อนแฝงของน้ำที่ 0 °C','kJ/kg'],
+    ['1.86','ความร้อนจำเพาะของไอน้ำ','kJ/(kg·K)']
+  ];
   mark('oa', C.red, 'นอกอาคาร', { col:C.red, title:'อากาศภายนอก', eq:eqPt,
     rows:[['อุณหภูมิ', f2(m.Toa,2)+' °C'], ['ความชื้นสัมพัทธ์', f2(m.RHoa*100,1)+' %'],
           ['อัตราส่วนความชื้น W', m.Woa.toFixed(5)+' kg/kg'],
           ['เอนทัลปี h', f2(m.hoa,2)+' kJ/kg'],
           ['ความหนาแน่นอากาศแห้ง', f2(1/m.vOa,3)+' kg/m³']],
+    syms:symPt,
     mean:'จุดตั้งต้น อากาศที่ระบบต้องรับมาจัดการ · <b>อยู่ขวาบนสุดเสมอ</b> '
        + 'เพราะร้อนที่สุดและชื้นที่สุด' });
   mark('sa', C.purple, 'ออกจาก ERV', { col:C.purple, title:'อากาศที่ออกจากแกน ERV', eq:eqPt,
@@ -1381,18 +1468,26 @@ function drawPsy(cv, m){
           ['อัตราส่วนความชื้น W', m.Wsa.toFixed(5)+' kg/kg'],
           ['เอนทัลปี h', f2(m.hsa,2)+' kJ/kg'],
           ['มวลอากาศแห้งที่ไหล', f2(m.mda,3)+' kg/s']],
+    syms:symPt,
     mean:'สภาวะของลมตรงที่เข้าห้อง <b>ยิ่งจุดนี้ขยับเข้าใกล้จุดห้องเท่าไร แอร์ยิ่งทำงานน้อยลง</b> '
        + 'ตำแหน่งของมันกำหนดโดย ηs และ ηt เท่านั้น' });
   mark('rm', C.blue, 'ห้อง', { col:C.blue, title:'สภาวะที่ต้องการในห้อง', eq:eqPt,
     rows:[['อุณหภูมิ', f2(m.Tr,2)+' °C'], ['ความชื้นสัมพัทธ์', f2(m.RHr*100,1)+' %'],
           ['อัตราส่วนความชื้น W', m.Wr.toFixed(5)+' kg/kg'],
           ['เอนทัลปี h', f2(m.hr,2)+' kJ/kg']],
+    syms:symPt,
     mean:'เป้าหมายที่ตั้งไว้ · <b>เป็นจุดอ้างอิงของทุกภาระ</b> '
        + 'ทุกค่าที่คำนวณคือส่วนต่างเทียบกับจุดนี้ ไม่ใช่เทียบกับศูนย์' });
   if(m.dT > 0.005 || Math.abs(m.RHr2-m.RHr) > 0.0005){
     mark('rm2', C.orange, 'ห้องหลังเติมลม', { col:C.orange, title:'ห้องหลังเติมลม ERV', eq:
         'ΔT = (T<b>sa</b> − T<b>r</b>) · (Q<b>oa</b>/Q<b>eff</b>) · ส่วนที่แอร์รับไม่ไหว\n'
       + 'ΔW = (W<b>sa</b> − W<b>r</b>) · (Q<b>oa</b>/Q<b>eff</b>) · ส่วนที่แอร์รับไม่ไหว',
+      syms:[['ΔT','อุณหภูมิห้องที่เปลี่ยนไป', sgn(m.dT,2)+' °C'],
+            ['ΔW','ความชื้นห้องที่เปลี่ยนไป', sgn(m.dW*1000,2)+' g/kg'],
+            ['Q<sub>oa</sub>','ลม ERV ที่เติมเข้า', fmt(m.Q)+' CMH'],
+            ['Q<sub>eff</sub>','ลมที่ดึงความร้อนออกจากห้องได้จริง', fmt(m.Qeff*3.6)+' CMH'],
+            ['T<sub>sa</sub>','อุณหภูมิลมที่เข้าห้อง', f2(m.Tsa,1)+' °C'],
+            ['W<sub>sa</sub>','ความชื้นลมที่เข้าห้อง', m.Wsa.toFixed(5)+' kg/kg']],
       rows:[['อุณหภูมิใหม่', f2(m.Tr2,2)+' °C  ('+sgn(m.dT,2)+')'],
             ['ความชื้นสัมพัทธ์ใหม่', f2(m.RHr2*100,1)+' %  ('+sgn((m.RHr2-m.RHr)*100,1)+')'],
             ['ภาระที่แอร์รับไม่ไหว', f2(m.deficitW/RTW,2)+' RT'],
@@ -1452,6 +1547,12 @@ function drawSens(cv){
   var perK = cur.Q>0 ? cur.qt/RTW/cur.Q*1000 : 0;
   curveHits('rt', pyR, { col:C.blue, title:'เส้นทึบ · ภาระที่เพิ่ม อ่านแกนซ้าย',
     eq:'q<b>t</b> = 1.2 · Q · (1 − η<b>t</b>) · (h<b>oa</b> − h<b>r</b>)',
+    syms:[['q<sub>t</sub>','ภาระรวมที่ตกกับแอร์','W'],
+          ['Q','ปริมาณลม ERV','L/s'],
+          ['η<sub>t</sub>','ประสิทธิภาพด้านพลังงานรวมของแกน', fmt(cur.et*100,0)+' %'],
+          ['h<sub>oa</sub>','เอนทัลปีอากาศภายนอก', fmt(cur.hoa,1)+' kJ/kg'],
+          ['h<sub>r</sub>','เอนทัลปีอากาศในห้อง', fmt(cur.hr,1)+' kJ/kg'],
+          ['1.2','ความหนาแน่นอากาศแห้ง', fmt(cur.rho,3)+' kg/m³']],
     rows:[['ที่ลมปัจจุบัน '+fmt(cur.Q)+' CMH', fmt(cur.qt/RTW,2)+' RT'],
           ['ทุก 1,000 CMH เพิ่มขึ้น', fmt(perK,2)+' RT'],
           ['ที่ลมสูงสุดของแถบ '+fmt(qmax), fmt(pts[pts.length-1].rt,2)+' RT'],
@@ -1460,6 +1561,11 @@ function drawSens(cv){
        + 'จุดที่เส้นนี้ตัดกับกำลังที่เหลือ คือปริมาณลมสูงสุดที่เติมได้โดยห้องไม่เปลี่ยน' });
   curveHits('dT', pyT, { col:C.orange, title:'เส้นประ · อุณหภูมิห้องที่เปลี่ยน อ่านแกนขวา',
     eq:'ΔT = (T<b>sa</b> − T<b>r</b>) · (Q<b>oa</b> / Q<b>eff</b>) · ส่วนที่แอร์รับไม่ไหว',
+    syms:[['ΔT','อุณหภูมิห้องที่เปลี่ยนไป','°C'],
+          ['T<sub>sa</sub>','อุณหภูมิลมที่เข้าห้อง', fmt(cur.Tsa,1)+' °C'],
+          ['T<sub>r</sub>','อุณหภูมิห้องที่ตั้งไว้', fmt(cur.Tr,1)+' °C'],
+          ['Q<sub>oa</sub>','ลม ERV ที่เติมเข้า','CMH'],
+          ['Q<sub>eff</sub>','ลมที่ดึงความร้อนออกจากห้องได้จริง', fmt(cur.Qeff*3.6)+' CMH']],
     rows:[['ที่ลมปัจจุบัน '+fmt(cur.Q)+' CMH', (cur.dT<0.005?'0.00':sgn(cur.dT,2))+' °C'],
           ['วิธีต่อลมที่เลือกอยู่', MODE==='return'?'เข้าท่อลมกลับ':'จ่ายเข้าห้องตรง'],
           ['ลมที่ใช้ดึงความร้อนออก', fmt(cur.Qeff*3.6)+' CMH'],
