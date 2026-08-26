@@ -359,6 +359,19 @@ table.dtable td.st{white-space:nowrap}
         <div class="ticks"><span>0</span><span id="tk1"></span><span id="tk2"></span><span id="tk3"></span><span id="tkm">12,000</span></div>
       </div>
       <div class="hint" id="oaHint"></div>
+      <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-top:14px;
+                  padding-top:14px;border-top:1px solid var(--border)">
+        <div style="flex:1;min-width:260px">
+          <label class="flabel">ตัวเลข CMH นี้คิดที่ความหนาแน่นไหน</label>
+          <div class="segbar" id="densbar">
+            <button data-d="std" class="active">ลมมาตรฐาน ASHRAE</button>
+            <button data-d="act">ความหนาแน่นจริงที่หน้ากาก</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:260px">
+          <div class="hint" id="densHint" style="margin-top:0"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -476,8 +489,82 @@ table.dtable td.st{white-space:nowrap}
 <div class="page" id="p-eq">
   <div class="sectitle">สมการทุกตัวและที่มา</div>
 
-  <div class="note"><b>หลักที่ยึด</b> ทุกสมการในหน้านี้คัดมาจาก ASHRAE Handbook 2021 Fundamentals (SI)
-  พร้อมเลขสมการให้เปิดตามได้ ไม่มีตัวเลขที่เดาเอง ส่วนที่เป็นสมมติฐานจะเขียนกำกับไว้ชัด</div>
+  <div class="note"><b>หลักที่ยึด</b> ทุกสมการในหน้านี้คัดมาจากตำราจริงสองเล่ม
+  พร้อมเลขสมการให้เปิดตามได้ ไม่มีตัวเลขที่เดาเอง ส่วนที่เป็นสมมติฐานจะเขียนกำกับไว้ชัด<br>
+  <b>ASHRAE Handbook 2021 Fundamentals (SI)</b> บทที่ 1 และบทที่ 18 ·
+  <b>Cengel &amp; Boles, Thermodynamics: An Engineering Approach ฉบับที่ 8</b> บทที่ 14</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>0 · พิสูจน์ก่อนว่าสมการที่เขียนขึ้นมาใหม่ถูกต้อง</h3>
+      <div class="prose"><p>เครื่องมือนี้ไม่ได้เรียกไลบรารีไซโครเมตริกสำเร็จรูป
+      แต่เขียนสมการขึ้นมาใหม่จากตัวบท จึงต้องพิสูจน์ก่อนว่าเขียนถูก ด้วยการตรวจสามทางที่เป็นอิสระจากกัน</p></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>การตรวจ</th><th>เทียบกับอะไร</th><th class="num">ผล</th></tr></thead>
+        <tbody>
+          <tr><td>ความดันไออิ่มตัว p<sub>ws</sub> ที่ 20 · 25 · 50 °C</td>
+            <td>ตารางที่ 3 ของ ASHRAE บทที่ 1</td>
+            <td class="num"><span class="badge ok">ตรงทุกหลักที่พิมพ์ไว้</span></td></tr>
+          <tr><td>เอนทัลปีและอัตราส่วนความชื้น 5 จุด</td>
+            <td>ฟังก์ชัน psych() ที่ทีมใช้ในไฟล์ Excel</td>
+            <td class="num"><span class="badge ok">ต่างไม่เกิน 0.011%</span></td></tr>
+          <tr class="gov"><td><b>โจทย์ตัวอย่าง 14–6 ทั้งข้อ</b> ลมเข้า 30 °C 80% 10 m³/min
+            ออกอิ่มตัวที่ 14 °C หาอัตราการดึงความร้อนและความชื้น</td>
+            <td>คำตอบในหนังสือ Cengel</td>
+            <td class="num"><span class="badge ok">511 → คำนวณได้ 510.7 kJ/min</span></td></tr>
+          <tr class="gov"><td><b>เอกลักษณ์การผสมลม สมการ 14–24</b><br>
+            <span class="mono">ṁa1/ṁa2 = (ω2−ω3)/(ω3−ω1) = (h2−h3)/(h3−h1)</span></td>
+            <td>ตัวมันเองสามทาง ที่เงื่อนไข Udon</td>
+            <td class="num"><span class="badge ok">12.736066 เท่ากันหมด</span></td></tr>
+        </tbody>
+      </table></div>
+      <div class="srcline" style="margin-top:10px">การตรวจข้อที่สามสำคัญที่สุด เพราะ Cengel หาคำตอบด้วย<b>วิธีคนละอย่าง</b>
+      คืออ่านค่าจากแผนภูมิไซโครเมตริกแล้วทำสมดุลมวลกับพลังงาน ส่วนเครื่องมือนี้ใช้สมการวิเคราะห์ของ ASHRAE
+      สองทางที่ไม่เกี่ยวกันมาบรรจบที่คำตอบเดียวกันภายใน 0.1% · ส่วนที่ต่างกันเล็กน้อยมาจากการที่หนังสืออ่านค่าจากแผนภูมิได้แค่ 3 หลัก</div>
+      <div class="tablewrap" style="margin-top:12px"><table class="dtable">
+        <thead><tr><th>ตรวจละเอียดโจทย์ 14–6</th><th class="num">ในหนังสือ</th><th class="num">คำนวณใหม่</th><th class="num">ต่างกัน</th></tr></thead>
+        <tbody>
+          <tr><td>ω₁  kg/kg</td><td class="num">0.0216</td><td class="num">0.02158</td><td class="num">−0.11%</td></tr>
+          <tr><td>h₁  kJ/kg</td><td class="num">85.4</td><td class="num">85.35</td><td class="num">−0.06%</td></tr>
+          <tr><td>v₁  m³/kg</td><td class="num">0.889</td><td class="num">0.8886</td><td class="num">−0.05%</td></tr>
+          <tr><td>ω₂  kg/kg</td><td class="num">0.0100</td><td class="num">0.00997</td><td class="num">−0.28%</td></tr>
+          <tr><td>h₂  kJ/kg</td><td class="num">39.3</td><td class="num">39.28</td><td class="num">−0.04%</td></tr>
+          <tr><td>มวลอากาศแห้ง  kg/min</td><td class="num">11.25</td><td class="num">11.254</td><td class="num">+0.03%</td></tr>
+          <tr><td>น้ำที่กลั่นตัว  kg/min</td><td class="num">0.131</td><td class="num">0.1306</td><td class="num">−0.3%</td></tr>
+          <tr class="gov"><td><b>ความร้อนที่ดึงออก  kJ/min</b></td><td class="num">511</td><td class="num">510.7</td><td class="num">−0.1%</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>0.5 · สองเล่มเขียนสมการเดียวกัน ต่างกันแค่ทศนิยม</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ปริมาณ</th><th>ASHRAE 2021 บทที่ 1</th><th>Cengel บทที่ 14</th><th>ผลต่าง</th></tr></thead>
+        <tbody>
+          <tr><td>อัตราส่วนความชื้น</td>
+            <td class="mono">W = 0.621945·p<sub>w</sub>/(p−p<sub>w</sub>) <span class="pill">eq 21</span></td>
+            <td class="mono">ω = 0.622·P<sub>v</sub>/(P−P<sub>v</sub>) <span class="pill">eq 14–8</span></td>
+            <td>0.0088% · Cengel ปัดเศษ</td></tr>
+          <tr><td>ความชื้นสัมพัทธ์</td>
+            <td class="mono">φ = p<sub>w</sub>/p<sub>ws</sub></td>
+            <td class="mono">φ = P<sub>v</sub>/P<sub>g</sub> <span class="pill">eq 14–9</span></td>
+            <td>เหมือนกันทุกประการ</td></tr>
+          <tr><td>เอนทัลปีไอน้ำอิ่มตัว</td>
+            <td class="mono">h<sub>g</sub> = 2501 + 1.86·t <span class="pill">eq 31</span></td>
+            <td class="mono">h<sub>g</sub> ≈ 2500.9 + 1.82·T <span class="pill">eq 14–4</span></td>
+            <td>ที่ 30 °C ต่างกัน 1.3 kJ/kg</td></tr>
+          <tr><td>เอนทัลปีอากาศชื้น</td>
+            <td class="mono">h = 1.006·t + W·h<sub>g</sub> <span class="pill">eq 32</span></td>
+            <td class="mono">h = h<sub>a</sub> + ω·h<sub>g</sub> <span class="pill">eq 14–12</span></td>
+            <td>c<sub>p</sub> อากาศแห้ง 1.006 กับ 1.005</td></tr>
+        </tbody>
+      </table></div>
+      <div class="srcline" style="margin-top:10px">เครื่องมือนี้ใช้ชุดของ ASHRAE เพราะละเอียดกว่าเล็กน้อยและเป็นเล่มที่วงการออกแบบอ้างกัน
+      แต่ที่สำคัญคือ<b>สองเล่มยืนยันกันเอง</b> ผลต่างทุกตัวอยู่ต่ำกว่า 0.1% ซึ่งเล็กกว่าความคลาดเคลื่อนของสมมติฐานอื่นในงานจริงมาก</div>
+    </div>
+  </div>
 
   <div class="chart-grid g2">
     <div class="card">
@@ -540,6 +627,45 @@ table.dtable td.st{white-space:nowrap}
       <div class="srcline" style="margin-top:10px">ที่ใช้ 1230 กันทั่วไป เพราะ W = 0.01 ใกล้เคียงงานปรับอากาศส่วนใหญ่
       แต่อากาศนอกบ้านเมืองไทยที่ 38 °C 60% มี W ราว 0.025 ตัวคูณจริงจึงอยู่แถว 1263
       <b>เครื่องมือนี้คำนวณตัวคูณจากค่า W จริงทุกครั้ง</b> ไม่ได้ตรึงไว้ที่ 1.23</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>3.5 · ค่าคงที่ 1.2 ซ่อนความหนาแน่นของอากาศไว้ข้างใน</h3>
+      <div class="prose"><p>สมการทั้งสามข้างบนพูดเรื่องเดียวกัน คือ
+      <b>ภาระ = อัตราการไหลเชิงมวลของอากาศแห้ง × ผลต่างของสมบัติ</b>
+      ASHRAE คูณความหนาแน่นเข้าไปในค่าคงที่ให้แล้วเพื่อความสะดวก
+      ส่วน Cengel &amp; Boles บทที่ 14 เขียนสมดุลบนมวลตรง ๆ ไม่ซ่อนอะไรไว้</p></div>
+      <div class="eq">Cengel &amp; Boles บทที่ 14 · ผสมกระแสลมแบบอะเดียแบติก
+   มวลอากาศแห้ง   ṁ<b>a1</b> + ṁ<b>a2</b> = ṁ<b>a3</b>                    (14–21)
+   มวลไอน้ำ       ω<b>1</b>ṁ<b>a1</b> + ω<b>2</b>ṁ<b>a2</b> = ω<b>3</b>ṁ<b>a3</b>           (14–22)
+   พลังงาน        ṁ<b>a1</b>h<b>1</b> + ṁ<b>a2</b>h<b>2</b> = ṁ<b>a3</b>h<b>3</b>           (14–23)
+
+<b>ทุกสมการชั่งน้ำหนักด้วยมวล ไม่ใช่ปริมาตร</b> ซึ่งเป็นจุดที่ต่างจากสูตรที่ใช้ CMH ตรง ๆ</div>
+      <div class="prose"><p>ความหนาแน่นของอากาศแห้งเปลี่ยนตามอุณหภูมิและความชื้นพอสมควร
+      คำนวณจากสมการ (28) ของ ASHRAE ซึ่งเป็นกฎแก๊สอุดมคติตัวเดียวกับที่ Cengel ใช้</p></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>อากาศ</th><th class="num">v  m³/kg</th><th class="num">ρ อากาศแห้ง  kg/m³</th></tr></thead>
+        <tbody>
+          <tr><td>นอกอาคาร 38 °C 60%</td><td class="num">0.9175</td><td class="num">1.090</td></tr>
+          <tr><td>ออกจากแกน ERV 28.9 °C</td><td class="num">0.8766</td><td class="num">1.141</td></tr>
+          <tr><td>ในห้อง 25 °C 50%</td><td class="num">0.8580</td><td class="num">1.165</td></tr>
+          <tr class="gov"><td><b>ลมมาตรฐานที่ ASHRAE ใช้ตั้งค่าคงที่</b></td><td class="num">0.8305</td><td class="num">1.200</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note warn" style="margin-top:14px"><b>ผลที่ตามมา</b>
+      ลม 3,000 CMH ที่วัดตรงหน้ากากรับอากาศที่ 38 °C พาอากาศแห้งจริง <b>0.908 kg/s</b>
+      แต่ค่าคงที่ 1.2 คิดให้เป็น <b>1.000 kg/s</b> ภาระที่คำนวณได้จึง<b>สูงกว่าความจริงราว 10%</b>
+      คือ 5.00 RT แทนที่จะเป็น 4.54 RT<br><br>
+      อันนี้<b>ไม่ใช่ค่าคงที่ผิด</b> ตัวบทของ ASHRAE เขียนกำกับไว้ชัดว่าสมการชุดนี้ใช้กับ
+      <i>standard flow rate</i> และถ้าวัดลมที่สภาวะจริงต้องแปลงด้วยปริมาตรจำเพาะก่อน
+      เป็นเรื่องการนำไปใช้ ไม่ใช่ตัวเลขผิด และผลที่ได้เอียงไปทางปลอดภัย</div>
+      <div class="prose"><p>เครื่องมือนี้จึงมีปุ่มให้เลือกทั้งสองแบบ <b>ค่าตั้งต้นคือลมมาตรฐาน</b>
+      เพราะตรงกับไฟล์ของทีมและเป็นฝั่งปลอดภัย ส่วนแบบสภาวะจริงไว้ใช้ตอนอยากรู้ว่า
+      เผื่อไว้เท่าไรกันแน่ ก่อนตัดสินใจว่าจะเพิ่มขนาดเครื่องหรือไม่</p>
+      <p>ข้อควรระวังคือ <b>ต้องรู้ว่าผู้ผลิตระบุ CMH ที่สภาวะไหน</b> บางรายระบุที่ลมมาตรฐานตามวิธีทดสอบพัดลม
+      บางรายระบุที่สภาวะใช้งาน ถ้าไม่แน่ใจให้ใช้ค่าตั้งต้น</p></div>
     </div>
   </div>
 
@@ -616,8 +742,8 @@ table.dtable td.st{white-space:nowrap}
   <div class="sectitle">ตรวจไฟล์ Cooling load Recheck ของทีม</div>
 
   <div class="note"><b>ที่ตรวจ</b> ไฟล์ <span class="mono">26-xx_Cooling load Recheck.xlsm</span>
-  โครงการ Udon airport (DOA) Building A · อ่านสูตรทุกเซลล์ทั้งสามชีต แล้วคำนวณใหม่ทั้งหมดจากตัวบท ASHRAE
-  โดยไม่ดูสูตรเดิม แล้วจึงเอามาเทียบกัน<br><br>
+  โครงการ Udon airport (DOA) Building A · อ่านสูตรทุกเซลล์ทั้งสามชีต แล้วคำนวณใหม่ทั้งหมดจากตัวบท
+  ASHRAE Fundamentals 2021 และ Cengel &amp; Boles บทที่ 14 โดยไม่ดูสูตรเดิม แล้วจึงเอามาเทียบกัน<br><br>
   <b>สรุปสั้น</b> โครงคำนวณถูก ค่าคงที่ถูก ตัวเลขพาดหัวที่เอาไปใช้จริง 5.0 RT และ 6.67% <b>ถูกต้อง</b> ·
   แต่คอลัมน์ Sensible และ Latent ในตารางรายเดือน<b>ผิด</b> และผิดในทางที่อันตรายต่อการเลือกคอยล์</div>
 
@@ -709,7 +835,11 @@ table.dtable td.st{white-space:nowrap}
    ต่อเข้าลมกลับ    ΔT = Q<b>oa</b>(T<b>sa</b>−T<b>r</b>) / (Q<b>ac</b> + Q<b>oa</b>)   ← ตรงกับไฟล์
    จ่ายเข้าห้องตรง  ΔT = Q<b>oa</b>(T<b>sa</b>−T<b>r</b>) / Q<b>ac</b></div>
       <div class="prose"><p>แปลว่าสูตรในไฟล์<b>ถูก</b>สำหรับกรณีต่อลม ERV เข้าท่อลมกลับ
-      แต่ถ้างานไหนจ่ายลมเข้าห้องโดยตรง สูตรนี้จะให้ค่าต่ำกว่าความจริง</p></div>
+      แต่ถ้างานไหนจ่ายลมเข้าห้องโดยตรง สูตรนี้จะให้ค่าต่ำกว่าความจริง</p>
+      <p>มีอีกประเด็นที่ตรวจแล้ว<b>ไม่เป็นปัญหา</b> คือสูตรนี้ชั่งน้ำหนักด้วย CMH
+      ขณะที่ Cengel สมการ 14–21 ถึง 14–23 ชั่งด้วยมวลอากาศแห้ง ซึ่งเป็นคนละอย่าง
+      เพราะลมสองสายมีความหนาแน่นไม่เท่ากัน แต่พอคำนวณจริงที่เงื่อนไข Udon
+      ต่างกันเพียง <b>0.003 °C</b> จึงไม่มีนัยสำหรับงานนี้</p></div>
       <div class="tablewrap"><table class="dtable">
         <thead><tr><th>กรณี</th><th class="num">ในไฟล์</th><th class="num">จ่ายเข้าห้องตรง</th></tr></thead>
         <tbody>
@@ -730,10 +860,16 @@ table.dtable td.st{white-space:nowrap}
         <li><b>ลิงก์ภูมิอากาศชี้ไปพัทยา</b> เซลล์ A39 อ้าง timeanddate ของ Pattaya แต่โครงการอยู่<b>อุดรธานี</b>
         ซึ่งเป็นภาคอีสาน อุณหภูมิสูงกว่าและความชื้นต่ำกว่าชายทะเลอย่างมีนัย ควรเปลี่ยนแหล่งอ้างอิง</li>
         <li><b>38 °C คู่กับ RH 60% เป็นการเผื่อที่หนักมาก</b> ตอนบ่ายที่ร้อนที่สุดความชื้นสัมพัทธ์มักต่ำกว่านั้น
-        สองค่าสุดขั้วไม่ได้เกิดพร้อมกัน ถ้าจะให้ตรงหลักควรใช้คู่ค่าออกแบบจากบทที่ 14 ของ ASHRAE
-        ที่จับคู่ DB กับ MCWB มาให้แล้ว</li>
+        สองค่าสุดขั้วไม่ได้เกิดพร้อมกัน ถ้าจะให้ตรงหลักควรใช้คู่ค่าออกแบบจาก
+        <b>ASHRAE Fundamentals บทที่ 14 Climatic Design Information</b> ที่จับคู่ DB กับ MCWB มาให้แล้ว
+        (คนละเล่มกับบทที่ 14 ของ Cengel ที่อ้างถึงในแท็บสมการ)</li>
         <li><b>เกณฑ์ 1 °C และ 20% ยังไม่มีที่มากำกับ</b> สองค่านี้เป็นเกณฑ์ที่ทีมตั้งเอง ซึ่งใช้ได้
         แต่ควรเขียนกำกับไว้ว่าเป็นเกณฑ์ภายใน ไม่ใช่ข้อกำหนดของมาตรฐานใด เวลาส่งงานให้ผู้ตรวจจะได้ไม่ถูกถาม</li>
+        <li><b>ลม 3,000 CMH ถูกคิดที่ความหนาแน่นลมมาตรฐาน</b> ค่าคงที่ 1.2 และ 1.23 สมมติอากาศ
+        1.200 kg/m³ แต่อากาศนอกที่ 38 °C มีความหนาแน่นอากาศแห้งจริง 1.090 ภาระที่ได้จึง<b>สูงกว่าความจริงราว 10%</b>
+        คือ 5.00 RT แทน 4.54 RT · ไม่ใช่เรื่องผิด เพราะตัวบท ASHRAE ระบุว่าสมการชุดนี้ใช้กับลมมาตรฐาน
+        และการเผื่อไว้เป็นฝั่งปลอดภัย แต่<b>ควรรู้ว่ากำลังเผื่ออยู่เท่าไร</b> ก่อนตัดสินใจเพิ่มขนาดเครื่อง
+        ในแท็บคำนวณมีปุ่มสลับดูทั้งสองแบบ</li>
         <li><b>D17 ในชีตงานจริงเขียนทับเป็นค่าคงที่</b> ชีตต้นแบบใช้ <span class="mono">=D16*500</span>
         แต่ชีตงานจริงเปลี่ยนเป็น <span class="mono">=1.7*22000</span> ซึ่งได้ 37,400 พอดี
         เท่ากับ 499 CMH/RT จึงสอดคล้องกัน แต่ควรเขียนหมายเหตุว่า 1.7 กับ 22000 คือค่าอะไร
@@ -766,6 +902,7 @@ table.dtable td.st{white-space:nowrap}
 
 <div class="footer">
   ที่มาทั้งหมด · ASHRAE Handbook 2021 Fundamentals (SI) บทที่ 1 Psychrometrics และบทที่ 18 Nonresidential Cooling and Heating Load Calculations ·
+  Cengel &amp; Boles, Thermodynamics: An Engineering Approach ฉบับที่ 8 บทที่ 14 Gas-Vapor Mixtures and Air-Conditioning ·
   ASHRAE Standard 55 · AHRI Standard 1060 สำหรับนิยามประสิทธิภาพแกนแลกเปลี่ยน
 </div>
 
@@ -815,12 +952,23 @@ function rhof(t, W){
   var pw = PATM * W / (0.621945 + W);
   return pw / pws(t);
 }
-/* eq (8) — the sensible factor is not really a constant.
-   1.2*(1005 + 1884*W) in W per (L/s . K) */
-function csOf(W){ return 1.2*(1005 + 1884*W)/1000; }
-var CT = 1.2;      /* eq (7)  total,  W per (L/s . kJ/kg) */
-var CL = 3000;     /* eq (10) latent, W per (L/s . kg/kg) */
+function vOf(t, W){                       /* eq (28), m3 per kg of dry air */
+  return 0.287042*(t + 273.15)*(1 + 1.607858*W)/PATM;
+}
+var RHO_STD = 1.2; /* ASHRAE standard air, kg of dry air per m3 */
 var RTW = 3517;    /* 1 refrigeration ton in W */
+
+/* The three heat factors of ch.18 eq (7)(9)(10) are all the same statement:
+   load = dry-air mass flow x a property difference. ASHRAE folds the standard
+   air density 1.2 into the constants; written out against a density `rho`
+   they are exact for any air, and collapse back to 1.2 / 1.23 / 3000 when
+   rho = 1.2. Q is in L/s throughout, results in W.
+
+   Cengel & Boles ch.14 works the same balances directly on mass flow — see
+   eq 14-21..24. The two agree; ASHRAE just pre-multiplies the density. */
+function ctOf(rho){ return rho; }                            /* eq (7)  */
+function csOf(rho, W){ return rho*(1005 + 1884*W)/1000; }    /* eq (8)(9) */
+function clOf(rho){ return rho*2500; }                       /* eq (10) */
 
 /* ─────────────── helpers ─────────────── */
 function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
@@ -829,6 +977,7 @@ function fmt(n,d){ d = d||0; return (isFinite(n)?n:0).toLocaleString('en-US',
 function sgn(n,d){ return (n>=0?'+':'−') + fmt(Math.abs(n), d); }
 
 var MODE = 'return';
+var DENS = 'std';      /* 'std' = ASHRAE standard air, 'act' = real outdoor density */
 
 /* ─────────────── the model ─────────────── */
 function model(qOverride){
@@ -847,16 +996,24 @@ function model(qOverride){
   var Wsa = WofH(Tsa, hsa);
   var RHsa = rhof(Tsa, Wsa);
 
+  /* The quoted CMH is outdoor air, so its density is the outdoor density.
+     ASHRAE's constants assume standard air instead; at 38 C that is 10% more
+     dry air than really flows, which overstates the load in the safe
+     direction. DENS picks which convention to report. */
+  var vOa = vOf(Toa, Woa);
+  var rho = (DENS === 'act') ? 1/vOa : RHO_STD;
+
   /* load the outdoor air lands on the AC — eq (7)(9)(10) */
   var Ql = Q/3.6;                          /* L/s */
-  var Cs = csOf((Wsa + Wr)/2);
-  var qt = CT*Ql*(hsa - hr);
+  var Cs = csOf(rho, (Wsa + Wr)/2);
+  var qt = ctOf(rho)*Ql*(hsa - hr);
   var qs = Cs*Ql*(Tsa - Tr);
   var ql = qt - qs;
-  var qlChk = CL*Ql*(Wsa - Wr);            /* independent route, eq (10) */
+  var qlChk = clOf(rho)*Ql*(Wsa - Wr);     /* independent route, eq (10) */
+  var mda = rho*Ql/1000;                   /* dry-air mass flow, kg/s */
 
   /* what the core saved, versus running the same air with no ERV */
-  var qtRaw = CT*Ql*(hoa - hr);
+  var qtRaw = ctOf(rho)*Ql*(hoa - hr);
   var qsRaw = Cs*Ql*(Toa - Tr);
 
   /* spare capacity */
@@ -891,6 +1048,7 @@ function model(qOverride){
   return { Toa:Toa,RHoa:RHoa,Woa:Woa,hoa:hoa, Tr:Tr,RHr:RHr,Wr:Wr,hr:hr,
            Tsa:Tsa,RHsa:RHsa,Wsa:Wsa,hsa:hsa, Q:Q,Ql:Ql,Cs:Cs,
            qt:qt,qs:qs,ql:ql,qlChk:qlChk, qtRaw:qtRaw,qsRaw:qsRaw,
+           rho:rho,vOa:vOa,mda:mda,DENS:DENS,
            cap:cap,capW:capW,spareW:spareW,deficitW:deficitW,covered:covered,
            loadnow:loadnow, Qac:Qac,Qeff:Qeff, dT:dT,dW:dW,Tr2:Tr2,Wr2:Wr2,RHr2:RHr2,
            Tmix:Tmix,Wmix:Wmix, et:et,es:es };
@@ -1045,6 +1203,15 @@ function render(){
   $('qacHint').textContent = m.cap>0
     ? fmt(m.Qac/m.cap) + ' CMH ต่อ RT · ค่าที่ใช้กันทั่วไปอยู่ราว 500 ถึง 680'
     : 'ใส่ขนาดแอร์ก่อน';
+  /* show the density choice in the terms that actually matter: mass flow */
+  var mStd = RHO_STD*m.Ql/1000, mAct = (1/m.vOa)*m.Ql/1000;
+  var gap  = mStd>0 ? (mStd/mAct - 1)*100 : 0;
+  $('densHint').innerHTML = 'อากาศนอกที่ ' + fmt(m.Toa,1) + ' °C มีความหนาแน่นอากาศแห้ง <b>'
+    + fmt(1/m.vOa,3) + '</b> kg/m³ ส่วนลมมาตรฐานคือ 1.200<br>'
+    + 'มวลอากาศแห้งที่ไหลจริง <b>' + fmt(mAct,3) + '</b> kg/s · ที่สูตรมาตรฐานคิดให้ <b>'
+    + fmt(mStd,3) + '</b> kg/s<br>เลือกลมมาตรฐานจะได้ภาระสูงกว่า '
+    + fmt(gap,1) + '% ซึ่งเป็นฝั่งปลอดภัย และตรงกับไฟล์ของทีม';
+
   $('modeHint').textContent = MODE==='return'
     ? 'ใช้ลมรวม ' + fmt(m.Qac + m.Q) + ' CMH ในการหาอุณหภูมิที่เปลี่ยน'
     : 'ใช้เฉพาะลมแอร์ ' + fmt(m.Qac) + ' CMH ในการหาอุณหภูมิที่เปลี่ยน';
@@ -1131,7 +1298,9 @@ function render(){
       + '</td><td class="num">'+fmt(r[1]/RTW,3)+'</td><td class="num">'+share+'</td></tr>';
   }).join('');
   $('shrHint').innerHTML = 'SHR = ' + fmt(m.qt>0 ? m.qs/m.qt : 0,3)
-    + ' · ตัวคูณสัมผัสที่ใช้ ' + fmt(m.Cs,4) + ' ไม่ใช่ 1.23 ตายตัว เพราะคำนวณจาก W จริงตามสมการ (8)'
+    + ' · มวลอากาศแห้ง ' + fmt(m.mda,3) + ' kg/s ที่ความหนาแน่น ' + fmt(m.rho,3) + ' kg/m³ ('
+    + (m.DENS==='act' ? 'สภาวะจริง' : 'ลมมาตรฐาน') + ')'
+    + '<br>ตัวคูณสัมผัสที่ใช้ ' + fmt(m.Cs,4) + ' ไม่ใช่ 1.23 ตายตัว เพราะคำนวณจาก W จริงตามสมการ (8)'
     + '<br>ตรวจภาระแฝงอีกทางด้วยสมการ (10) ได้ ' + fmt(m.qlChk/RTW,3)
     + ' RT ต่างจากวิธีเอนทัลปี ' + fmt(m.ql!==0 ? Math.abs(m.qlChk-m.ql)/Math.abs(m.ql)*100 : 0,1)
     + '% ซึ่งเป็นระยะที่คาดไว้จากค่าประมาณความร้อนแฝง 2500 kJ/kg';
@@ -1177,6 +1346,12 @@ document.querySelectorAll('.tab').forEach(function(b){
     $('p'+'-'+b.dataset.p).classList.add('active');
     if(b.dataset.p === 'calc') render();
   });
+});
+$('densbar').addEventListener('click', function(e){
+  var t = e.target.closest('button'); if(!t) return;
+  DENS = t.dataset.d;
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===t); });
+  render();
 });
 $('modebar').addEventListener('click', function(e){
   var t = e.target.closest('.modecard'); if(!t) return;
