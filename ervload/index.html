@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERV Load Impact Calculator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F7F5;
+  --surface: #F4F3F0;
+  --card-bg: #FFFFFF;
+  --border: #E3E2DE;
+  --text: #37352F;
+  --text-secondary: #787774;
+  --blue: #2383E2;
+  --red: #D44C47;
+  --purple: #6940A5;
+  --green: #669BBC;
+  --orange: #CB912F;
+  --gray: #9B9A97;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .sub { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.timestamp { font-size: 12px; color: var(--text-secondary); }
+
+.btn {
+  background: var(--blue); color: #fff; border: none;
+  padding: 6px 14px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; font-weight: 500; transition: opacity .15s; font-family: inherit;
+}
+.btn:hover { opacity: .85; }
+.btn:active { opacity: .7; }
+.btn.ghost { background: none; border: 1px solid var(--border); color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--surface); color: var(--text); opacity: 1; }
+
+.tabs {
+  display: flex; gap: 0; background: var(--card-bg);
+  border-bottom: 1px solid var(--border); padding: 0 32px; flex-wrap: wrap;
+  position: sticky; top: 65px; z-index: 99;
+}
+.tab {
+  padding: 10px 20px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+  user-select: none; background: none; border-top: 0; border-left: 0; border-right: 0; font-family: inherit;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.page { display: none; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+.kpi-value { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi-value.ok { color: #2E7D32; } .kpi-value.warn { color: var(--orange); } .kpi-value.bad { color: var(--red); }
+.kpi-value small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 4px; }
+.kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+.kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
+
+.chart-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+.chart-grid.g1 { grid-template-columns: 1fr; }
+.chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) {
+  .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
+  .page { padding: 16px; }
+  .header { padding: 12px 16px; }
+  .tabs { padding: 0 16px; top: 61px; }
+}
+
+.chart-grid > *, .kpi-row > * { min-width: 0; }
+.card > * { max-width: 100%; }
+.card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; position: relative; }
+.card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.card-title-row h3 { margin-bottom: 0; }
+
+.card-expand-btn {
+  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px;
+  border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer;
+  color: #787774; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; z-index: 5; font-family: inherit;
+}
+.card:hover .card-expand-btn { opacity: 1; }
+.card-expand-btn:focus-visible { opacity: 1; }
+.card-expand-btn:hover { background: var(--surface); color: #37352F; }
+
+#chartModal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
+#chartModal.open { display: flex; }
+.chart-modal-box { background: #fff; border-radius: 12px; padding: 20px 26px; width: min(1100px, 94vw); height: min(78vh, 700px); display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.chart-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+.chart-modal-head h3 { font-size: 15px; font-weight: 600; }
+.chart-modal-close { border: none; background: none; font-size: 22px; color: #787774; cursor: pointer; line-height: 1; font-family: inherit; }
+.chart-modal-close:hover { color: #37352F; }
+.chart-modal-body { flex: 1; position: relative; min-height: 0; }
+
+.canvas-wrap { position: relative; width: 100%; height: 300px; }
+.canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.canvas-wrap canvas:active { cursor: grabbing; }
+.chart-modal-body .canvas-wrap { height: 100%; }
+.zoomhint { font-size: 11.5px; color: var(--gray); margin-top: 8px; }
+.refwrap{position:relative; display:inline-block; margin-top:12px}
+.refbtn{
+  display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:12.5px;
+  padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500;
+}
+.refbtn:hover{background:var(--surface); color:var(--text)}
+.refbtn .caret{font-size:9px; opacity:.7; transition:transform .15s}
+.refbtn.open .caret{transform:rotate(180deg)}
+.refmenu{
+  display:none; position:absolute; left:0; top:calc(100% + 6px); z-index:60;
+  background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; min-width:330px;
+  max-height:340px; overflow-y:auto;
+}
+.refmenu.open{display:block}
+.refgroup{
+  font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--gray); padding:8px 10px 3px;
+}
+.refitem{
+  display:flex; align-items:flex-start; gap:9px; width:100%; text-align:left; background:none;
+  border:0; padding:7px 10px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px;
+  color:var(--text); line-height:1.4;
+}
+.refitem:hover{background:var(--surface)}
+.refitem .tick{
+  width:14px; height:14px; border-radius:4px; border:1.5px solid var(--border); flex:none;
+  margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;
+}
+.refitem.on .tick{background:var(--text); border-color:var(--text)}
+.refitem .body{flex:1; min-width:0}
+.refitem .val{font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; margin-left:8px}
+.refitem .note{display:block; font-size:11px; color:var(--gray); margin-top:1px}
+.refitem.na{opacity:.45; cursor:not-allowed}
+.refitem .dash{display:inline-block; width:14px; border-top:2px dashed currentColor; vertical-align:middle; margin-right:5px}
+.refchip{
+  display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:11.5px;
+  padding:4px 10px; border-radius:20px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500; transition:.12s;
+}
+.refchip:hover{border-color:var(--gray); color:var(--text)}
+.refchip .sw{width:14px; height:0; border-top:2px dashed currentColor; opacity:.5; flex:none}
+.refchip.on{color:var(--text); background:var(--surface-2)}
+.refchip.on .sw{opacity:1}
+.refchip.off-scale{opacity:.5}
+
+/* form controls */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.flabel { font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+input[type=number], select {
+  width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: var(--card-bg); color: var(--text);
+}
+input[type=number] { font-variant-numeric: tabular-nums; }
+select { cursor: pointer; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 11.5px; color: var(--gray); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+.segbar { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segbar button {
+  flex: 1; padding: 6px 8px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  background: var(--card-bg); color: var(--text-secondary); border: 0; border-right: 1px solid var(--border); font-weight: 500;
+}
+.segbar button:last-child { border-right: 0; }
+.segbar button.active { background: var(--text); color: #fff; }
+
+/* airflow slider block */
+.flowhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.flowval { font-size: 38px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.flowval small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 5px; }
+.flowmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { font-size: 12px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); font-weight: 500; }
+.chip.rec { border-color: #BBDDF7; background: #EDF6FD; color: #1B6FBF; }
+.stepbtn { width: 30px; height: 28px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; cursor: pointer; color: var(--text-secondary); font-size: 15px; font-family: inherit; line-height: 1; }
+.stepbtn:hover { background: var(--surface); color: var(--text); }
+
+.slider-wrap { position: relative; padding-top: 4px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer; margin: 8px 0 4px; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-moz-range-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); margin-top: -8px; }
+input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.recmark { position: absolute; top: 0; width: 2px; height: 22px; background: var(--blue); opacity: .45; pointer-events: none; border-radius: 1px; }
+
+/* tables */
+.tablewrap { overflow-x: auto; }
+table.dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.dtable th { background: var(--surface); font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.dtable td { padding: 7px 10px; border-bottom: 1px solid #f0f0ed; }
+table.dtable tr:hover td { background: #FAFAF8; }
+table.dtable td.num, table.dtable th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.gov td { background: #EDF6FD !important; font-weight: 600; }
+.badge { font-size: 11.5px; padding: 2px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; display: inline-block; }
+.badge.ok { background: #E8F3E9; color: #2E7D32; }
+.badge.bad { background: #FBEAE9; color: var(--red); }
+.badge.na { background: var(--surface); color: var(--gray); }
+
+.eq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.9;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue);
+  border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre;
+  font-variant-numeric: tabular-nums; color: var(--text-secondary); margin-bottom: 14px;
+}
+.eq b { color: var(--text); font-weight: 600; }
+.note { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #F6FAFE; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
+.note.warn { border-left-color: var(--orange); background: #FDF8EF; }
+.note b { color: var(--text); }
+.prose { font-size: 14px; color: var(--text); }
+.prose p { margin-bottom: 12px; max-width: 74ch; }
+.prose h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
+.prose ul, .prose ol { margin: 0 0 14px 20px; max-width: 74ch; }
+.prose li { margin-bottom: 6px; }
+.sectitle { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+/* embedded inside Design Management Dashboard */
+.embed .header { display: none; }
+.embed .tabs { position: static; top: auto; padding: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; background: transparent; }
+.embed .page { padding: 0; max-width: none; }
+.embed body { background: transparent; height: -moz-fit-content; height: fit-content; overflow: hidden; }
+.footer { color: var(--gray); font-size: 12px; padding: 18px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
+
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px}
+.dtable input[type=number]{padding:4px 6px; font-size:12.5px; border:1px solid var(--border); border-radius:4px; background:var(--card-bg); color:var(--text)}
+.dtable input[type=checkbox]{accent-color:var(--blue); width:15px; height:15px}
+.sectitle{font-size:22px; font-weight:700; margin-bottom:20px}
+.ref h3{font-size:15px}
+.warnbox{border:1px solid var(--border); border-left:4px solid #CB912F; background:#FDF8EF; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text-secondary)}
+.warnbox b{color:var(--text)}
+.prose{font-size:14px}
+.prose p{margin-bottom:12px; max-width:74ch}
+.prose ol,.prose ul{margin:0 0 14px 20px; max-width:74ch}
+.prose li{margin-bottom:6px}
+tfoot td{background:var(--surface); font-weight:600}
+.card-title-row .segbar{flex:none}
+.card-title-row .segbar button{padding:4px 10px; font-size:11.5px}
+</style>
+
+<style>
+.statedot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:middle;flex:none}
+.modebar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.modecard{flex:1;min-width:220px;border:1px solid var(--border);border-radius:8px;padding:11px 14px;
+  cursor:pointer;background:var(--card-bg);transition:.15s;text-align:left;font-family:inherit}
+.modecard:hover{border-color:var(--gray)}
+.modecard.active{border-color:var(--text);box-shadow:0 0 0 1px var(--text)}
+.modecard .t{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+.modecard .d{font-size:11.5px;color:var(--gray);line-height:1.45}
+.delta{font-variant-numeric:tabular-nums;font-weight:600}
+.delta.up{color:var(--red)} .delta.dn{color:#2E7D32}
+.srcline{font-size:11.5px;color:var(--gray);margin-top:6px;line-height:1.5}
+.srcline b{color:var(--text-secondary);font-weight:600}
+.verdict{border-radius:8px;padding:16px 20px;margin-bottom:20px;border:1px solid var(--border);border-left:4px solid var(--gray);background:var(--card-bg)}
+.verdict.ok{border-left-color:#2E7D32;background:#F1F7F1}
+.verdict.warn{border-left-color:#CB912F;background:#FDF8EF}
+.verdict.bad{border-left-color:var(--red);background:#FDF1F0}
+.verdict .vh{font-size:15px;font-weight:700;color:var(--text);margin-bottom:5px}
+.verdict .vb{font-size:13.5px;color:var(--text-secondary);line-height:1.6;max-width:80ch}
+.verdict .vb b{color:var(--text)}
+table.dtable td.st{white-space:nowrap}
+.pill{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface);color:var(--text-secondary);font-weight:500;white-space:nowrap}
+.pill.src{background:#EDF6FD;color:#1B6FBF}
+.pill.err{background:#FBEAE9;color:var(--red)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>ERV Load Impact Calculator</h1>
+    <div class="sub">ลม ERV ที่เติมเข้าห้อง กินกำลังแอร์เดิมเท่าไร และทำให้ห้องเปลี่ยนไปแค่ไหน</div>
+  </div>
+  <div class="header-right">
+    <span class="timestamp" id="stamp"></span>
+    <button class="btn ghost" onclick="window.print()">พิมพ์</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-p="calc">คำนวณ</button>
+  <button class="tab" data-p="eq">สมการและที่มา</button>
+  <button class="tab" data-p="audit">ตรวจไฟล์ของทีม</button>
+</div>
+
+<!-- ══════════════════ PAGE 1 ══════════════════ -->
+<div class="page active" id="p-calc">
+
+  <div id="verdict" class="verdict"></div>
+
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-value" id="k1">–<small>RT</small></div>
+      <div class="kpi-label">ภาระที่ ERV เพิ่มให้แอร์</div>
+      <div class="kpi-note" id="k1n"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value" id="k2">–<small>%</small></div>
+      <div class="kpi-label">คิดเป็นสัดส่วนของแอร์เดิม</div>
+      <div class="kpi-note" id="k2n">เกณฑ์ที่ทีมใช้ ไม่ควรเกิน 20%</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value" id="k3">–<small>°C</small></div>
+      <div class="kpi-label">อุณหภูมิห้องเปลี่ยน</div>
+      <div class="kpi-note" id="k3n"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value" id="k4">–<small>%RH</small></div>
+      <div class="kpi-label">ความชื้นสัมพัทธ์เปลี่ยน</div>
+      <div class="kpi-note" id="k4n"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="flowhead">
+        <div>
+          <div class="flabel">ปริมาณลมภายนอกที่ ERV เติมเข้าห้อง</div>
+          <div class="flowval" id="oaVal">3,000<small>CMH</small></div>
+        </div>
+        <div class="flowmeta">
+          <button class="stepbtn" data-step="-100">−</button>
+          <button class="stepbtn" data-step="100">+</button>
+          <span class="chip" id="oaLs"></span>
+          <span class="chip" id="oaAch"></span>
+        </div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="oa" min="0" max="12000" step="50" value="3000">
+        <div class="ticks"><span>0</span><span id="tk1"></span><span id="tk2"></span><span id="tk3"></span><span id="tkm">12,000</span></div>
+      </div>
+      <div class="hint" id="oaHint"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g3">
+    <div class="card">
+      <h3>อากาศภายนอก</h3>
+      <div class="grid2">
+        <div class="field"><label class="flabel">อุณหภูมิ °C</label><input type="number" id="toa" value="38" step="0.5"></div>
+        <div class="field"><label class="flabel">ความชื้นสัมพัทธ์ %</label><input type="number" id="rhoa" value="60" step="1"></div>
+      </div>
+      <div class="hint" id="oaState"></div>
+      <div class="srcline"><b>หมายเหตุค่าออกแบบ</b> อุณหภูมิสูงสุดกับความชื้นสูงสุดไม่ได้เกิดพร้อมกัน ตอนบ่ายที่ร้อนที่สุด RH มักต่ำกว่า 60% การใส่ 38 °C คู่กับ 60% จึงเป็นการเผื่อที่ค่อนข้างหนัก</div>
+    </div>
+    <div class="card">
+      <h3>สภาวะที่ต้องการในห้อง</h3>
+      <div class="grid2">
+        <div class="field"><label class="flabel">อุณหภูมิ °C</label><input type="number" id="tr" value="25" step="0.5"></div>
+        <div class="field"><label class="flabel">ความชื้นสัมพัทธ์ %</label><input type="number" id="rhr" value="50" step="1"></div>
+      </div>
+      <div class="hint" id="rState"></div>
+      <div class="srcline"><b>ที่มา</b> ASHRAE Standard 55 โซนสบายฤดูร้อน อยู่ราว 23–26 °C ที่ความชื้น 50%</div>
+    </div>
+    <div class="card">
+      <h3>ประสิทธิภาพแกน ERV</h3>
+      <div class="grid2">
+        <div class="field"><label class="flabel">ηt เอนทัลปี %</label><input type="number" id="et" value="67" step="1"></div>
+        <div class="field"><label class="flabel">ηs สัมผัส %</label><input type="number" id="es" value="70" step="1"></div>
+      </div>
+      <div class="hint" id="effHint"></div>
+      <div class="srcline"><b>ต้องเป็นค่าที่วัดตาม AHRI 1060</b> และต้องเป็นค่าที่อัตราลมใช้งานจริง ไม่ใช่ตัวเลขสูงสุดในโบรชัวร์ ซึ่งมักวัดที่ลมต่ำกว่าจุดออกแบบ</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g3">
+    <div class="card">
+      <h3>ระบบปรับอากาศเดิม</h3>
+      <div class="field"><label class="flabel">ขนาดที่ติดตั้ง RT</label><input type="number" id="cap" value="75" step="0.5"></div>
+      <div class="field"><label class="flabel">ปริมาณลมหมุนเวียนของแอร์ CMH</label><input type="number" id="qac" value="37400" step="100"></div>
+      <div class="hint" id="qacHint"></div>
+    </div>
+    <div class="card">
+      <h3>ห้องที่แอร์ชุดนี้ดูแล</h3>
+      <div class="grid2">
+        <div class="field"><label class="flabel">พื้นที่ m²</label><input type="number" id="area" value="589" step="1"></div>
+        <div class="field"><label class="flabel">ฝ้าสูง m</label><input type="number" id="ht" value="3" step="0.1"></div>
+      </div>
+      <div class="field"><label class="flabel">ก่อนเติมลม ERV แอร์ใช้กำลังอยู่กี่ %</label><input type="number" id="loadnow" value="85" step="5" min="0" max="120"></div>
+      <div class="hint">ตัวเลขนี้เป็นตัวชี้ขาดว่าห้องจะร้อนขึ้นจริงหรือไม่ ถ้าไม่ทราบให้ใส่ 85% เป็นค่ากลาง</div>
+    </div>
+    <div class="card">
+      <h3>ลม ERV เข้าห้องทางไหน</h3>
+      <div class="modebar" id="modebar" style="flex-direction:column">
+        <button class="modecard active" data-m="return">
+          <div class="t">ต่อเข้าท่อลมกลับของแอร์</div>
+          <div class="d">คอยล์ของแอร์รับภาระนี้ก่อนถึงห้อง ถ้ากำลังยังพอ ห้องแทบไม่เปลี่ยน</div>
+        </button>
+        <button class="modecard" data-m="room">
+          <div class="t">จ่ายเข้าห้องโดยตรง</div>
+          <div class="d">ภาระตกในห้อง มีแต่ลมหมุนเวียนของแอร์เท่านั้นที่ดึงออกได้</div>
+        </button>
+      </div>
+      <div class="hint" id="modeHint"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <div class="card-title-row"><h3>แผนภูมิไซโครเมตริก</h3>
+        <span class="pill src">ASHRAE 2021 บทที่ 1</span></div>
+      <div class="canvas-wrap" style="height:340px"><canvas id="psy"></canvas></div>
+      <div class="zoomhint" id="psyLegend"></div>
+    </div>
+    <div class="card">
+      <div class="card-title-row"><h3>ถ้าเปลี่ยนปริมาณลม ERV</h3>
+        <span class="pill" id="sensPill"></span></div>
+      <div class="canvas-wrap" style="height:340px"><canvas id="sens"></canvas></div>
+      <div class="zoomhint">เส้นทึบคือภาระที่เพิ่ม อ่านแกนซ้าย · เส้นประคืออุณหภูมิห้องที่เปลี่ยน อ่านแกนขวา · จุดคือค่าที่ตั้งอยู่ตอนนี้</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>สภาวะอากาศแต่ละจุด</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>จุด</th><th class="num">T °C</th><th class="num">RH %</th>
+          <th class="num">W kg/kg</th><th class="num">h kJ/kg</th></tr></thead>
+        <tbody id="stateBody"></tbody>
+      </table></div>
+      <div class="srcline"><b>คำนวณจาก</b> ASHRAE Handbook 2021 Fundamentals บทที่ 1 · ความดันอิ่มตัว IAPWS-IF97 สมการ (5) ·
+      อัตราส่วนความชื้น สมการ (21) · เอนทัลปี สมการ (32)</div>
+    </div>
+    <div class="card">
+      <h3>แยกภาระสัมผัสและภาระแฝง</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>รายการ</th><th class="num">kW</th><th class="num">RT</th><th class="num">สัดส่วน</th></tr></thead>
+        <tbody id="loadBody"></tbody>
+      </table></div>
+      <div class="hint" id="shrHint"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>สรุปผลกระทบต่อระบบเดิม</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ตัวชี้วัด</th><th class="num">ก่อนเติมลม ERV</th><th class="num">หลังเติม</th><th class="num">เปลี่ยนไป</th><th>เกณฑ์</th></tr></thead>
+        <tbody id="impBody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ PAGE 2 ══════════════════ -->
+<div class="page" id="p-eq">
+  <div class="sectitle">สมการทุกตัวและที่มา</div>
+
+  <div class="note"><b>หลักที่ยึด</b> ทุกสมการในหน้านี้คัดมาจาก ASHRAE Handbook 2021 Fundamentals (SI)
+  พร้อมเลขสมการให้เปิดตามได้ ไม่มีตัวเลขที่เดาเอง ส่วนที่เป็นสมมติฐานจะเขียนกำกับไว้ชัด</div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>1 · หาสภาวะอากาศจากอุณหภูมิและความชื้นสัมพัทธ์</h3>
+      <div class="eq"><b>ความดันไออิ่มตัว</b>  บทที่ 1 สมการ (5) · IAPWS-IF97
+   p<b>ws</b>(t)  หน่วย kPa   ใช้สัมประสิทธิ์ n1…n10 ตามตัวบท
+
+<b>ความดันไอจริง</b>
+   p<b>w</b> = φ · p<b>ws</b>(t)          φ = RH เป็นทศนิยม
+
+<b>อัตราส่วนความชื้น</b>  สมการ (21)
+   W = 0.621945 · p<b>w</b> / (p − p<b>w</b>)     kg น้ำ / kg อากาศแห้ง
+
+<b>เอนทัลปี</b>  สมการ (32)
+   h = 1.006·t + W·(2501 + 1.86·t)     kJ/kg อากาศแห้ง</div>
+      <div class="srcline"><b>ตรวจแล้ว</b> เขียนสมการเหล่านี้ขึ้นมาใหม่จากตัวบท แล้วเทียบกับตารางที่ 3 ของบทที่ 1
+      ค่า p<sub>ws</sub> ตรงทุกหลักที่หนังสือพิมพ์ไว้ ที่ 20 · 25 · 50 °C</div>
+    </div>
+
+    <div class="card">
+      <h3>2 · อากาศที่ออกจาก ERV</h3>
+      <div class="eq"><b>ด้านอุณหภูมิ</b>  ประสิทธิภาพสัมผัส η<b>s</b>
+   T<b>sa</b> = T<b>oa</b> + η<b>s</b> · (T<b>r</b> − T<b>oa</b>)
+
+<b>ด้านพลังงานรวม</b>  ประสิทธิภาพเอนทัลปี η<b>t</b>
+   h<b>sa</b> = h<b>oa</b> + η<b>t</b> · (h<b>r</b> − h<b>oa</b>)
+
+<b>ความชื้นของลมที่ออก</b>  ย้อนสมการ (32)
+   W<b>sa</b> = (h<b>sa</b> − 1.006·T<b>sa</b>) / (2501 + 1.86·T<b>sa</b>)</div>
+      <div class="note warn" style="margin-bottom:0"><b>จุดที่คนพลาดบ่อย</b>
+      ηs กับ ηt เป็นคนละตัวและมักไม่เท่ากัน ถ้าเอา ηt ตัวเดียวไปคิดอุณหภูมิ
+      จะได้ลมที่ออกเย็นหรือร้อนผิดไปทันที ต้องใช้ทั้งสองค่าคู่กันเสมอ</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>3 · ภาระที่ลม ERV เพิ่มให้กับแอร์</h3>
+      <div class="eq"><b>ภาระรวม</b>  บทที่ 18 สมการ (7)      q<b>t</b> = 1.2 · Q · Δh          Q หน่วย L/s · Δh หน่วย kJ/kg · ผลลัพธ์ W
+<b>ภาระสัมผัส</b>  บทที่ 18 สมการ (9)      q<b>s</b> = 1.23 · Q · ΔT         คงที่ 1.23 คือ 1.2·(1005+1884·W)/1000 ที่ W = 0.01
+<b>ภาระแฝง</b>  บทที่ 18 สมการ (10)      q<b>l</b> = 3000 · Q · ΔW        หรือใช้ q<b>l</b> = q<b>t</b> − q<b>s</b>
+
+<b>สิ่งที่ต้องแทนใน Δ ทุกตัว คือส่วนต่างระหว่างลมที่ออกจาก ERV กับอากาศในห้อง</b>
+   Δh = h<b>sa</b> − h<b>r</b>        ΔT = T<b>sa</b> − T<b>r</b>        ΔW = W<b>sa</b> − W<b>r</b>
+
+<b>เขียนให้สั้นลงได้</b>  แทน T<b>sa</b> และ h<b>sa</b> จากข้อ 2 เข้าไป
+   q<b>t</b> = 1.2 · Q · (1 − η<b>t</b>) · (h<b>oa</b> − h<b>r</b>)
+   q<b>s</b> = 1.23 · Q · (1 − η<b>s</b>) · (T<b>oa</b> − T<b>r</b>)
+
+รูปนี้อ่านง่ายกว่า เพราะเห็นชัดว่าแกน ERV ตัดภาระออกไปตรง ๆ ตามค่าประสิทธิภาพ
+ηt 67% แปลว่าเหลือภาระรวมมาถึงแอร์เพียง 33% ของกรณีที่ไม่มี ERV</div>
+
+      <h4 style="font-size:14px;font-weight:600;margin:6px 0 8px">ค่าคงที่ 1.23 ไม่ได้คงที่จริง</h4>
+      <div class="prose"><p>สมการ (8) ของบทที่ 18 เขียนเต็ม ๆ ว่า q<sub>s</sub> = 1.2·(1005 + 1884·W)·Q·ΔT
+      ตัวคูณจึงขึ้นกับความชื้น ตัวบทให้ค่าไว้ว่า</p></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th class="num">W kg/kg</th><th class="num">0</th><th class="num">0.01</th><th class="num">0.02</th><th class="num">0.03</th></tr></thead>
+        <tbody><tr><td>ตัวคูณ</td><td class="num">1210</td><td class="num">1230</td><td class="num">1250</td><td class="num">1270</td></tr></tbody>
+      </table></div>
+      <div class="srcline" style="margin-top:10px">ที่ใช้ 1230 กันทั่วไป เพราะ W = 0.01 ใกล้เคียงงานปรับอากาศส่วนใหญ่
+      แต่อากาศนอกบ้านเมืองไทยที่ 38 °C 60% มี W ราว 0.025 ตัวคูณจริงจึงอยู่แถว 1263
+      <b>เครื่องมือนี้คำนวณตัวคูณจากค่า W จริงทุกครั้ง</b> ไม่ได้ตรึงไว้ที่ 1.23</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>4 · แล้วห้องจะเปลี่ยนไปเท่าไร</h3>
+      <div class="prose"><p>คำถามนี้ตอบได้ก็ต่อเมื่อรู้ก่อนว่า<b>แอร์ยังมีกำลังเหลืออยู่หรือไม่</b>
+      เพราะสองกรณีให้คำตอบคนละแบบสิ้นเชิง</p></div>
+
+      <div class="chart-grid g2" style="margin-bottom:0">
+        <div>
+          <h4 style="font-size:13.5px;font-weight:600;margin:0 0 8px">กรณีที่ 1 · แอร์ยังมีกำลังเหลือ</h4>
+          <div class="note" style="margin-bottom:10px">อุณหภูมิห้อง<b>ไม่เปลี่ยน</b> แอร์แค่ทำงานหนักขึ้น
+          เทอร์โมสตัทยังคุมได้ ผลที่เกิดคือคอมเพรสเซอร์เดินนานขึ้นและค่าไฟสูงขึ้น ไม่ใช่ห้องร้อนขึ้น</div>
+          <div class="eq" style="margin-bottom:0">กำลังที่เหลือ = RT ติดตั้ง × (100% − ภาระเดิม%)
+ถ้า q<b>t</b> ≤ กำลังที่เหลือ  →  ΔT = 0</div>
+        </div>
+        <div>
+          <h4 style="font-size:13.5px;font-weight:600;margin:0 0 8px">กรณีที่ 2 · แอร์เต็มกำลังแล้ว</h4>
+          <div class="note warn" style="margin-bottom:10px">คอยล์จ่ายลมเย็นกว่าเดิมไม่ได้อีก
+          ความร้อนที่เหลือจึงค้างในห้อง อุณหภูมิห้องจะไต่ขึ้นจนกว่าจะสมดุลใหม่</div>
+          <div class="eq" style="margin-bottom:0">สมดุลความร้อนสัมผัสของห้อง
+   q<b>s</b> = 1.23 · Q<b>ac</b> · ΔT<b>ห้อง</b>
+
+   <b>ΔTห้อง = qs / (1.23 · Qac)</b>
+
+ทำนองเดียวกันฝั่งความชื้น
+   <b>ΔWห้อง = ql / (3000 · Qac)</b>
+แล้วแปลง W ใหม่กลับเป็น RH ที่อุณหภูมิใหม่</div>
+        </div>
+      </div>
+
+      <h4 style="font-size:14px;font-weight:600;margin:20px 0 8px">Q<sub>ac</sub> ใส่เท่าไร ขึ้นกับว่าต่อลม ERV เข้าตรงไหน</h4>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>วิธีต่อ</th><th>Q<sub>ac</sub> ที่ใช้</th><th>เหตุผล</th></tr></thead>
+        <tbody>
+          <tr><td>ต่อเข้าท่อลมกลับของแอร์</td><td class="mono">Q<sub>ac</sub> + Q<sub>oa</sub></td>
+            <td>ลม ERV ผ่านคอยล์ก่อนเข้าห้อง คอยล์จึงรับภาระนี้ไปด้วยตั้งแต่ต้น ลมที่พาความร้อนออกจากห้องมีทั้งสองส่วนรวมกัน</td></tr>
+          <tr><td>จ่ายเข้าห้องโดยตรง</td><td class="mono">Q<sub>ac</sub></td>
+            <td>ลม ERV ไม่ผ่านคอยล์ ภาระตกในห้องเต็ม ๆ มีเพียงลมหมุนเวียนของแอร์เท่านั้นที่ดึงความร้อนออกได้</td></tr>
+        </tbody>
+      </table></div>
+      <div class="srcline" style="margin-top:10px">ส่วนต่างระหว่างสองวิธีคือ Q<sub>oa</sub>/(Q<sub>ac</sub>+Q<sub>oa</sub>)
+      ซึ่งเล็กเมื่อลม ERV เป็นสัดส่วนน้อยของลมแอร์ แต่โตเร็วเมื่อสัดส่วนสูงขึ้น</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>5 · ข้อจำกัดที่ต้องรู้ก่อนเอาตัวเลขไปใช้</h3>
+      <div class="prose"><ol>
+        <li><b>เป็นสภาวะคงตัว</b> คำนวณที่จุดสมดุลปลายทาง ไม่ได้บอกว่าใช้เวลากี่นาทีกว่าจะถึง
+        และไม่ได้คิดความจุความร้อนของโครงสร้างอาคาร ช่วงเปลี่ยนผ่านจริงจะนุ่มกว่าที่เห็น</li>
+        <li><b>กำลังทำความเย็นของแอร์ถือว่าคงที่</b> ของจริงคอยล์ DX ให้กำลังมากขึ้นเมื่ออากาศกลับเข้าคอยล์ร้อนขึ้น
+        ประมาณ 2 ถึง 3% ต่อองศาของ wet-bulb ห้องจึงร้อนขึ้นน้อยกว่าที่คำนวณไว้เล็กน้อย
+        <b>ตัวเลขที่ได้จึงเป็นฝั่งปลอดภัย</b> ถ้าต้องการค่าที่แม่นกว่านี้ต้องใช้เส้นสมรรถนะของเครื่องรุ่นนั้นโดยตรง</li>
+        <li><b>ไม่ได้คิดภาระจากผนังและหลังคาที่ลดลง</b> เมื่อห้องร้อนขึ้น ส่วนต่างอุณหภูมิกับภายนอกน้อยลง
+        ความร้อนไหลเข้าจึงลดลงด้วย เป็นอีกเหตุผลที่ค่าที่ได้เป็นฝั่งปลอดภัย</li>
+        <li><b>ไม่ได้คิดการรั่วซึมของอากาศและแรงดันห้อง</b> ถ้าระบบเติมลมเข้ามากกว่าดูดออก
+        ห้องจะมีแรงดันบวกและอากาศรั่วออกทางรอยต่อ ซึ่งมีผลต่อภาระจริงเช่นกัน</li>
+        <li><b>ηs และ ηt ต้องเป็นค่าที่อัตราลมใช้งานจริง</b> ประสิทธิภาพแกนลดลงเมื่อลมแรงขึ้น
+        ใช้ตัวเลขสูงสุดจากโบรชัวร์จะทำให้ภาระที่คำนวณได้ต่ำกว่าความจริง</li>
+        <li><b>ส่วนที่แอร์รับไม่ไหว ถูกแบ่งเป็นสัมผัสกับแฝงตามสัดส่วนเดิมของภาระ</b>
+        เป็นข้อสมมติที่เป็นกลาง เพราะเอาเข้าจริงคอยล์ DX ที่ทำงานเกินกำลังจะเสียความสามารถในการลดความชื้นก่อน
+        ตัวเลขความชื้นที่ขึ้นในเครื่องมือนี้จึงมีแนวโน้ม<b>ต่ำกว่าของจริง</b> ต่างจากฝั่งอุณหภูมิที่เป็นฝั่งปลอดภัย
+        ถ้างานไหนความชื้นเป็นประเด็นหลัก ต้องดูเส้นสมรรถนะของคอยล์จริง</li>
+      </ol></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE 3 ══════════════════ -->
+<div class="page" id="p-audit">
+  <div class="sectitle">ตรวจไฟล์ Cooling load Recheck ของทีม</div>
+
+  <div class="note"><b>ที่ตรวจ</b> ไฟล์ <span class="mono">26-xx_Cooling load Recheck.xlsm</span>
+  โครงการ Udon airport (DOA) Building A · อ่านสูตรทุกเซลล์ทั้งสามชีต แล้วคำนวณใหม่ทั้งหมดจากตัวบท ASHRAE
+  โดยไม่ดูสูตรเดิม แล้วจึงเอามาเทียบกัน<br><br>
+  <b>สรุปสั้น</b> โครงคำนวณถูก ค่าคงที่ถูก ตัวเลขพาดหัวที่เอาไปใช้จริง 5.0 RT และ 6.67% <b>ถูกต้อง</b> ·
+  แต่คอลัมน์ Sensible และ Latent ในตารางรายเดือน<b>ผิด</b> และผิดในทางที่อันตรายต่อการเลือกคอยล์</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>สิ่งที่ตรวจแล้วถูกต้อง</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>รายการ</th><th>สูตรในไฟล์</th><th>ผลตรวจ</th></tr></thead>
+        <tbody>
+          <tr><td>ค่าคงที่ภาระรวม</td><td class="mono">1.2 × (CMH/3.6) × Δh</td>
+            <td><span class="badge ok">ถูก</span> ตรงกับ ASHRAE 2021 บทที่ 18 สมการ (7) · C<sub>t</sub> = 1.2</td></tr>
+          <tr><td>ค่าคงที่ภาระสัมผัส</td><td class="mono">1.23 × (CMH/3.6) × ΔT</td>
+            <td><span class="badge ok">ถูก</span> ตรงกับสมการ (9) · C<sub>s</sub> = 1230 เมื่อลมเป็น m³/s</td></tr>
+          <tr><td>ฟังก์ชัน psych() ที่ใช้</td><td class="mono">psych(101325, T, RH, 3, 7, 1)</td>
+            <td><span class="badge ok">ถูก</span> เขียนสมการ ASHRAE บทที่ 1 ขึ้นมาใหม่แล้วเทียบ ต่างกันไม่เกิน 0.006 kJ/kg หรือ 0.011%</td></tr>
+          <tr><td>อากาศที่ออกจาก ERV</td><td class="mono">Tsa = ηs(Tr−Toa)+Toa · hsa = ηt(hr−hoa)+hoa</td>
+            <td><span class="badge ok">ถูก</span> เป็นนิยามประสิทธิภาพมาตรฐาน และแยก ηs กับ ηt ถูกต้อง</td></tr>
+          <tr><td>ภาระรวม คอลัมน์ K</td><td class="mono">1.2 × (Q/3.6) × (hsa − hra)</td>
+            <td><span class="badge ok">ถูก</span> ได้ 4.9998 RT ตรงกับที่คำนวณใหม่ · เป็นตัวที่ป้อนเข้า D19 และ FA/AC ratio</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ข้อที่ 1 · คอลัมน์ Sensible คิดผิดตัว</h3>
+      <div class="eq">สูตรในไฟล์  เซลล์ I26
+   =((1.23*($P$12/3.6)*(<b>B26 − G26</b>))/1000)/3.517
+                              <b>Toa − Tsa</b>   ←  นี่คืออุณหภูมิที่ <b>ลดลงภายในแกน ERV</b>
+
+สิ่งที่ควรเป็น
+   ΔT = <b>Tsa − Tra</b>   ←  ส่วนต่างระหว่างลมที่เข้าห้อง กับอากาศในห้อง</div>
+      <div class="prose"><p>สองตัวนี้เป็นคนละความหมายกันคนละขั้ว ตัวหนึ่งคือความร้อนที่ <b>ERV ดึงคืนไว้ได้</b>
+      อีกตัวคือความร้อนที่ <b>ยังเหลือมาถึงแอร์</b> ไฟล์เอาตัวแรกมาใส่ในคอลัมน์ที่หัวตารางเขียนว่า Sensible</p>
+      <p>ที่สังเกตได้ง่าย ๆ คือ (Toa − Tsa) ÷ (Toa − Tra) = 9.1 ÷ 13 = 0.70 ซึ่งเท่ากับ ηs พอดี
+      เป็นสัญญาณว่าเลขตัวนี้คือส่วนที่แกนดึงคืนไว้ ไม่ใช่ส่วนที่เหลือ</p></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ที่เงื่อนไข Udon 38/60 → 25/50 · 3,000 CMH · ηs 70% ηt 67%</th>
+          <th class="num">ในไฟล์</th><th class="num">คำนวณใหม่</th><th class="num">ต่างกัน</th></tr></thead>
+        <tbody>
+          <tr><td>ภาระรวม</td><td class="num">4.9996</td><td class="num">4.9998</td><td class="num">ตรงกัน</td></tr>
+          <tr class="gov"><td><b>ภาระสัมผัส RT</b></td><td class="num">2.6521</td><td class="num">1.1406</td>
+            <td class="num" style="color:var(--red)">สูงเกินจริง 2.33 เท่า</td></tr>
+          <tr class="gov"><td><b>ภาระแฝง RT</b></td><td class="num">2.3477</td><td class="num">3.8592</td>
+            <td class="num" style="color:var(--red)">ต่ำกว่าจริง 1.51 RT</td></tr>
+          <tr><td><b>SHR ที่อ่านได้จากตาราง</b></td><td class="num">0.53</td><td class="num">0.23</td>
+            <td class="num" style="color:var(--red)">คนละเรื่อง</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note warn" style="margin-top:14px;margin-bottom:0"><b>ทำไมถึงสำคัญ</b>
+      ภาระรวมยังถูก ตัวเลข 5.0 RT ที่เอาไปคุยกับลูกค้าจึงไม่ผิด แต่<b>ถ้าใครหยิบ SHR 0.53 จากตารางนี้ไปเลือกคอยล์
+      จะได้คอยล์ที่ลดความชื้นได้ไม่พอ</b> เพราะของจริงภาระเกือบ 80% เป็นภาระแฝง ไม่ใช่ครึ่งเดียวอย่างที่ตารางแสดง
+      ในภูมิอากาศไทยนี่คือความต่างระหว่างห้องแห้งสบายกับห้องเย็นแต่ชื้น</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ข้อที่ 2 · คอลัมน์ Latent ผิดตามข้อที่ 1</h3>
+      <div class="eq">สูตรในไฟล์  เซลล์ J26
+   =K26 − I26
+    │     └── ภาระสัมผัสที่ ERV <b>ดึงคืนไว้ได้</b>
+    └──────── ภาระรวมที่ <b>ยังเหลือมาถึงแอร์</b>
+
+การเอาสองปริมาณคนละฐานมาลบกัน ผลลัพธ์ไม่มีความหมายทางฟิสิกส์</div>
+      <div class="prose"><p>วิธีที่ถูกคือลบด้วยภาระสัมผัสที่เหลือ ซึ่งอยู่บนฐานเดียวกับภาระรวม
+      หรือจะคำนวณตรง ๆ ด้วยสมการ (10) ก็ได้</p></div>
+      <div class="eq" style="margin-bottom:0">q<b>l</b> = 3000 × Q<sub>L/s</sub> × (W<b>sa</b> − W<b>r</b>)
+
+ตรวจสองทางที่เงื่อนไข Udon
+   จากผลต่าง  q<b>t</b> − q<b>s</b> = 3.859 RT
+   จากสมการ (10)          = 3.781 RT
+   ต่างกัน 2.0% ซึ่งเป็นระยะที่คาดไว้ เพราะสมการ (10) ใช้ค่าประมาณความร้อนแฝง 2500 kJ/kg
+   ส่วนวิธีเอนทัลปีใช้ (2501 + 1.86·t) ที่ละเอียดกว่า · สองทางยืนยันกันเอง</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>ข้อที่ 3 · Tmix ใช้ได้ แต่มองโลกในแง่ดีกว่าความจริงเล็กน้อย</h3>
+      <div class="eq">สูตรในไฟล์  เซลล์ D22
+   =((D17×S9) + (P12×S3)) / (P12 + D17)
+
+จัดรูปใหม่ได้เป็น
+   T<b>mix</b> − T<b>r</b> = Q<b>oa</b>(T<b>sa</b> − T<b>r</b>) / (Q<b>ac</b> + Q<b>oa</b>)
+
+สมดุลพลังงานของห้องให้
+   ต่อเข้าลมกลับ    ΔT = Q<b>oa</b>(T<b>sa</b>−T<b>r</b>) / (Q<b>ac</b> + Q<b>oa</b>)   ← ตรงกับไฟล์
+   จ่ายเข้าห้องตรง  ΔT = Q<b>oa</b>(T<b>sa</b>−T<b>r</b>) / Q<b>ac</b></div>
+      <div class="prose"><p>แปลว่าสูตรในไฟล์<b>ถูก</b>สำหรับกรณีต่อลม ERV เข้าท่อลมกลับ
+      แต่ถ้างานไหนจ่ายลมเข้าห้องโดยตรง สูตรนี้จะให้ค่าต่ำกว่าความจริง</p></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>กรณี</th><th class="num">ในไฟล์</th><th class="num">จ่ายเข้าห้องตรง</th></tr></thead>
+        <tbody>
+          <tr><td>Udon · 3,000 จาก 37,400 CMH</td><td class="num">+0.290 °C</td><td class="num">+0.313 °C</td></tr>
+          <tr><td>ชีตตัวอย่าง · 500 จาก 500 CMH</td><td class="num">+1.120 °C</td><td class="num">+2.240 °C</td></tr>
+        </tbody>
+      </table></div>
+      <div class="srcline">ยิ่งลม ERV เป็นสัดส่วนสูงเทียบกับลมแอร์ ช่องว่างยิ่งกว้าง ที่ Udon ต่างกันเพียง 0.02 °C จึงไม่มีนัย
+      แต่ในชีตตัวอย่างที่ลมเท่ากันพอดี ต่างกันถึงเท่าตัว</div>
+    </div>
+
+    <div class="card">
+      <h3>ข้อที่ 4 · เรื่องที่ไม่ใช่สูตรผิด แต่ควรจัดการ</h3>
+      <div class="prose"><ol>
+        <li><b>ตาราง 12 เดือนใส่ค่าเดียวกันหมด</b> ทุกแถวเป็น 38 °C 60% การใช้ MAX() คร่อม 12 แถวที่เหมือนกัน
+        จึงไม่ได้ทำอะไรเลย ควรกรอกข้อมูลรายเดือนจริง หรือไม่ก็ตัดแถวออกให้เหลือแถวเดียว
+        จะได้ไม่ทำให้คนอ่านเข้าใจผิดว่ามีการไล่ดูทั้งปีแล้ว</li>
+        <li><b>ลิงก์ภูมิอากาศชี้ไปพัทยา</b> เซลล์ A39 อ้าง timeanddate ของ Pattaya แต่โครงการอยู่<b>อุดรธานี</b>
+        ซึ่งเป็นภาคอีสาน อุณหภูมิสูงกว่าและความชื้นต่ำกว่าชายทะเลอย่างมีนัย ควรเปลี่ยนแหล่งอ้างอิง</li>
+        <li><b>38 °C คู่กับ RH 60% เป็นการเผื่อที่หนักมาก</b> ตอนบ่ายที่ร้อนที่สุดความชื้นสัมพัทธ์มักต่ำกว่านั้น
+        สองค่าสุดขั้วไม่ได้เกิดพร้อมกัน ถ้าจะให้ตรงหลักควรใช้คู่ค่าออกแบบจากบทที่ 14 ของ ASHRAE
+        ที่จับคู่ DB กับ MCWB มาให้แล้ว</li>
+        <li><b>เกณฑ์ 1 °C และ 20% ยังไม่มีที่มากำกับ</b> สองค่านี้เป็นเกณฑ์ที่ทีมตั้งเอง ซึ่งใช้ได้
+        แต่ควรเขียนกำกับไว้ว่าเป็นเกณฑ์ภายใน ไม่ใช่ข้อกำหนดของมาตรฐานใด เวลาส่งงานให้ผู้ตรวจจะได้ไม่ถูกถาม</li>
+        <li><b>D17 ในชีตงานจริงเขียนทับเป็นค่าคงที่</b> ชีตต้นแบบใช้ <span class="mono">=D16*500</span>
+        แต่ชีตงานจริงเปลี่ยนเป็น <span class="mono">=1.7*22000</span> ซึ่งได้ 37,400 พอดี
+        เท่ากับ 499 CMH/RT จึงสอดคล้องกัน แต่ควรเขียนหมายเหตุว่า 1.7 กับ 22000 คือค่าอะไร
+        ไม่งั้นคนมาแก้ต่อจะไม่กล้าแตะ</li>
+      </ol></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ข้อเสนอให้แก้ในไฟล์ ถ้าจะใช้ต่อ</h3>
+      <div class="eq">เซลล์ I26  ภาระสัมผัสที่เหลือมาถึงแอร์
+   เดิม  =((1.23*($P$12/3.6)*(B26-G26))/1000)/3.517
+   ใหม่  =((1.23*($P$12/3.6)*(<b>G26-H26</b>))/1000)/3.517
+
+เซลล์ J26  ภาระแฝง  ใช้สูตรเดิมได้เลย เพราะเมื่อ I26 ถูก J26 จะถูกตาม
+   =K26-I26
+
+เพิ่มคอลัมน์ใหม่ ถ้าอยากเก็บตัวเลขที่ ERV ดึงคืนไว้ได้ ซึ่งเป็นเลขที่ดีสำหรับขายงาน
+   ประหยัดสัมผัส  =((1.23*($P$12/3.6)*(B26-G26))/1000)/3.517
+   ประหยัดรวม    =((1.2*($P$12/3.6)*(D26-F26))/1000)/3.517</div>
+      <div class="note" style="margin-bottom:0"><b>ข้อควรระวังในการอ่านผลตรวจนี้</b>
+      ผมอ่านสูตรจากโครงสร้าง XML ของไฟล์โดยตรง ไม่ได้เปิดใน Excel และ<b>ไม่ได้รันฟังก์ชัน psych()
+      ตัวจริง</b> ที่เป็น add-in ภายนอก สิ่งที่ทำคือเขียนสมการจากตัวบท ASHRAE ขึ้นมาใหม่
+      แล้วเทียบกับค่าที่ Excel บันทึกไว้ในไฟล์ ซึ่งตรงกันภายใน 0.011% จึงสรุปได้ว่า add-in ทำงานถูก
+      แต่ถ้าจะแก้ไฟล์จริงควรเปิด Excel ตรวจซ้ำอีกครั้ง</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  ที่มาทั้งหมด · ASHRAE Handbook 2021 Fundamentals (SI) บทที่ 1 Psychrometrics และบทที่ 18 Nonresidential Cooling and Heating Load Calculations ·
+  ASHRAE Standard 55 · AHRI Standard 1060 สำหรับนิยามประสิทธิภาพแกนแลกเปลี่ยน
+</div>
+
+<div id="chartModal">
+  <div class="chart-modal-box">
+    <div class="chart-modal-head"><h3 id="modalTitle"></h3>
+      <button class="chart-modal-close" id="modalClose">×</button></div>
+    <div class="chart-modal-body"><div class="canvas-wrap"><canvas id="modalCanvas"></canvas></div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(i){ return document.getElementById(i); };
+var C = { blue:'#2383E2', red:'#D44C47', purple:'#6940A5', green:'#2E7D32',
+          orange:'#CB912F', grid:'#E3E2DE', txt:'#787774', ink:'#37352F', gray:'#9B9A97' };
+
+/* ═══════════════════════════════════════════════════════════════
+   ASHRAE Handbook 2021 Fundamentals (SI), Chapter 1 Psychrometrics
+   Written from the printed text, not from any library.
+   eq (5)  saturation pressure over liquid water, IAPWS-IF97
+   eq (21) humidity ratio      eq (32) enthalpy      eq (28) volume
+   Verified against the chapter's own Table 3 at 20 / 25 / 50 C.
+   ═══════════════════════════════════════════════════════════════ */
+var NC = [ 0.11670521452767e4, -0.72421316703206e6, -0.17073846940092e2,
+           0.12020824702470e5, -0.32325550323333e7,  0.14915108613530e2,
+          -0.48232657361591e4,  0.40511340542057e6, -0.23855557567849e0,
+           0.65017534844798e3 ];
+var PATM = 101.325;                       /* kPa, sea level */
+
+function pws(t){                          /* kPa */
+  var T = t + 273.15, th = T + NC[8]/(T - NC[9]);
+  var A = th*th + NC[0]*th + NC[1];
+  var B = NC[2]*th*th + NC[3]*th + NC[4];
+  var D = NC[5]*th*th + NC[6]*th + NC[7];
+  return Math.pow(2*D/(-B + Math.sqrt(B*B - 4*A*D)), 4) * 1000;
+}
+function Wof(t, rh){                      /* rh as a fraction */
+  var pw = rh * pws(t);
+  if(pw >= PATM) pw = PATM * 0.9999;
+  return 0.621945 * pw / (PATM - pw);
+}
+function hof(t, W){ return 1.006*t + W*(2501 + 1.86*t); }
+function WofH(t, h){ return (h - 1.006*t)/(2501 + 1.86*t); }
+function rhof(t, W){
+  var pw = PATM * W / (0.621945 + W);
+  return pw / pws(t);
+}
+/* eq (8) — the sensible factor is not really a constant.
+   1.2*(1005 + 1884*W) in W per (L/s . K) */
+function csOf(W){ return 1.2*(1005 + 1884*W)/1000; }
+var CT = 1.2;      /* eq (7)  total,  W per (L/s . kJ/kg) */
+var CL = 3000;     /* eq (10) latent, W per (L/s . kg/kg) */
+var RTW = 3517;    /* 1 refrigeration ton in W */
+
+/* ─────────────── helpers ─────────────── */
+function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
+function fmt(n,d){ d = d||0; return (isFinite(n)?n:0).toLocaleString('en-US',
+  {minimumFractionDigits:d, maximumFractionDigits:d}); }
+function sgn(n,d){ return (n>=0?'+':'−') + fmt(Math.abs(n), d); }
+
+var MODE = 'return';
+
+/* ─────────────── the model ─────────────── */
+function model(qOverride){
+  var Toa = nv('toa'), RHoa = nv('rhoa')/100;
+  var Tr  = nv('tr'),  RHr  = nv('rhr')/100;
+  var et  = nv('et')/100, es = nv('es')/100;
+  var Q   = (qOverride === undefined) ? nv('oa') : qOverride;
+  var Qac = nv('qac'), cap = nv('cap'), loadnow = nv('loadnow')/100;
+
+  var Woa = Wof(Toa, RHoa), hoa = hof(Toa, Woa);
+  var Wr  = Wof(Tr,  RHr),  hr  = hof(Tr,  Wr);
+
+  /* air leaving the ERV core */
+  var Tsa = Toa + es*(Tr - Toa);
+  var hsa = hoa + et*(hr - hoa);
+  var Wsa = WofH(Tsa, hsa);
+  var RHsa = rhof(Tsa, Wsa);
+
+  /* load the outdoor air lands on the AC — eq (7)(9)(10) */
+  var Ql = Q/3.6;                          /* L/s */
+  var Cs = csOf((Wsa + Wr)/2);
+  var qt = CT*Ql*(hsa - hr);
+  var qs = Cs*Ql*(Tsa - Tr);
+  var ql = qt - qs;
+  var qlChk = CL*Ql*(Wsa - Wr);            /* independent route, eq (10) */
+
+  /* what the core saved, versus running the same air with no ERV */
+  var qtRaw = CT*Ql*(hoa - hr);
+  var qsRaw = Cs*Ql*(Toa - Tr);
+
+  /* spare capacity */
+  var capW   = cap*RTW;
+  var spareW = capW*(1 - loadnow);
+  var deficitW = Math.max(0, qt - spareW);
+  var covered  = qt <= spareW;
+
+  /* Room shift. Only the part the AC cannot absorb actually lands in the room.
+     `share` splits that excess between sensible and latent in the same
+     proportion as the load itself — a neutral assumption, stated in the
+     limitations. A real DX coil tends to lose latent capacity first, so the
+     humidity rise here is, if anything, on the optimistic side.
+
+     Both lines are plain mass balances. For temperature this is algebraically
+     identical to qs/(Cs*Qeff) because Cs cancels; for moisture it avoids the
+     2% error that riding through the 2500 kJ/kg latent constant would add. */
+  var Qeff = (MODE === 'return') ? (Qac/3.6 + Ql) : (Qac/3.6);
+  var share = qt > 0 ? deficitW/qt : 0;
+  var dT = 0, dW = 0;
+  if(Qeff > 0){
+    dT = (Tsa - Tr)*(Ql/Qeff)*share;
+    dW = (Wsa - Wr)*(Ql/Qeff)*share;
+  }
+  var Tr2 = Tr + dT, Wr2 = Wr + dW;
+  var RHr2 = rhof(Tr2, Wr2);
+
+  /* the mixed-air indicator the team's sheet reports */
+  var Tmix = (Qac/3.6 + Ql) > 0 ? ((Qac/3.6)*Tr + Ql*Tsa)/(Qac/3.6 + Ql) : Tr;
+  var Wmix = (Qac/3.6 + Ql) > 0 ? ((Qac/3.6)*Wr + Ql*Wsa)/(Qac/3.6 + Ql) : Wr;
+
+  return { Toa:Toa,RHoa:RHoa,Woa:Woa,hoa:hoa, Tr:Tr,RHr:RHr,Wr:Wr,hr:hr,
+           Tsa:Tsa,RHsa:RHsa,Wsa:Wsa,hsa:hsa, Q:Q,Ql:Ql,Cs:Cs,
+           qt:qt,qs:qs,ql:ql,qlChk:qlChk, qtRaw:qtRaw,qsRaw:qsRaw,
+           cap:cap,capW:capW,spareW:spareW,deficitW:deficitW,covered:covered,
+           loadnow:loadnow, Qac:Qac,Qeff:Qeff, dT:dT,dW:dW,Tr2:Tr2,Wr2:Wr2,RHr2:RHr2,
+           Tmix:Tmix,Wmix:Wmix, et:et,es:es };
+}
+
+/* ─────────────── canvas plumbing ─────────────── */
+function prep(cv){
+  var r = window.devicePixelRatio || 1, b = cv.getBoundingClientRect();
+  cv.width = Math.max(1, Math.round(b.width*r));
+  cv.height = Math.max(1, Math.round(b.height*r));
+  var g = cv.getContext('2d');
+  g.setTransform(r,0,0,r,0,0);
+  g.clearRect(0,0,b.width,b.height);
+  g.font = '11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+  return { g:g, w:b.width, h:b.height };
+}
+function dot(g,x,y,col,lbl){
+  g.beginPath(); g.arc(x,y,5.5,0,6.2832);
+  g.fillStyle = col; g.fill();
+  g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+  if(lbl){
+    g.fillStyle = col; g.font = '600 11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+    g.fillText(lbl, x+9, y+4);
+    g.font = '11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+  }
+}
+
+/* ─────────────── psychrometric chart ─────────────── */
+function drawPsy(cv, m){
+  var p = prep(cv), g = p.g;
+  var L=44, R=14, T=12, B=30;
+  var x0=15, x1=45, y0=0, y1=0.030;
+  var px = function(t){ return L + (t-x0)/(x1-x0)*(p.w-L-R); };
+  var py = function(W){ return p.h-B - (W-y0)/(y1-y0)*(p.h-B-T); };
+
+  /* grid */
+  g.strokeStyle=C.grid; g.lineWidth=1; g.fillStyle=C.txt; g.textAlign='center';
+  for(var t=x0;t<=x1;t+=5){
+    g.beginPath(); g.moveTo(px(t),T); g.lineTo(px(t),p.h-B); g.stroke();
+    g.fillText(t+'°', px(t), p.h-B+15);
+  }
+  g.textAlign='right';
+  for(var w=0;w<=0.030+1e-9;w+=0.005){
+    g.beginPath(); g.moveTo(L,py(w)); g.lineTo(p.w-R,py(w)); g.stroke();
+    g.fillText(w.toFixed(3), L-6, py(w)+4);
+  }
+  g.textAlign='left';
+  g.fillText('W kg/kg', L-38, T-1);
+  g.textAlign='center';
+  g.fillText('อุณหภูมิกระเปาะแห้ง °C', (L+p.w-R)/2, p.h-4);
+
+  /* relative-humidity curves */
+  [0.2,0.4,0.6,0.8,1.0].forEach(function(rh){
+    g.beginPath(); var started=false;
+    for(var tt=x0; tt<=x1; tt+=0.5){
+      var W = Wof(tt, rh);
+      if(W > y1){ break; }
+      var X=px(tt), Y=py(W);
+      if(!started){ g.moveTo(X,Y); started=true; } else g.lineTo(X,Y);
+    }
+    g.strokeStyle = (rh===1) ? C.gray : C.grid;
+    g.lineWidth  = (rh===1) ? 1.6 : 1;
+    g.stroke();
+    /* label where the curve leaves the top, else at the right edge */
+    var lt=x1, lastW=Wof(x1,rh);
+    if(lastW > y1){ for(var s=x0;s<=x1;s+=0.25){ if(Wof(s,rh)>y1){ lt=s; break; } } }
+    g.fillStyle=C.gray; g.textAlign='left';
+    var ly = (lastW>y1) ? T+10 : py(lastW);
+    g.fillText(Math.round(rh*100)+'%', px(lt)- (lastW>y1?8:22), ly);
+  });
+
+  /* the process: outdoor air -> ERV supply -> room */
+  g.setLineDash([]); g.lineWidth=2; g.strokeStyle=C.purple;
+  g.beginPath(); g.moveTo(px(m.Toa),py(m.Woa)); g.lineTo(px(m.Tsa),py(m.Wsa)); g.stroke();
+  g.setLineDash([5,4]); g.lineWidth=1.8; g.strokeStyle=C.blue;
+  g.beginPath(); g.moveTo(px(m.Tsa),py(m.Wsa)); g.lineTo(px(m.Tr),py(m.Wr)); g.stroke();
+  g.setLineDash([]);
+
+  dot(g, px(m.Toa), py(m.Woa), C.red,    'นอกอาคาร');
+  dot(g, px(m.Tsa), py(m.Wsa), C.purple, 'ออกจาก ERV');
+  dot(g, px(m.Tr),  py(m.Wr),  C.blue,   'ห้อง');
+  if(m.dT > 0.05 || m.dW > 0.0002){
+    dot(g, px(m.Tr2), py(m.Wr2), C.orange, 'ห้องหลังเติมลม');
+  }
+}
+
+/* ─────────────── sensitivity chart ─────────────── */
+function drawSens(cv){
+  var p = prep(cv), g = p.g;
+  var L=44, R=46, T=14, B=30;
+  var qmax = parseFloat($('oa').max);
+  var pts = [];
+  for(var i=0;i<=60;i++){
+    var q = qmax*i/60, mm = model(q);
+    pts.push({ q:q, rt:mm.qt/RTW, dT:mm.dT });
+  }
+  var rtMax = Math.max(0.5, pts[pts.length-1].rt)*1.12;
+  var dTMax = Math.max(0.5, Math.max.apply(null, pts.map(function(o){return o.dT;})))*1.15;
+  var px = function(q){ return L + q/qmax*(p.w-L-R); };
+  var pyR = function(v){ return p.h-B - v/rtMax*(p.h-B-T); };
+  var pyT = function(v){ return p.h-B - v/dTMax*(p.h-B-T); };
+
+  g.strokeStyle=C.grid; g.lineWidth=1;
+  for(var k=0;k<=4;k++){
+    var yy = T + k*(p.h-B-T)/4;
+    g.beginPath(); g.moveTo(L,yy); g.lineTo(p.w-R,yy); g.stroke();
+  }
+  g.fillStyle=C.txt; g.textAlign='right';
+  for(k=0;k<=4;k++){ g.fillText(fmt(rtMax*(4-k)/4,1), L-6, T + k*(p.h-B-T)/4 + 4); }
+  g.textAlign='left';
+  for(k=0;k<=4;k++){ g.fillText(fmt(dTMax*(4-k)/4,2), p.w-R+6, T + k*(p.h-B-T)/4 + 4); }
+  g.textAlign='center';
+  for(k=0;k<=4;k++){
+    var q = qmax*k/4;
+    g.fillText(fmt(q), px(q), p.h-B+15);
+  }
+  g.fillText('ลม ERV  CMH', (L+p.w-R)/2, p.h-3);
+  g.textAlign='left';  g.fillStyle=C.blue;   g.fillText('RT', 4, T-3);
+  g.textAlign='right'; g.fillStyle=C.orange; g.fillText('°C', p.w-2, T-3);
+
+  g.beginPath(); pts.forEach(function(o,i){ i?g.lineTo(px(o.q),pyR(o.rt)):g.moveTo(px(o.q),pyR(o.rt)); });
+  g.strokeStyle=C.blue; g.lineWidth=2.2; g.setLineDash([]); g.stroke();
+
+  g.beginPath(); pts.forEach(function(o,i){ i?g.lineTo(px(o.q),pyT(o.dT)):g.moveTo(px(o.q),pyT(o.dT)); });
+  g.strokeStyle=C.orange; g.lineWidth=2; g.setLineDash([5,4]); g.stroke(); g.setLineDash([]);
+
+  var cur = model();
+  dot(g, px(cur.Q), pyR(cur.qt/RTW), C.blue, '');
+  if(cur.dT > 0.005) dot(g, px(cur.Q), pyT(cur.dT), C.orange, '');
+}
+
+/* ─────────────── render ─────────────── */
+function render(){
+  var m = model();
+
+  /* slider furniture */
+  var mx = parseFloat($('oa').max);
+  $('oaVal').innerHTML = fmt(m.Q) + '<small>CMH</small>';
+  $('oaLs').textContent = fmt(m.Ql,1) + ' L/s';
+  var vol = nv('area')*nv('ht');
+  $('oaAch').textContent = vol>0 ? fmt(m.Q/vol,2) + ' ACH' : '–';
+  ['tk1','tk2','tk3'].forEach(function(id,i){ $(id).textContent = fmt(mx*(i+1)/4); });
+  $('tkm').textContent = fmt(mx);
+  $('oaHint').textContent = 'ลม ERV คิดเป็น ' + fmt(m.Qac>0 ? m.Q/m.Qac*100 : 0,1)
+    + '% ของลมหมุนเวียนของแอร์ · ยิ่งสัดส่วนสูง ผลต่อห้องยิ่งชัด';
+
+  /* state hints */
+  $('oaState').textContent = 'W = ' + m.Woa.toFixed(5) + ' kg/kg · h = ' + fmt(m.hoa,2) + ' kJ/kg';
+  $('rState').textContent  = 'W = ' + m.Wr.toFixed(5)  + ' kg/kg · h = ' + fmt(m.hr,2)  + ' kJ/kg';
+  $('effHint').textContent = 'ลมออกจากแกนที่ ' + fmt(m.Tsa,2) + ' °C · '
+    + fmt(m.RHsa*100,1) + ' %RH · ' + fmt(m.hsa,2) + ' kJ/kg';
+  $('qacHint').textContent = m.cap>0
+    ? fmt(m.Qac/m.cap) + ' CMH ต่อ RT · ค่าที่ใช้กันทั่วไปอยู่ราว 500 ถึง 680'
+    : 'ใส่ขนาดแอร์ก่อน';
+  $('modeHint').textContent = MODE==='return'
+    ? 'ใช้ลมรวม ' + fmt(m.Qac + m.Q) + ' CMH ในการหาอุณหภูมิที่เปลี่ยน'
+    : 'ใช้เฉพาะลมแอร์ ' + fmt(m.Qac) + ' CMH ในการหาอุณหภูมิที่เปลี่ยน';
+
+  /* KPIs */
+  var rt = m.qt/RTW, pct = m.cap>0 ? rt/m.cap*100 : 0;
+  $('k1').innerHTML = fmt(rt,2) + '<small>RT</small>';
+  $('k1n').textContent = fmt(m.qt/1000,2) + ' kW · ถ้าไม่มีแกน ERV จะเป็น '
+    + fmt(m.qtRaw/RTW,2) + ' RT';
+  var k2 = $('k2');
+  k2.innerHTML = fmt(pct,1) + '<small>%</small>';
+  k2.className = 'kpi-value ' + (pct<=20 ? 'ok' : pct<=35 ? 'warn' : 'bad');
+  $('k2n').textContent = pct<=20 ? 'ผ่านเกณฑ์ภายในของทีมที่ 20%' : 'เกินเกณฑ์ภายในของทีมที่ 20%';
+
+  var k3 = $('k3');
+  k3.innerHTML = (m.dT<0.005?'0.00':sgn(m.dT,2)) + '<small>°C</small>';
+  k3.className = 'kpi-value ' + (m.dT<0.3 ? 'ok' : m.dT<1 ? 'warn' : 'bad');
+  $('k3n').textContent = m.covered
+    ? 'แอร์ยังรับไหว อุณหภูมิไม่ขยับ'
+    : 'ส่วนที่แอร์รับไม่ไหว ' + fmt(m.deficitW/RTW,2) + ' RT ตกค้างในห้อง';
+
+  var dRH = (m.RHr2 - m.RHr)*100;
+  var k4 = $('k4');
+  k4.innerHTML = (Math.abs(dRH)<0.05?'0.0':sgn(dRH,1)) + '<small>%RH</small>';
+  k4.className = 'kpi-value ' + (Math.abs(dRH)<2 ? 'ok' : Math.abs(dRH)<5 ? 'warn' : 'bad');
+  $('k4n').textContent = 'จาก ' + fmt(m.RHr*100,0) + '% เป็น ' + fmt(m.RHr2*100,1) + '%';
+
+  /* verdict */
+  var v = $('verdict'), head, body;
+  if(m.Q === 0){
+    v.className='verdict'; head='ยังไม่ได้เติมลมภายนอก';
+    body='เลื่อนแถบด้านล่างเพื่อกำหนดปริมาณลม ERV แล้วผลกระทบต่อแอร์เดิมจะคำนวณให้ทันที';
+  } else if(m.covered && pct <= 20){
+    v.className='verdict ok'; head='เติมได้ ไม่ต้องแตะระบบเดิม';
+    body='ลม ' + fmt(m.Q) + ' CMH เพิ่มภาระ <b>' + fmt(rt,2) + ' RT</b> คิดเป็น <b>'
+      + fmt(pct,1) + '%</b> ของแอร์ที่ติดตั้งไว้ ' + fmt(m.cap,1) + ' RT '
+      + 'ซึ่งยังอยู่ในกำลังที่เหลือ <b>' + fmt(m.spareW/RTW,2) + ' RT</b> '
+      + 'อุณหภูมิและความชื้นในห้องจึงไม่เปลี่ยน สิ่งที่เปลี่ยนคือคอมเพรสเซอร์เดินนานขึ้นและค่าไฟสูงขึ้น';
+  } else if(m.covered){
+    v.className='verdict warn'; head='กำลังยังพอ แต่กินสัดส่วนเยอะ';
+    body='ภาระที่เพิ่ม <b>' + fmt(rt,2) + ' RT</b> อยู่ในกำลังที่เหลือ <b>' + fmt(m.spareW/RTW,2)
+      + ' RT</b> ห้องจึงยังไม่เปลี่ยน แต่คิดเป็น <b>' + fmt(pct,1)
+      + '%</b> ของขนาดที่ติดตั้ง ซึ่งเกินเกณฑ์ภายในที่ทีมตั้งไว้ 20% '
+      + 'ควรเผื่อไว้ว่าถ้าภาระในห้องเพิ่มขึ้นอีกเมื่อไร แอร์จะเริ่มเอาไม่อยู่';
+  } else {
+    v.className='verdict bad'; head='แอร์เดิมรับไม่ไหว ห้องจะเปลี่ยนจริง';
+    body='ภาระที่เพิ่ม <b>' + fmt(rt,2) + ' RT</b> มากกว่ากำลังที่เหลืออยู่ <b>'
+      + fmt(m.spareW/RTW,2) + ' RT</b> ส่วนที่เกิน <b>' + fmt(m.deficitW/RTW,2)
+      + ' RT</b> จะค้างในห้อง ทำให้อุณหภูมิขึ้นราว <b>' + fmt(m.dT,2)
+      + ' °C</b> และความชื้นสัมพัทธ์ขยับเป็น <b>' + fmt(m.RHr2*100,1) + '%</b> '
+      + 'ทางแก้มีสามทาง คือลดปริมาณลมลง เพิ่มประสิทธิภาพแกนให้สูงขึ้น หรือเพิ่มกำลังทำความเย็น';
+  }
+  v.innerHTML = '<div class="vh">' + head + '</div><div class="vb">' + body + '</div>';
+
+  /* state table */
+  var rows = [
+    ['นอกอาคาร', C.red, m.Toa, m.RHoa*100, m.Woa, m.hoa],
+    ['ออกจากแกน ERV', C.purple, m.Tsa, m.RHsa*100, m.Wsa, m.hsa],
+    ['ในห้อง ตามที่ตั้งไว้', C.blue, m.Tr, m.RHr*100, m.Wr, m.hr]
+  ];
+  if(m.dT > 0.005 || Math.abs(dRH) > 0.05)
+    rows.push(['ในห้อง หลังเติมลม', C.orange, m.Tr2, m.RHr2*100, m.Wr2, hof(m.Tr2,m.Wr2)]);
+  $('stateBody').innerHTML = rows.map(function(r){
+    return '<tr><td class="st"><span class="statedot" style="background:'+r[1]+'"></span>'+r[0]+'</td>'
+      + '<td class="num">'+fmt(r[2],2)+'</td><td class="num">'+fmt(r[3],1)+'</td>'
+      + '<td class="num">'+r[4].toFixed(5)+'</td><td class="num">'+fmt(r[5],2)+'</td></tr>';
+  }).join('');
+
+  /* load table */
+  var lb = [
+    ['ภาระสัมผัส  ที่เหลือมาถึงแอร์', m.qs, ''],
+    ['ภาระแฝง  ที่เหลือมาถึงแอร์', m.ql, ''],
+    ['<b>รวม</b>', m.qt, 'tot'],
+    ['ถ้าไม่มีแกน ERV ภาระรวมจะเป็น', m.qtRaw, 'raw'],
+    ['<b>แกน ERV ตัดออกไปได้</b>', m.qtRaw - m.qt, 'sav']
+  ];
+  $('loadBody').innerHTML = lb.map(function(r){
+    var share = r[2]==='sav' ? fmt(m.qtRaw>0 ? (m.qtRaw-m.qt)/m.qtRaw*100 : 0,1)+'%'
+              : r[2]==='raw' ? '—'
+              : r[2]==='tot' ? '100%'
+              : fmt(m.qt>0 ? r[1]/m.qt*100 : 0,1)+'%';
+    var cls = (r[2]==='tot'||r[2]==='sav') ? ' class="gov"' : '';
+    return '<tr'+cls+'><td>'+r[0]+'</td><td class="num">'+fmt(r[1]/1000,2)
+      + '</td><td class="num">'+fmt(r[1]/RTW,3)+'</td><td class="num">'+share+'</td></tr>';
+  }).join('');
+  $('shrHint').innerHTML = 'SHR = ' + fmt(m.qt>0 ? m.qs/m.qt : 0,3)
+    + ' · ตัวคูณสัมผัสที่ใช้ ' + fmt(m.Cs,4) + ' ไม่ใช่ 1.23 ตายตัว เพราะคำนวณจาก W จริงตามสมการ (8)'
+    + '<br>ตรวจภาระแฝงอีกทางด้วยสมการ (10) ได้ ' + fmt(m.qlChk/RTW,3)
+    + ' RT ต่างจากวิธีเอนทัลปี ' + fmt(m.ql!==0 ? Math.abs(m.qlChk-m.ql)/Math.abs(m.ql)*100 : 0,1)
+    + '% ซึ่งเป็นระยะที่คาดไว้จากค่าประมาณความร้อนแฝง 2500 kJ/kg';
+
+  /* impact table */
+  var m2ac  = m.cap>0 ? nv('area')/m.cap : 0;
+  var m2tot = (m.cap+rt)>0 ? nv('area')/(m.cap+rt) : 0;
+  var imp = [
+    ['อุณหภูมิห้อง °C', fmt(m.Tr,2), fmt(m.Tr2,2), sgn(m.dT,2),
+      m.dT<=1 ? '<span class="badge ok">ไม่เกิน 1 °C</span>' : '<span class="badge bad">เกิน 1 °C</span>'],
+    ['ความชื้นสัมพัทธ์ %', fmt(m.RHr*100,1), fmt(m.RHr2*100,1), sgn(dRH,1),
+      m.RHr2*100<=65 ? '<span class="badge ok">ไม่เกิน 65%</span>' : '<span class="badge bad">เกิน 65%</span>'],
+    ['ภาระบนแอร์ %', fmt(m.loadnow*100,0), fmt(m.loadnow*100 + pct,1), sgn(pct,1),
+      (m.loadnow*100+pct)<=100 ? '<span class="badge ok">ยังไม่เต็มกำลัง</span>'
+                               : '<span class="badge bad">เกินกำลัง</span>'],
+    ['สัดส่วนภาระลมนอกต่อขนาดแอร์ %', '0.0', fmt(pct,1), sgn(pct,1),
+      pct<=20 ? '<span class="badge ok">ไม่เกิน 20%</span>' : '<span class="badge bad">เกิน 20%</span>'],
+    ['พื้นที่ต่อ RT  m²/RT', fmt(m2ac,2), fmt(m2tot,2), sgn(m2tot-m2ac,2),
+      '<span class="badge na">ใช้ดูแนวโน้ม</span>'],
+    ['ค่าเทียบ Tmix แบบสูตรในไฟล์ทีม °C', fmt(m.Tr,2), fmt(m.Tmix,2), sgn(m.Tmix-m.Tr,2),
+      '<span class="badge na">ดูหน้าตรวจไฟล์</span>']
+  ];
+  $('impBody').innerHTML = imp.map(function(r){
+    var cls = r[3].charAt(0)==='+' && parseFloat(r[3].slice(1))>0 ? 'delta up' : 'delta';
+    return '<tr><td>'+r[0]+'</td><td class="num">'+r[1]+'</td><td class="num">'+r[2]
+      + '</td><td class="num"><span class="'+cls+'">'+r[3]+'</span></td><td>'+r[4]+'</td></tr>';
+  }).join('');
+
+  $('sensPill').textContent = MODE==='return' ? 'ต่อเข้าลมกลับ' : 'จ่ายเข้าห้องตรง';
+
+  drawPsy($('psy'), m);
+  drawSens($('sens'));
+  $('psyLegend').innerHTML = 'เส้นทึบม่วงคือสิ่งที่แกน ERV ทำกับอากาศภายนอก · '
+    + 'เส้นประน้ำเงินคือระยะที่เหลือให้คอยล์ของแอร์จัดการ · ยิ่งเส้นประสั้น ภาระยิ่งน้อย';
+}
+
+/* ─────────────── wiring ─────────────── */
+document.querySelectorAll('.tab').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    $('p'+'-'+b.dataset.p).classList.add('active');
+    if(b.dataset.p === 'calc') render();
+  });
+});
+$('modebar').addEventListener('click', function(e){
+  var t = e.target.closest('.modecard'); if(!t) return;
+  MODE = t.dataset.m;
+  this.querySelectorAll('.modecard').forEach(function(x){ x.classList.toggle('active', x===t); });
+  render();
+});
+['toa','rhoa','tr','rhr','et','es','cap','qac','area','ht','loadnow','oa'].forEach(function(id){
+  $(id).addEventListener('input', render);
+});
+document.querySelectorAll('.stepbtn').forEach(function(b){
+  b.addEventListener('click', function(){
+    var s = $('oa');
+    s.value = Math.max(+s.min, Math.min(+s.max, +s.value + (+b.dataset.step)));
+    render();
+  });
+});
+/* let the slider stretch if someone needs more than its default ceiling */
+$('qac').addEventListener('input', function(){
+  var want = Math.max(12000, Math.ceil(nv('qac')/1000)*1000);
+  var s = $('oa'), keep = s.value;
+  s.max = want; s.value = keep;      /* widen before writing, or the value clamps */
+  render();
+});
+
+$('stamp').textContent = new Date().toLocaleDateString('th-TH',
+  { year:'numeric', month:'short', day:'numeric' });
+window.addEventListener('resize', function(){ render(); });
+render();
+})();
+
+</script>
+</body>
+</html>
