@@ -215,6 +215,17 @@ input[type=range]::-moz-range-track { height: 6px; background: var(--surface); b
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); margin-top: -8px; }
 input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); }
 .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.tabcount { display:inline-block; margin-left:6px; min-width:18px; padding:1px 6px; border-radius:20px;
+             background:var(--surface); color:var(--text-secondary); font-size:11px; font-weight:600;
+             font-variant-numeric:tabular-nums; }
+.tabcount:empty { display:none; }
+.numbox { width: 104px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px;
+          font-size: 14px; font-family: inherit; font-variant-numeric: tabular-nums;
+          font-weight: 600; text-align: right; background: var(--card-bg); color: var(--text); }
+.numbox.sm { width: 78px; font-size: 13px; }
+.numbox:focus { border-color: var(--blue); }
+.numwrap { display: flex; align-items: center; gap: 6px; }
+.numwrap .u { font-size: 12px; color: var(--text-secondary); }
 .recmark { position: absolute; top: 0; width: 2px; height: 22px; background: var(--blue); opacity: .45; pointer-events: none; border-radius: 1px; }
 
 /* tables */
@@ -271,6 +282,7 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
 <div class="tabs" role="tablist">
   <button class="tab active" data-page="calc">Calculator</button>
   <button class="tab" data-page="ref">สมการอ้างอิง</button>
+  <button class="tab" data-page="rooms">รายการห้อง<span id="roomCount" class="tabcount"></span></button>
   <button class="tab" data-page="tables">ตารางอ้างอิง</button>
 </div>
 
@@ -291,6 +303,8 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
       <div class="flowhead">
         <div class="flowval" id="qval">7,000<small>CMH</small></div>
         <div class="flowmeta">
+          <span class="numwrap"><input type="number" id="qnum" class="numbox" min="0" step="10"
+                 aria-label="พิมพ์ปริมาณลม"><span class="u">CMH</span></span>
           <span class="chip rec" id="recchip"></span>
           <span class="chip" id="achchip"></span>
           <span class="chip" id="lpschip"></span>
@@ -298,7 +312,7 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
       </div>
       <div class="slider-wrap">
         <div class="recmark" id="recmark" hidden></div>
-        <input type="range" id="q" min="0" max="14000" step="100" value="7000" aria-label="ปริมาณลมบริสุทธิ์">
+        <input type="range" id="q" min="0" max="14000" step="1" value="7000" aria-label="ปริมาณลมบริสุทธิ์"><!-- step 1: a typed value must survive intact. At step 100 a small room typed as 150 CMH snapped to 200, and 20 snapped to 0. -->
         <div class="ticks"><span>0</span><span id="tickMid"></span><span id="tickMax"></span></div>
       </div>
       <div class="hint" id="qhint"></div>
@@ -336,7 +350,12 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
     <div class="card">
       <h3>คน กิจกรรม และเงื่อนไข</h3>
       <div class="field">
-        <label class="flabel" for="pz">จำนวนคน · <b id="pzval">250</b> คน</label>
+        <label class="flabel" for="pz">จำนวนคน</label>
+        <div class="numwrap" style="margin-bottom:7px">
+          <input type="number" id="pznum" class="numbox sm" min="1" step="1" aria-label="พิมพ์จำนวนคน">
+          <span class="u">คน</span>
+          <span class="hint" style="margin:0">· ปัจจุบัน <b id="pzval">250</b> คน</span>
+        </div>
         <input type="range" id="pz" min="1" max="600" step="1" value="250">
         <div class="ticks"><span>1</span><span>300</span><span>600</span></div>
         <button class="btn ghost" id="usedens" style="margin-top:6px">ใช้ความหนาแน่นมาตรฐานของหมวดนี้</button>
@@ -414,7 +433,73 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
     </div>
   </div>
 
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>เก็บห้องนี้ไว้ดูรวมกับห้องอื่น</h3>
+      <div class="prose" style="font-size:13.5px"><p style="margin-bottom:12px;max-width:74ch">
+      ใช้ตอนคิดทั้งบ้านหรือทั้งชั้นที่มีหลายห้อง กดเก็บทีละห้องแล้วไปดูยอดรวมได้ที่แท็บ
+      <b>รายการห้อง</b> · เก็บไว้ในเครื่องของคุณเอง ไม่ได้ส่งออกไปไหน</p></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1;min-width:220px">
+          <label class="flabel" for="roomName">ชื่อห้อง</label>
+          <input type="text" id="roomName" placeholder="เช่น ห้องนอนใหญ่ ชั้น 2"
+                 style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;
+                        font-size:13px;font-family:inherit;background:var(--card-bg);color:var(--text)">
+        </div>
+        <button class="btn" id="saveRoom">เก็บเข้ารายการ</button>
+        <button class="btn ghost" id="updateRoom" hidden>บันทึกทับห้องที่เปิดอยู่</button>
+      </div>
+      <div class="hint" id="saveHint"></div>
+    </div>
+  </div>
+
   <div class="footer" id="foot"></div>
+</div>
+
+<!-- ══════════════ ROOMS ══════════════ -->
+<div class="page" id="page-rooms">
+  <div class="kpi-row" id="roomKpis"></div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row">
+        <h3>ห้องที่เก็บไว้</h3>
+        <div class="flowmeta">
+          <button class="btn ghost" id="exportRooms">คัดลอกเป็นตาราง</button>
+          <button class="btn ghost" id="clearRooms">ล้างทั้งหมด</button>
+        </div>
+      </div>
+      <div class="tablewrap"><table class="dtable" id="roomTable">
+        <thead><tr>
+          <th>ชื่อห้อง</th><th>หมวด</th>
+          <th class="num">พื้นที่ ตร.ม.</th><th class="num">คน</th>
+          <th class="num">ลมที่ตั้ง CMH</th><th class="num">ค่าแนะนำ CMH</th>
+          <th class="num">L/s ต่อคน</th><th class="num">ACH</th>
+          <th class="num">CO₂ ปลายช่วง</th><th>สถานะ</th><th></th>
+        </tr></thead>
+        <tbody id="roomBody"></tbody>
+        <tfoot id="roomFoot"></tfoot>
+      </table></div>
+      <div class="hint" id="roomHint"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>อ่านตารางนี้ยังไง</h3>
+      <div class="prose" style="font-size:13.5px">
+        <ul style="max-width:78ch">
+          <li><b>ค่าแนะนำ</b> คือค่าที่สูงที่สุดในบรรดาเกณฑ์ทั้งหมดของห้องนั้น
+          ทั้งกฎกระทรวง ASHRAE 62.1 LEED/WELL และเป้าหมาย CO₂ · ห้องผ่านเมื่อลมที่ตั้งไม่ต่ำกว่าค่านี้</li>
+          <li><b>CO₂ ปลายช่วง</b> คือค่าที่คาดว่าจะถึงเมื่อจบระยะเวลาใช้ห้องที่กรอกไว้ ไม่ใช่ค่าเฉลี่ย</li>
+          <li><b>ยอดรวมด้านล่างตารางคือผลบวกตรง ๆ</b> ใช้ประมาณขนาดเครื่องรวมได้
+          แต่<b>ถ้าห้องไม่ได้ใช้งานพร้อมกันทั้งหมด</b> ความต้องการจริงจะต่ำกว่านี้
+          การเลือกเครื่องรวมควรคิดจากช่วงเวลาที่ใช้งานจริงประกอบด้วย</li>
+          <li>กด <b>เปิด</b> เพื่อดึงค่าของห้องนั้นกลับเข้าเครื่องคำนวณ แก้แล้วกดบันทึกทับได้</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="page" id="page-ref">
@@ -751,7 +836,7 @@ function state(){
     A:A, V:V,
     cat: CATS[+catSel.value], act: ACTS[+actSel.value],
     law: lawArr[+$('law').value] || lawArr[0],
-    Pz: Math.max(1, nv('pz')), N: ACTS[+actSel.value][2],
+    AC: AC, Pz: Math.max(1, nv('pz')), N: ACTS[+actSel.value][2],
     Q: Math.max(0, nv('q')), base: Math.max(0, nv('base')), Co: nv('co'), C0: nv('c0'),
     dur: Math.max(0.5, nv('dur')), inf: nv('inf')
   };
@@ -771,8 +856,9 @@ function criteria(s){
     out.push({n:'ASHRAE 62.1 · Table 6-1', q:v, src:'Rp '+c[2]+' L/s·คน + Ra '+c[3]+' L/s·ตร.ม.'});
     out.push({n:'LEED / WELL', q:v*1.3, src:'62.1 × 1.3'});
   }
-  out.push({n:'กฎกระทรวงฉบับที่ 39', q: AC ? s.law[1]*s.A : s.law[1]*s.V,
-            src: s.law[0]+' — '+s.law[1]+(AC?' CMH/ตร.ม.':' ACH')});
+  var ac = (s.AC == null) ? AC : s.AC;   /* a stored room brings its own */
+  out.push({n:'กฎกระทรวงฉบับที่ 39', q: ac ? s.law[1]*s.A : s.law[1]*s.V,
+            src: s.law[0]+' — '+s.law[1]+(ac?' CMH/ตร.ม.':' ACH')});
   if(c[5]!=null) out.push({n:'เพดาน CO₂ ของ ASHRAE 62.1', q: needFor(s, s.Co+c[5]),
             src:'ไม่เกิน '+fmt(c[5])+' ppm เหนือภายนอก คือ '+fmt(s.Co+c[5])+' ppm'});
   out.push({n:'เป้าหมาย 1,000 ppm', q: needFor(s,1000), src:'ระดับที่ถือว่าอากาศดี'});
@@ -1146,6 +1232,10 @@ function render(){
   } else { mk.hidden = true; }
 
   $('qval').innerHTML = fmt(s.Q) + '<small>CMH</small>';
+  /* do not overwrite a box while it is being typed into */
+  if(document.activeElement !== $('qnum')) $('qnum').value = Math.round(s.Q);
+  if(document.activeElement !== $('pznum')) $('pznum').value = Math.round(s.Pz);
+  $('pznum').max = $('pz').max;
   $('recchip').textContent = 'ค่าแนะนำ ' + fmt(rec) + ' CMH';
   $('achchip').textContent = fmt(s.Q/(s.V||1), 2) + ' ACH';
   $('lpschip').textContent = fmt(s.Q/3.6/s.Pz, 1) + ' L/s ต่อคน';
@@ -1283,6 +1373,30 @@ function bump(d){
   $('q').value = Math.max(0, Math.min(mx, nv('q') + d));
   render();
 }
+/* Typing sets the slider, and widens its track first when the number is
+   past the current ceiling - writing the value first would clamp it. */
+$('qnum').addEventListener('input', function(){
+  var v = parseFloat(this.value);
+  if(!isFinite(v) || v < 0) return;
+  qTouched = true;
+  if(v > (parseFloat($('q').max)||0)) $('q').max = Math.ceil(v*1.15/1000)*1000;
+  $('q').value = v;
+  render();
+});
+$('pznum').addEventListener('input', function(){
+  var v = parseFloat(this.value);
+  if(!isFinite(v) || v < 1) return;
+  if(v > (parseFloat($('pz').max)||0)) $('pz').max = Math.ceil(v*1.2/50)*50;
+  $('pz').value = v;
+  render();
+});
+/* a blank or nonsense box snaps back to the slider when it loses focus */
+[['qnum','q'],['pznum','pz']].forEach(function(pair){
+  $(pair[0]).addEventListener('blur', function(){
+    var v = parseFloat(this.value);
+    if(!isFinite(v)) this.value = Math.round(nv(pair[1]));
+  });
+});
 $('qup').addEventListener('click', function(){ bump(100); });
 $('qdown').addEventListener('click', function(){ bump(-100); });
 $('applyTarget').addEventListener('click', function(){
@@ -1319,12 +1433,194 @@ $('resetBtn').addEventListener('click', function(){
 document.querySelector('.tabs').addEventListener('click', function(e){
   var b = e.target.closest('.tab'); if(!b) return;
   this.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x===b); });
-  ['calc','ref','tables'].forEach(function(p){
+  ['calc','rooms','ref','tables'].forEach(function(p){
     $('page-'+p).classList.toggle('active', p === b.dataset.page);
   });
   window.scrollTo(0,0);
   if(b.dataset.page === 'calc') setTimeout(redraw, 0);
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   SAVED ROOMS
+   Stored in this browser only - nothing leaves the machine - and
+   recomputed from the stored inputs on every render, so the figures
+   cannot drift away from the model.
+   ═══════════════════════════════════════════════════════════════ */
+var RKEY = 'coral.vent.rooms.v1';
+var ROOMS = [], OPEN_ID = null;
+
+function loadRooms(){
+  try { ROOMS = JSON.parse(localStorage.getItem(RKEY)) || []; }
+  catch(e){ ROOMS = []; }
+  if(!Array.isArray(ROOMS)) ROOMS = [];
+}
+function saveRooms(){
+  try { localStorage.setItem(RKEY, JSON.stringify(ROOMS)); }
+  catch(e){ $('roomHint').textContent =
+    'บันทึกลงเครื่องไม่ได้ · เบราว์เซอร์อาจปิดการเก็บข้อมูลไว้ รายการจะหายเมื่อปิดหน้า'; }
+}
+function currentRoom(){
+  return { w:nv('w'), l:nv('l'), h:nv('h'),
+           cat:+catSel.value, act:+actSel.value, law:+$('law').value, ac:AC,
+           pz:Math.max(1,nv('pz')), q:Math.max(0,nv('q')),
+           co:nv('co'), c0:nv('c0'), dur:Math.max(0.5,nv('dur')),
+           inf:nv('inf'), base:Math.max(0,nv('base')) };
+}
+function roomState(r){
+  var A = r.w*r.l, V = A*r.h;
+  var lawArr = r.ac ? LAW_AC : LAW_NA;
+  var act = ACTS[r.act] || ACTS[0];
+  return { A:A, V:V, cat:CATS[r.cat] || CATS[0], act:act,
+           law:lawArr[r.law] || lawArr[0], AC:r.ac,
+           Pz:Math.max(1,r.pz), N:act[2], Q:Math.max(0,r.q),
+           base:r.base, Co:r.co, C0:r.c0, dur:r.dur, inf:r.inf };
+}
+function roomSummary(r){
+  var st = roomState(r);
+  var rec = recommended(st);
+  return { st:st, rec:rec, co2:at(st, st.dur, st.Q),
+           lps: st.Pz>0 ? st.Q/3.6/st.Pz : 0,
+           ach: st.V>0 ? st.Q/st.V : 0,
+           ok: st.Q + 0.5 >= rec };
+}
+function rkpi(v,u,label,note){
+  return '<div class="kpi-card"><div class="kpi-value">' + v
+    + '<small>' + u + '</small></div><div class="kpi-label">' + label
+    + '</div><div class="kpi-note">' + note + '</div></div>';
+}
+function renderRooms(){
+  var body = $('roomBody'), foot = $('roomFoot');
+  $('roomCount').textContent = ROOMS.length ? ROOMS.length : '';
+  if(!ROOMS.length){
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--gray);padding:26px">'
+      + 'ยังไม่มีห้องที่เก็บไว้ · ไปที่แท็บ Calculator ตั้งค่าห้องแล้วกด เก็บเข้ารายการ</td></tr>';
+    foot.innerHTML = ''; $('roomKpis').innerHTML = ''; $('roomHint').textContent = '';
+    return;
+  }
+  var tA=0, tP=0, tQ=0, tR=0, nFail=0;
+  body.innerHTML = ROOMS.map(function(r){
+    var m = roomSummary(r);
+    tA += m.st.A; tP += m.st.Pz; tQ += m.st.Q; tR += (isFinite(m.rec)?m.rec:0);
+    if(!m.ok) nFail++;
+    return '<tr' + (r.id===OPEN_ID ? ' style="background:#EDF6FD"' : '') + '>'
+      + '<td><b>' + esc(r.name) + '</b><div class="hint" style="margin:2px 0 0">'
+        + fmt(r.w,1) + ' × ' + fmt(r.l,1) + ' × ' + fmt(r.h,1) + ' ม.</div></td>'
+      + '<td style="font-size:12px">' + esc(m.st.cat[1]) + '</td>'
+      + '<td class="num">' + fmt(m.st.A,1) + '</td>'
+      + '<td class="num">' + fmt(m.st.Pz) + '</td>'
+      + '<td class="num"><b>' + fmt(m.st.Q) + '</b></td>'
+      + '<td class="num">' + (isFinite(m.rec)?fmt(m.rec):'—') + '</td>'
+      + '<td class="num">' + fmt(m.lps,1) + '</td>'
+      + '<td class="num">' + fmt(m.ach,2) + '</td>'
+      + '<td class="num">' + (isFinite(m.co2)?fmt(m.co2):'—') + ' ppm</td>'
+      + '<td>' + (m.ok ? '<span class="badge ok">ผ่าน</span>'
+                       : '<span class="badge bad">ลมไม่พอ</span>') + '</td>'
+      + '<td style="white-space:nowrap">'
+        + '<button class="btn ghost rbtn" data-open="' + r.id + '">เปิด</button> '
+        + '<button class="btn ghost rbtn" data-del="' + r.id + '">ลบ</button></td>'
+      + '</tr>';
+  }).join('');
+  foot.innerHTML = '<tr><td colspan="2"><b>รวม ' + ROOMS.length + ' ห้อง</b></td>'
+    + '<td class="num"><b>' + fmt(tA,1) + '</b></td>'
+    + '<td class="num"><b>' + fmt(tP) + '</b></td>'
+    + '<td class="num"><b>' + fmt(tQ) + '</b></td>'
+    + '<td class="num"><b>' + fmt(tR) + '</b></td>'
+    + '<td colspan="5"></td></tr>';
+  $('roomKpis').innerHTML =
+      rkpi(fmt(tQ), 'CMH', 'ลมรวมทุกห้อง', 'ถ้าใช้งานพร้อมกันทั้งหมด')
+    + rkpi(fmt(tR), 'CMH', 'ค่าแนะนำรวม',
+           tQ+0.5>=tR ? 'ลมที่ตั้งไว้รวมแล้วพอ' : 'ยังขาด ' + fmt(tR-tQ) + ' CMH')
+    + rkpi(fmt(tA,1), 'ตร.ม.', 'พื้นที่รวม', fmt(tP) + ' คน')
+    + rkpi(String(nFail), 'ห้อง', 'ห้องที่ลมไม่พอ', nFail ? 'กดเปิดเพื่อแก้' : 'ผ่านทุกห้อง');
+  $('roomHint').textContent = 'เก็บไว้ในเครื่องนี้เท่านั้น · ล้างข้อมูลเบราว์เซอร์แล้วรายการจะหายไป';
+}
+function esc(t){
+  return String(t == null ? '' : t).replace(/[&<>"]/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; });
+}
+
+$('saveRoom').addEventListener('click', function(){
+  var r = currentRoom();
+  r.id = String(Date.now()) + String(Math.round(Math.random()*1000));
+  r.name = ($('roomName').value || '').trim() || ('ห้องที่ ' + (ROOMS.length+1));
+  ROOMS.push(r); OPEN_ID = r.id; saveRooms(); renderRooms();
+  $('saveHint').textContent = 'เก็บ ' + r.name + ' แล้ว · รวมทั้งหมด ' + ROOMS.length + ' ห้อง';
+  $('updateRoom').hidden = false;
+});
+$('updateRoom').addEventListener('click', function(){
+  var i = -1;
+  ROOMS.forEach(function(x,k){ if(x.id === OPEN_ID) i = k; });
+  if(i < 0){ $('saveHint').textContent = 'ห้องนี้ถูกลบไปแล้ว กดเก็บเข้ารายการเพื่อสร้างใหม่'; return; }
+  var r = currentRoom();
+  r.id = OPEN_ID;
+  r.name = ($('roomName').value || '').trim() || ROOMS[i].name;
+  ROOMS[i] = r; saveRooms(); renderRooms();
+  $('saveHint').textContent = 'บันทึกทับ ' + r.name + ' แล้ว';
+});
+$('roomBody').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  if(b.dataset.del){
+    var i = -1;
+    ROOMS.forEach(function(x,k){ if(x.id === b.dataset.del) i = k; });
+    if(i < 0) return;
+    var gone = ROOMS[i].name;
+    ROOMS.splice(i,1);
+    if(OPEN_ID === b.dataset.del){ OPEN_ID = null; $('updateRoom').hidden = true; }
+    saveRooms(); renderRooms();
+    $('roomHint').textContent = 'ลบ ' + gone + ' แล้ว';
+    return;
+  }
+  if(b.dataset.open){
+    var r = null;
+    ROOMS.forEach(function(x){ if(x.id === b.dataset.open) r = x; });
+    if(!r) return;
+    $('w').value=r.w; $('l').value=r.l; $('h').value=r.h;
+    catSel.value=r.cat; actSel.value=r.act;
+    AC = r.ac;
+    $('acmode').querySelectorAll('button').forEach(function(x){
+      x.classList.toggle('active', +x.dataset.ac === AC); });
+    fillLaw(); $('law').value = r.law;
+    /* widen each track before writing, or a large value gets clamped away */
+    $('pz').max = Math.max(600, Math.ceil(r.pz*1.2/50)*50); $('pz').value = r.pz;
+    $('q').max  = Math.max(12000, Math.ceil(r.q*1.15/1000)*1000); $('q').value = r.q;
+    $('co').value=r.co; $('c0').value=r.c0; $('dur').value=r.dur;
+    $('inf').value=r.inf; $('base').value=r.base;
+    $('roomName').value = r.name;
+    OPEN_ID = r.id; qTouched = true;
+    $('updateRoom').hidden = false;
+    $('saveHint').textContent = 'กำลังแก้ ' + r.name + ' · กดบันทึกทับเมื่อเสร็จ';
+    render(); renderRooms();
+    document.querySelector('.tab[data-page="calc"]').click();
+  }
+});
+$('clearRooms').addEventListener('click', function(){
+  if(!ROOMS.length) return;
+  if(!window.confirm('ลบห้องที่เก็บไว้ทั้งหมด ' + ROOMS.length + ' ห้อง ใช่หรือไม่')) return;
+  ROOMS = []; OPEN_ID = null; $('updateRoom').hidden = true;
+  saveRooms(); renderRooms();
+});
+$('exportRooms').addEventListener('click', function(){
+  if(!ROOMS.length) return;
+  var TAB = String.fromCharCode(9), NL = String.fromCharCode(10);
+  var lines = [['ชื่อห้อง','หมวด','กว้าง','ยาว','สูง','พื้นที่','คน','ลมที่ตั้ง CMH',
+                'ค่าแนะนำ CMH','L/s ต่อคน','ACH','CO2 ปลายช่วง ppm','สถานะ'].join(TAB)];
+  ROOMS.forEach(function(r){
+    var m = roomSummary(r);
+    lines.push([r.name, m.st.cat[1], r.w, r.l, r.h, m.st.A.toFixed(1), m.st.Pz,
+                Math.round(m.st.Q), isFinite(m.rec)?Math.round(m.rec):'',
+                m.lps.toFixed(1), m.ach.toFixed(2),
+                isFinite(m.co2)?Math.round(m.co2):'', m.ok?'ผ่าน':'ลมไม่พอ'].join(TAB));
+  });
+  var txt = lines.join(NL);
+  function done(ok){ $('roomHint').textContent = ok
+    ? 'คัดลอกแล้ว ' + ROOMS.length + ' แถว · วางลง Excel ได้เลย'
+    : 'คัดลอกอัตโนมัติไม่ได้ · ลากคลุมตารางแล้วคัดลอกเองแทน'; }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ done(true); }, function(){ done(false); });
+  } else { done(false); }
+});
+
+loadRooms(); renderRooms();
 
 $('catSearch').addEventListener('input', function(){ buildTables(this.value); });
 
