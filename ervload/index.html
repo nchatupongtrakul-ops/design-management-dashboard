@@ -291,6 +291,44 @@ table.dtable td.st{white-space:nowrap}
 .pill{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface);color:var(--text-secondary);font-weight:500;white-space:nowrap}
 .pill.src{background:#EDF6FD;color:#1B6FBF}
 .pill.err{background:#FBEAE9;color:var(--red)}
+
+/* these charts are click-to-explain, not pan-and-zoom */
+.canvas-wrap canvas{cursor:crosshair}
+.canvas-wrap canvas:active{cursor:crosshair}
+.card-expand-btn{opacity:.45}
+.card:hover .card-expand-btn{opacity:1}
+
+/* floating explanation panel */
+.cinfo{
+  position:absolute; z-index:20; display:none; width:min(310px,calc(100% - 12px));
+  background:var(--card-bg); border:1px solid var(--border2,#D6D4CE); border-radius:9px;
+  box-shadow:0 6px 22px rgba(0,0,0,.16); padding:10px 12px; font-size:12.5px;
+  max-height:calc(100% - 12px); overflow-y:auto;   /* never taller than the chart */
+}
+.cinfo.open{display:block}
+.cinfo-x{
+  position:absolute; top:6px; right:7px; border:0; background:none; cursor:pointer;
+  font-size:17px; line-height:1; color:var(--gray); font-family:inherit; padding:2px 4px;
+}
+.cinfo-x:hover{color:var(--text)}
+.cinfo-h{font-weight:700; font-size:12.5px; color:var(--text); margin-bottom:7px; padding-right:20px;
+         display:flex; align-items:center}
+.cinfo-eq{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; line-height:1.6;
+  background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--blue);
+  border-radius:5px; padding:7px 9px; margin-bottom:9px; white-space:pre; overflow-x:auto;
+  color:var(--text-secondary);
+}
+.cinfo-eq b{color:var(--text); font-weight:600}
+.cinfo-t{width:100%; border-collapse:collapse; margin-bottom:9px}
+.cinfo-t td{padding:2px 0; border-bottom:1px solid #F2F1EE; color:var(--text-secondary); font-size:12px}
+.cinfo-t tr:last-child td{border-bottom:0}
+.cinfo-t td.v{text-align:right; font-variant-numeric:tabular-nums; font-weight:600;
+              color:var(--text); white-space:nowrap; padding-left:10px}
+.cinfo-m{font-size:11.5px; line-height:1.55; color:var(--text-secondary);
+         border-top:1px solid var(--border); padding-top:8px}
+.cinfo-m b{color:var(--text)}
+@media (max-width:560px){ .cinfo{width:calc(100% - 12px)} }
 </style>
 </head>
 <body>
@@ -439,12 +477,14 @@ table.dtable td.st{white-space:nowrap}
 
   <div class="chart-grid g2">
     <div class="card">
+      <button class="card-expand-btn" data-chart="psy" type="button" title="ขยายเต็มจอ">⤢</button>
       <div class="card-title-row"><h3>แผนภูมิไซโครเมตริก</h3>
         <span class="pill src">ASHRAE 2021 บทที่ 1</span></div>
       <div class="canvas-wrap" style="height:340px"><canvas id="psy"></canvas></div>
       <div class="zoomhint" id="psyLegend"></div>
     </div>
     <div class="card">
+      <button class="card-expand-btn" data-chart="sens" type="button" title="ขยายเต็มจอ">⤢</button>
       <div class="card-title-row"><h3>ถ้าเปลี่ยนปริมาณลม ERV</h3>
         <span class="pill" id="sensPill"></span></div>
       <div class="canvas-wrap" style="height:340px"><canvas id="sens"></canvas></div>
@@ -1063,88 +1103,248 @@ function prep(cv){
   g.setTransform(r,0,0,r,0,0);
   g.clearRect(0,0,b.width,b.height);
   g.font = '11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+  cv._hits = [];                     /* rebuilt on every draw */
   return { g:g, w:b.width, h:b.height };
 }
-function dot(g,x,y,col,lbl){
+function dot(g,x,y,col){
   g.beginPath(); g.arc(x,y,5.5,0,6.2832);
   g.fillStyle = col; g.fill();
   g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
-  if(lbl){
-    g.fillStyle = col; g.font = '600 11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
-    g.fillText(lbl, x+9, y+4);
-    g.font = '11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+}
+
+/* Labels are collected first, then pushed apart, so two states that sit close
+   together on the chart - the room before and after adding air, typically -
+   do not print on top of each other. A displaced label gets a leader line. */
+function placeLabels(g, labels, w){
+  labels.sort(function(a,b){ return a.ay - b.ay; });
+  labels.forEach(function(L){ L.y = L.ay; });
+  for(var i=1;i<labels.length;i++){
+    if(labels[i].y - labels[i-1].y < 14) labels[i].y = labels[i-1].y + 14;
   }
+  g.font = '600 11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+  labels.forEach(function(L){
+    var tw = g.measureText(L.text).width, right = true;
+    var x = L.ax + 10;
+    if(x + tw > w - 4){ x = L.ax - tw - 10; right = false; }
+    if(Math.abs(L.y - L.ay) > 2){
+      g.beginPath();
+      g.moveTo(L.ax + (right ? 6 : -6), L.ay);
+      g.lineTo(right ? x - 3 : x + tw + 3, L.y - 3.5);
+      g.strokeStyle = L.col; g.globalAlpha = .4; g.lineWidth = 1; g.stroke(); g.globalAlpha = 1;
+    }
+    g.fillStyle = L.col; g.fillText(L.text, x, L.y + 4);
+    L.drawnAt = { x:x, y:L.y };
+  });
+  g.font = '11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+  return labels;
+}
+
+/* ─────────────── click-to-explain ─────────────── */
+function distToSeg(px,py,x1,y1,x2,y2){
+  var dx=x2-x1, dy=y2-y1, L=dx*dx+dy*dy;
+  var t = L ? ((px-x1)*dx + (py-y1)*dy)/L : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.sqrt(Math.pow(px-(x1+t*dx),2) + Math.pow(py-(y1+t*dy),2));
+}
+/* Points win over lines. Every state point sits on the end of a segment, so
+   both score a distance of zero there; without this the line always stole the
+   click and the point could never be opened. */
+function hitAt(cv, x, y){
+  var best = null, bd = 1e9;
+  (cv._hits||[]).forEach(function(h){
+    if(h.kind !== 'point') return;
+    var d = Math.sqrt(Math.pow(x-h.x,2) + Math.pow(y-h.y,2));
+    if(d < 15 && d < bd){ bd = d; best = h; }
+  });
+  if(best) return best;
+  (cv._hits||[]).forEach(function(h){
+    if(h.kind === 'point') return;
+    var d = distToSeg(x,y,h.x1,h.y1,h.x2,h.y2);
+    if(d < 10 && d < bd){ bd = d; best = h; }
+  });
+  return best;
+}
+function closeInfo(cv){
+  var el = cv.parentElement.querySelector('.cinfo');
+  if(el) el.classList.remove('open');
+}
+function showInfo(cv, hit, px, py){
+  var wrap = cv.parentElement;
+  var el = wrap.querySelector('.cinfo');
+  if(!el){ el = document.createElement('div'); el.className = 'cinfo'; wrap.appendChild(el); }
+  var i = hit.info;
+  el.innerHTML =
+      '<button class="cinfo-x" type="button" aria-label="ปิด">×</button>'
+    + '<div class="cinfo-h"><span class="statedot" style="background:'+i.col+'"></span>'+i.title+'</div>'
+    + (i.eq ? '<div class="cinfo-eq">'+i.eq+'</div>' : '')
+    + '<table class="cinfo-t"><tbody>'
+    + i.rows.map(function(r){
+        return '<tr><td>'+r[0]+'</td><td class="v">'+r[1]+'</td></tr>'; }).join('')
+    + '</tbody></table>'
+    + '<div class="cinfo-m">'+i.mean+'</div>';
+  el.classList.add('open');
+  el.querySelector('.cinfo-x').onclick = function(e){ e.stopPropagation(); el.classList.remove('open'); };
+
+  var w = wrap.clientWidth, h = wrap.clientHeight;
+  el.style.left = '0px'; el.style.top = '0px';
+  var bw = el.offsetWidth, bh = el.offsetHeight;
+  var x = Math.min(Math.max(6, px + 14), Math.max(6, w - bw - 6));
+  var y = py - bh - 14;
+  if(y < 6) y = Math.min(py + 16, Math.max(6, h - bh - 6));
+  y = Math.min(Math.max(6, y), Math.max(6, h - bh - 6));
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+}
+function attachChart(cv){
+  if(cv._wired) return; cv._wired = true;
+  cv.addEventListener('click', function(e){
+    var b = cv.getBoundingClientRect();
+    var x = e.clientX - b.left, y = e.clientY - b.top;
+    var hit = hitAt(cv, x, y);
+    if(hit) showInfo(cv, hit, x, y); else closeInfo(cv);
+  });
+  cv.addEventListener('mousemove', function(e){
+    var b = cv.getBoundingClientRect();
+    cv.style.cursor = hitAt(cv, e.clientX-b.left, e.clientY-b.top) ? 'pointer' : 'crosshair';
+  });
 }
 
 /* ─────────────── psychrometric chart ─────────────── */
 function drawPsy(cv, m){
   var p = prep(cv), g = p.g;
-  var L=44, R=14, T=12, B=30;
-  var x0=15, x1=45, y0=0, y1=0.030;
+  var big = p.w > 700;
+  var L=46, R=16, T=14, B=32;
+  var x0=15, x1=45, y1=0.030;
   var px = function(t){ return L + (t-x0)/(x1-x0)*(p.w-L-R); };
-  var py = function(W){ return p.h-B - (W-y0)/(y1-y0)*(p.h-B-T); };
+  var py = function(W){ return p.h-B - W/y1*(p.h-B-T); };
 
-  /* grid */
   g.strokeStyle=C.grid; g.lineWidth=1; g.fillStyle=C.txt; g.textAlign='center';
   for(var t=x0;t<=x1;t+=5){
     g.beginPath(); g.moveTo(px(t),T); g.lineTo(px(t),p.h-B); g.stroke();
     g.fillText(t+'°', px(t), p.h-B+15);
   }
   g.textAlign='right';
-  for(var w=0;w<=0.030+1e-9;w+=0.005){
+  for(var w=0;w<=y1+1e-9;w+=0.005){
     g.beginPath(); g.moveTo(L,py(w)); g.lineTo(p.w-R,py(w)); g.stroke();
     g.fillText(w.toFixed(3), L-6, py(w)+4);
   }
-  g.textAlign='left';
-  g.fillText('W kg/kg', L-38, T-1);
   g.textAlign='center';
   g.fillText('อุณหภูมิกระเปาะแห้ง °C', (L+p.w-R)/2, p.h-4);
+  g.save(); g.translate(11, (T+p.h-B)/2); g.rotate(-Math.PI/2);
+  g.fillText('อัตราส่วนความชื้น W  kg/kg', 0, 0); g.restore();
 
-  /* relative-humidity curves */
+  /* relative-humidity curves, labelled along the saturation side */
   [0.2,0.4,0.6,0.8,1.0].forEach(function(rh){
-    g.beginPath(); var started=false;
+    var pts = [];
     for(var tt=x0; tt<=x1; tt+=0.5){
       var W = Wof(tt, rh);
-      if(W > y1){ break; }
-      var X=px(tt), Y=py(W);
-      if(!started){ g.moveTo(X,Y); started=true; } else g.lineTo(X,Y);
+      if(W > y1) break;
+      pts.push([px(tt), py(W)]);
     }
+    if(pts.length < 2) return;
+    g.beginPath(); pts.forEach(function(q,i){ i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]); });
     g.strokeStyle = (rh===1) ? C.gray : C.grid;
     g.lineWidth  = (rh===1) ? 1.6 : 1;
     g.stroke();
-    /* label where the curve leaves the top, else at the right edge */
-    var lt=x1, lastW=Wof(x1,rh);
-    if(lastW > y1){ for(var s=x0;s<=x1;s+=0.25){ if(Wof(s,rh)>y1){ lt=s; break; } } }
-    g.fillStyle=C.gray; g.textAlign='left';
-    var ly = (lastW>y1) ? T+10 : py(lastW);
-    g.fillText(Math.round(rh*100)+'%', px(lt)- (lastW>y1?8:22), ly);
+    var end = pts[pts.length-1];
+    g.fillStyle = C.gray; g.textAlign = 'left';
+    g.fillText(Math.round(rh*100)+'%', end[0] + 3, end[1] + (end[1] < T+14 ? 12 : -4));
   });
 
-  /* the process: outdoor air -> ERV supply -> room */
-  g.setLineDash([]); g.lineWidth=2; g.strokeStyle=C.purple;
-  g.beginPath(); g.moveTo(px(m.Toa),py(m.Woa)); g.lineTo(px(m.Tsa),py(m.Wsa)); g.stroke();
-  g.setLineDash([5,4]); g.lineWidth=1.8; g.strokeStyle=C.blue;
-  g.beginPath(); g.moveTo(px(m.Tsa),py(m.Wsa)); g.lineTo(px(m.Tr),py(m.Wr)); g.stroke();
+  var f2 = function(n,d){ return fmt(n,d); };
+  var P = {
+    oa:  [px(m.Toa), py(m.Woa)],
+    sa:  [px(m.Tsa), py(m.Wsa)],
+    rm:  [px(m.Tr),  py(m.Wr)],
+    rm2: [px(m.Tr2), py(m.Wr2)]
+  };
+
+  /* the ERV process, then what the coil still has to do */
+  g.setLineDash([]); g.lineWidth = big?3:2.4; g.strokeStyle=C.purple;
+  g.beginPath(); g.moveTo(P.oa[0],P.oa[1]); g.lineTo(P.sa[0],P.sa[1]); g.stroke();
+  g.setLineDash([5,4]); g.lineWidth = big?2.4:2; g.strokeStyle=C.blue;
+  g.beginPath(); g.moveTo(P.sa[0],P.sa[1]); g.lineTo(P.rm[0],P.rm[1]); g.stroke();
   g.setLineDash([]);
 
-  dot(g, px(m.Toa), py(m.Woa), C.red,    'นอกอาคาร');
-  dot(g, px(m.Tsa), py(m.Wsa), C.purple, 'ออกจาก ERV');
-  dot(g, px(m.Tr),  py(m.Wr),  C.blue,   'ห้อง');
-  if(m.dT > 0.05 || m.dW > 0.0002){
-    dot(g, px(m.Tr2), py(m.Wr2), C.orange, 'ห้องหลังเติมลม');
+  cv._hits.push({ kind:'seg', x1:P.oa[0],y1:P.oa[1], x2:P.sa[0],y2:P.sa[1], info:{
+    col:C.purple, title:'เส้นม่วง · งานที่แกน ERV ทำให้',
+    eq:'T<b>sa</b> = T<b>oa</b> + η<b>s</b>·(T<b>r</b> − T<b>oa</b>)\nh<b>sa</b> = h<b>oa</b> + η<b>t</b>·(h<b>r</b> − h<b>oa</b>)',
+    rows:[['ประสิทธิภาพสัมผัส ηs', f2(m.es*100,0)+' %'],
+          ['ประสิทธิภาพเอนทัลปี ηt', f2(m.et*100,0)+' %'],
+          ['อุณหภูมิลดลง', f2(m.Toa-m.Tsa,2)+' K'],
+          ['เอนทัลปีลดลง', f2(m.hoa-m.hsa,2)+' kJ/kg'],
+          ['ภาระที่ตัดออกไปได้', f2((m.qtRaw-m.qt)/RTW,2)+' RT']],
+    mean:'ระยะนี้คือสิ่งที่แกนแลกเปลี่ยนทำให้ฟรี ไม่ต้องใช้ไฟเพิ่ม <b>ยิ่งเส้นยาวยิ่งดี</b> '
+       + 'ความชันของเส้นบอกว่าแกนดึงความร้อนกับความชื้นคืนในสัดส่วนเท่าไร'
+  }});
+  cv._hits.push({ kind:'seg', x1:P.sa[0],y1:P.sa[1], x2:P.rm[0],y2:P.rm[1], info:{
+    col:C.blue, title:'เส้นประน้ำเงิน · ภาระที่เหลือให้แอร์',
+    eq:'q<b>t</b> = 1.2 · Q · (h<b>sa</b> − h<b>r</b>)      สมการ (7)\n'
+      +'q<b>s</b> = C<b>s</b> · Q · (T<b>sa</b> − T<b>r</b>)     สมการ (9)',
+    rows:[['ส่วนต่างเอนทัลปี', f2(m.hsa-m.hr,2)+' kJ/kg'],
+          ['ส่วนต่างอุณหภูมิ', f2(m.Tsa-m.Tr,2)+' K'],
+          ['ส่วนต่างความชื้น', (m.Wsa-m.Wr).toFixed(5)+' kg/kg'],
+          ['ภาระรวม', f2(m.qt/RTW,3)+' RT'],
+          ['เป็นภาระแฝง', f2(m.qt>0?m.ql/m.qt*100:0,1)+' %']],
+    mean:'ระยะที่เหลือหลังแกนทำงานแล้ว <b>นี่คือส่วนที่คอยล์ของแอร์ต้องรับ</b> '
+       + 'ยิ่งเส้นสั้นยิ่งดี · สังเกตว่าเส้นเอียงไปทางแนวตั้งมากกว่าแนวนอน '
+       + 'แปลว่าภาระเกือบทั้งหมดเป็นการลดความชื้น ไม่ใช่การลดอุณหภูมิ'
+  }});
+
+  var labels = [];
+  function mark(key, col, name, extra){
+    var q = P[key];
+    dot(g, q[0], q[1], col);
+    labels.push({ ax:q[0], ay:q[1], text:name, col:col });
+    cv._hits.push({ kind:'point', x:q[0], y:q[1], info:extra });
   }
+  var eqPt = 'W = 0.621945 · p<b>w</b> / (p − p<b>w</b>)     สมการ (21)\n'
+           + 'h = 1.006·t + W·(2501 + 1.86·t)     สมการ (32)';
+  mark('oa', C.red, 'นอกอาคาร', { col:C.red, title:'อากาศภายนอก', eq:eqPt,
+    rows:[['อุณหภูมิ', f2(m.Toa,2)+' °C'], ['ความชื้นสัมพัทธ์', f2(m.RHoa*100,1)+' %'],
+          ['อัตราส่วนความชื้น W', m.Woa.toFixed(5)+' kg/kg'],
+          ['เอนทัลปี h', f2(m.hoa,2)+' kJ/kg'],
+          ['ความหนาแน่นอากาศแห้ง', f2(1/m.vOa,3)+' kg/m³']],
+    mean:'จุดตั้งต้น อากาศที่ระบบต้องรับมาจัดการ · <b>อยู่ขวาบนสุดเสมอ</b> '
+       + 'เพราะร้อนที่สุดและชื้นที่สุด' });
+  mark('sa', C.purple, 'ออกจาก ERV', { col:C.purple, title:'อากาศที่ออกจากแกน ERV', eq:eqPt,
+    rows:[['อุณหภูมิ', f2(m.Tsa,2)+' °C'], ['ความชื้นสัมพัทธ์', f2(m.RHsa*100,1)+' %'],
+          ['อัตราส่วนความชื้น W', m.Wsa.toFixed(5)+' kg/kg'],
+          ['เอนทัลปี h', f2(m.hsa,2)+' kJ/kg'],
+          ['มวลอากาศแห้งที่ไหล', f2(m.mda,3)+' kg/s']],
+    mean:'สภาวะของลมตรงที่เข้าห้อง <b>ยิ่งจุดนี้ขยับเข้าใกล้จุดห้องเท่าไร แอร์ยิ่งทำงานน้อยลง</b> '
+       + 'ตำแหน่งของมันกำหนดโดย ηs และ ηt เท่านั้น' });
+  mark('rm', C.blue, 'ห้อง', { col:C.blue, title:'สภาวะที่ต้องการในห้อง', eq:eqPt,
+    rows:[['อุณหภูมิ', f2(m.Tr,2)+' °C'], ['ความชื้นสัมพัทธ์', f2(m.RHr*100,1)+' %'],
+          ['อัตราส่วนความชื้น W', m.Wr.toFixed(5)+' kg/kg'],
+          ['เอนทัลปี h', f2(m.hr,2)+' kJ/kg']],
+    mean:'เป้าหมายที่ตั้งไว้ · <b>เป็นจุดอ้างอิงของทุกภาระ</b> '
+       + 'ทุกค่าที่คำนวณคือส่วนต่างเทียบกับจุดนี้ ไม่ใช่เทียบกับศูนย์' });
+  if(m.dT > 0.005 || Math.abs(m.RHr2-m.RHr) > 0.0005){
+    mark('rm2', C.orange, 'ห้องหลังเติมลม', { col:C.orange, title:'ห้องหลังเติมลม ERV', eq:
+        'ΔT = (T<b>sa</b> − T<b>r</b>) · (Q<b>oa</b>/Q<b>eff</b>) · ส่วนที่แอร์รับไม่ไหว\n'
+      + 'ΔW = (W<b>sa</b> − W<b>r</b>) · (Q<b>oa</b>/Q<b>eff</b>) · ส่วนที่แอร์รับไม่ไหว',
+      rows:[['อุณหภูมิใหม่', f2(m.Tr2,2)+' °C  ('+sgn(m.dT,2)+')'],
+            ['ความชื้นสัมพัทธ์ใหม่', f2(m.RHr2*100,1)+' %  ('+sgn((m.RHr2-m.RHr)*100,1)+')'],
+            ['ภาระที่แอร์รับไม่ไหว', f2(m.deficitW/RTW,2)+' RT'],
+            ['ลมที่ใช้ดึงความร้อนออก', fmt(m.Qeff*3.6)+' CMH']],
+      mean:'จุดนี้โผล่มา<b>เฉพาะตอนแอร์เดิมมีกำลังไม่พอ</b> ถ้าแอร์ยังเหลือกำลัง '
+         + 'ห้องจะอยู่ที่จุดเดิมและจุดนี้จะหายไป · ระยะจากจุดห้องเดิมคือราคาที่ต้องจ่าย' });
+  }
+  cv._labels = placeLabels(g, labels, p.w);   /* kept so the spacing can be checked */
 }
 
 /* ─────────────── sensitivity chart ─────────────── */
 function drawSens(cv){
   var p = prep(cv), g = p.g;
-  var L=44, R=46, T=14, B=30;
+  var big = p.w > 700;
+  var L=46, R=50, T=16, B=32;
   var qmax = parseFloat($('oa').max);
-  var pts = [];
-  for(var i=0;i<=60;i++){
-    var q = qmax*i/60, mm = model(q);
+  var pts = [], N = big ? 120 : 60;
+  for(var i=0;i<=N;i++){
+    var q = qmax*i/N, mm = model(q);
     pts.push({ q:q, rt:mm.qt/RTW, dT:mm.dT });
   }
+  var cur = model();
   var rtMax = Math.max(0.5, pts[pts.length-1].rt)*1.12;
   var dTMax = Math.max(0.5, Math.max.apply(null, pts.map(function(o){return o.dT;})))*1.15;
   var px = function(q){ return L + q/qmax*(p.w-L-R); };
@@ -1157,27 +1357,55 @@ function drawSens(cv){
     g.beginPath(); g.moveTo(L,yy); g.lineTo(p.w-R,yy); g.stroke();
   }
   g.fillStyle=C.txt; g.textAlign='right';
-  for(k=0;k<=4;k++){ g.fillText(fmt(rtMax*(4-k)/4,1), L-6, T + k*(p.h-B-T)/4 + 4); }
+  for(k=0;k<=4;k++) g.fillText(fmt(rtMax*(4-k)/4,1), L-6, T + k*(p.h-B-T)/4 + 4);
   g.textAlign='left';
-  for(k=0;k<=4;k++){ g.fillText(fmt(dTMax*(4-k)/4,2), p.w-R+6, T + k*(p.h-B-T)/4 + 4); }
+  for(k=0;k<=4;k++) g.fillText(fmt(dTMax*(4-k)/4,2), p.w-R+6, T + k*(p.h-B-T)/4 + 4);
   g.textAlign='center';
-  for(k=0;k<=4;k++){
-    var q = qmax*k/4;
-    g.fillText(fmt(q), px(q), p.h-B+15);
-  }
-  g.fillText('ลม ERV  CMH', (L+p.w-R)/2, p.h-3);
-  g.textAlign='left';  g.fillStyle=C.blue;   g.fillText('RT', 4, T-3);
-  g.textAlign='right'; g.fillStyle=C.orange; g.fillText('°C', p.w-2, T-3);
+  for(k=0;k<=4;k++) g.fillText(fmt(qmax*k/4), px(qmax*k/4), p.h-B+15);
+  g.fillText('ปริมาณลม ERV  CMH', (L+p.w-R)/2, p.h-3);
+  g.textAlign='left';  g.fillStyle=C.blue;   g.fillText('RT', 6, T-4);
+  g.textAlign='right'; g.fillStyle=C.orange; g.fillText('°C', p.w-4, T-4);
 
   g.beginPath(); pts.forEach(function(o,i){ i?g.lineTo(px(o.q),pyR(o.rt)):g.moveTo(px(o.q),pyR(o.rt)); });
-  g.strokeStyle=C.blue; g.lineWidth=2.2; g.setLineDash([]); g.stroke();
-
+  g.strokeStyle=C.blue; g.lineWidth = big?2.8:2.2; g.setLineDash([]); g.stroke();
   g.beginPath(); pts.forEach(function(o,i){ i?g.lineTo(px(o.q),pyT(o.dT)):g.moveTo(px(o.q),pyT(o.dT)); });
-  g.strokeStyle=C.orange; g.lineWidth=2; g.setLineDash([5,4]); g.stroke(); g.setLineDash([]);
+  g.strokeStyle=C.orange; g.lineWidth = big?2.4:2; g.setLineDash([5,4]); g.stroke(); g.setLineDash([]);
 
-  var cur = model();
-  dot(g, px(cur.Q), pyR(cur.qt/RTW), C.blue, '');
-  if(cur.dT > 0.005) dot(g, px(cur.Q), pyT(cur.dT), C.orange, '');
+  /* one hit region per curve, following its own polyline */
+  function curveHits(sel, yfn, info){
+    for(var j=0;j<pts.length-1;j++){
+      cv._hits.push({ kind:'seg',
+        x1:px(pts[j].q), y1:yfn(pts[j][sel]),
+        x2:px(pts[j+1].q), y2:yfn(pts[j+1][sel]), info:info });
+    }
+  }
+  var perK = cur.Q>0 ? cur.qt/RTW/cur.Q*1000 : 0;
+  curveHits('rt', pyR, { col:C.blue, title:'เส้นทึบ · ภาระที่เพิ่ม อ่านแกนซ้าย',
+    eq:'q<b>t</b> = 1.2 · Q · (1 − η<b>t</b>) · (h<b>oa</b> − h<b>r</b>)',
+    rows:[['ที่ลมปัจจุบัน '+fmt(cur.Q)+' CMH', fmt(cur.qt/RTW,2)+' RT'],
+          ['ทุก 1,000 CMH เพิ่มขึ้น', fmt(perK,2)+' RT'],
+          ['ที่ลมสูงสุดของแถบ '+fmt(qmax), fmt(pts[pts.length-1].rt,2)+' RT'],
+          ['กำลังแอร์ที่เหลืออยู่', fmt(cur.spareW/RTW,2)+' RT']],
+    mean:'<b>เส้นตรง</b> เพราะภาระแปรผันตรงกับปริมาณลม ไม่มีจุดหักงอ '
+       + 'จุดที่เส้นนี้ตัดกับกำลังที่เหลือ คือปริมาณลมสูงสุดที่เติมได้โดยห้องไม่เปลี่ยน' });
+  curveHits('dT', pyT, { col:C.orange, title:'เส้นประ · อุณหภูมิห้องที่เปลี่ยน อ่านแกนขวา',
+    eq:'ΔT = (T<b>sa</b> − T<b>r</b>) · (Q<b>oa</b> / Q<b>eff</b>) · ส่วนที่แอร์รับไม่ไหว',
+    rows:[['ที่ลมปัจจุบัน '+fmt(cur.Q)+' CMH', (cur.dT<0.005?'0.00':sgn(cur.dT,2))+' °C'],
+          ['วิธีต่อลมที่เลือกอยู่', MODE==='return'?'เข้าท่อลมกลับ':'จ่ายเข้าห้องตรง'],
+          ['ลมที่ใช้ดึงความร้อนออก', fmt(cur.Qeff*3.6)+' CMH'],
+          ['แอร์ใช้กำลังอยู่ก่อนหน้า', fmt(cur.loadnow*100,0)+' %']],
+    mean:'<b>เส้นนี้ติดพื้นอยู่ตราบใดที่แอร์ยังรับไหว</b> แล้วค่อยไต่ขึ้นหลังจากนั้น '
+       + 'จุดที่มันเริ่มออกจากศูนย์คือขีดจำกัดจริงของระบบเดิม '
+       + 'ถ้าเส้นนี้ทับกับเส้นทึบตั้งแต่ต้น แปลว่าแอร์เต็มกำลังอยู่แล้ว' });
+
+  dot(g, px(cur.Q), pyR(cur.qt/RTW), C.blue);
+  cv._hits.push({ kind:'point', x:px(cur.Q), y:pyR(cur.qt/RTW), info:{
+    col:C.blue, title:'จุดที่ตั้งอยู่ตอนนี้', eq:null,
+    rows:[['ปริมาณลม', fmt(cur.Q)+' CMH'], ['ภาระที่เพิ่ม', fmt(cur.qt/RTW,2)+' RT'],
+          ['คิดเป็นสัดส่วนของแอร์', fmt(cur.cap>0?cur.qt/RTW/cur.cap*100:0,1)+' %'],
+          ['อุณหภูมิห้องเปลี่ยน', (cur.dT<0.005?'0.00':sgn(cur.dT,2))+' °C']],
+    mean:'ค่าที่แถบเลื่อนตั้งอยู่ · ลากแถบแล้วจุดนี้จะวิ่งตามเส้น' }});
+  if(cur.dT > 0.005) dot(g, px(cur.Q), pyT(cur.dT), C.orange);
 }
 
 /* ─────────────── render ─────────────── */
@@ -1333,6 +1561,8 @@ function render(){
 
   drawPsy($('psy'), m);
   drawSens($('sens'));
+  attachChart($('psy')); attachChart($('sens'));
+  if(MODAL) drawModal();
   $('psyLegend').innerHTML = 'เส้นทึบม่วงคือสิ่งที่แกน ERV ทำกับอากาศภายนอก · '
     + 'เส้นประน้ำเงินคือระยะที่เหลือให้คอยล์ของแอร์จัดการ · ยิ่งเส้นประสั้น ภาระยิ่งน้อย';
 }
@@ -1377,9 +1607,47 @@ $('qac').addEventListener('input', function(){
   render();
 });
 
+/* ─────────────── expand to full screen ─────────────── */
+var MODAL = null;
+var MODAL_TITLE = { psy:'แผนภูมิไซโครเมตริก', sens:'ถ้าเปลี่ยนปริมาณลม ERV' };
+function drawModal(){
+  if(!MODAL) return;
+  var cv = $('modalCanvas');
+  if(MODAL === 'psy') drawPsy(cv, model()); else drawSens(cv);
+  attachChart(cv);
+}
+function openModal(which){
+  MODAL = which;
+  $('modalTitle').textContent = MODAL_TITLE[which];
+  $('chartModal').classList.add('open');
+  /* The box goes from display:none to flex, so read a layout property to force
+     the reflow, then draw straight away. Do not defer this to
+     requestAnimationFrame alone - a backgrounded tab never fires it and the
+     chart would stay blank until the tab was focused again. */
+  void $('modalCanvas').getBoundingClientRect().width;
+  drawModal();
+}
+function closeModal(){
+  MODAL = null;
+  $('chartModal').classList.remove('open');
+  var el = $('modalCanvas').parentElement.querySelector('.cinfo');
+  if(el) el.classList.remove('open');
+}
+document.querySelectorAll('.card-expand-btn').forEach(function(b){
+  b.addEventListener('click', function(){ openModal(b.dataset.chart); });
+});
+$('modalClose').addEventListener('click', closeModal);
+$('chartModal').addEventListener('click', function(e){ if(e.target === this) closeModal(); });
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    if(MODAL) closeModal();
+    else document.querySelectorAll('.cinfo.open').forEach(function(x){ x.classList.remove('open'); });
+  }
+});
+
 $('stamp').textContent = new Date().toLocaleDateString('th-TH',
   { year:'numeric', month:'short', day:'numeric' });
-window.addEventListener('resize', function(){ render(); });
+window.addEventListener('resize', function(){ render(); });   /* render redraws the modal too */
 render();
 })();
 
