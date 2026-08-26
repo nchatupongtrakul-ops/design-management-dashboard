@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>คู่มือการใช้งานเครื่องมือวิศวกรรม</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F7F5;
+  --surface: #F4F3F0;
+  --card-bg: #FFFFFF;
+  --border: #E3E2DE;
+  --text: #37352F;
+  --text-secondary: #787774;
+  --blue: #2383E2;
+  --red: #D44C47;
+  --purple: #6940A5;
+  --green: #669BBC;
+  --orange: #CB912F;
+  --gray: #9B9A97;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .sub { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.timestamp { font-size: 12px; color: var(--text-secondary); }
+
+.btn {
+  background: var(--blue); color: #fff; border: none;
+  padding: 6px 14px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; font-weight: 500; transition: opacity .15s; font-family: inherit;
+}
+.btn:hover { opacity: .85; }
+.btn:active { opacity: .7; }
+.btn.ghost { background: none; border: 1px solid var(--border); color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--surface); color: var(--text); opacity: 1; }
+
+.tabs {
+  display: flex; gap: 0; background: var(--card-bg);
+  border-bottom: 1px solid var(--border); padding: 0 32px; flex-wrap: wrap;
+  position: sticky; top: 65px; z-index: 99;
+}
+.tab {
+  padding: 10px 20px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+  user-select: none; background: none; border-top: 0; border-left: 0; border-right: 0; font-family: inherit;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.page { display: none; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+.kpi-value { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi-value.ok { color: #2E7D32; } .kpi-value.warn { color: var(--orange); } .kpi-value.bad { color: var(--red); }
+.kpi-value small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 4px; }
+.kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+.kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
+
+.chart-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+.chart-grid.g1 { grid-template-columns: 1fr; }
+.chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) {
+  .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
+  .page { padding: 16px; }
+  .header { padding: 12px 16px; }
+  .tabs { padding: 0 16px; top: 61px; }
+}
+
+.chart-grid > *, .kpi-row > * { min-width: 0; }
+.card > * { max-width: 100%; }
+.card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; position: relative; }
+.card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.card-title-row h3 { margin-bottom: 0; }
+
+.card-expand-btn {
+  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px;
+  border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer;
+  color: #787774; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; z-index: 5; font-family: inherit;
+}
+.card:hover .card-expand-btn { opacity: 1; }
+.card-expand-btn:focus-visible { opacity: 1; }
+.card-expand-btn:hover { background: var(--surface); color: #37352F; }
+
+#chartModal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
+#chartModal.open { display: flex; }
+.chart-modal-box { background: #fff; border-radius: 12px; padding: 20px 26px; width: min(1100px, 94vw); height: min(78vh, 700px); display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.chart-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+.chart-modal-head h3 { font-size: 15px; font-weight: 600; }
+.chart-modal-close { border: none; background: none; font-size: 22px; color: #787774; cursor: pointer; line-height: 1; font-family: inherit; }
+.chart-modal-close:hover { color: #37352F; }
+.chart-modal-body { flex: 1; position: relative; min-height: 0; }
+
+.canvas-wrap { position: relative; width: 100%; height: 300px; }
+.canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.canvas-wrap canvas:active { cursor: grabbing; }
+.chart-modal-body .canvas-wrap { height: 100%; }
+.zoomhint { font-size: 11.5px; color: var(--gray); margin-top: 8px; }
+.refwrap{position:relative; display:inline-block; margin-top:12px}
+.refbtn{
+  display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:12.5px;
+  padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500;
+}
+.refbtn:hover{background:var(--surface); color:var(--text)}
+.refbtn .caret{font-size:9px; opacity:.7; transition:transform .15s}
+.refbtn.open .caret{transform:rotate(180deg)}
+.refmenu{
+  display:none; position:absolute; left:0; top:calc(100% + 6px); z-index:60;
+  background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; min-width:330px;
+  max-height:340px; overflow-y:auto;
+}
+.refmenu.open{display:block}
+.refgroup{
+  font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--gray); padding:8px 10px 3px;
+}
+.refitem{
+  display:flex; align-items:flex-start; gap:9px; width:100%; text-align:left; background:none;
+  border:0; padding:7px 10px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px;
+  color:var(--text); line-height:1.4;
+}
+.refitem:hover{background:var(--surface)}
+.refitem .tick{
+  width:14px; height:14px; border-radius:4px; border:1.5px solid var(--border); flex:none;
+  margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;
+}
+.refitem.on .tick{background:var(--text); border-color:var(--text)}
+.refitem .body{flex:1; min-width:0}
+.refitem .val{font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; margin-left:8px}
+.refitem .note{display:block; font-size:11px; color:var(--gray); margin-top:1px}
+.refitem.na{opacity:.45; cursor:not-allowed}
+.refitem .dash{display:inline-block; width:14px; border-top:2px dashed currentColor; vertical-align:middle; margin-right:5px}
+.refchip{
+  display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:11.5px;
+  padding:4px 10px; border-radius:20px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500; transition:.12s;
+}
+.refchip:hover{border-color:var(--gray); color:var(--text)}
+.refchip .sw{width:14px; height:0; border-top:2px dashed currentColor; opacity:.5; flex:none}
+.refchip.on{color:var(--text); background:var(--surface-2)}
+.refchip.on .sw{opacity:1}
+.refchip.off-scale{opacity:.5}
+
+/* form controls */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.flabel { font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+input[type=number], select {
+  width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: var(--card-bg); color: var(--text);
+}
+input[type=number] { font-variant-numeric: tabular-nums; }
+select { cursor: pointer; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 11.5px; color: var(--gray); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+.segbar { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segbar button {
+  flex: 1; padding: 6px 8px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  background: var(--card-bg); color: var(--text-secondary); border: 0; border-right: 1px solid var(--border); font-weight: 500;
+}
+.segbar button:last-child { border-right: 0; }
+.segbar button.active { background: var(--text); color: #fff; }
+
+/* airflow slider block */
+.flowhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.flowval { font-size: 38px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.flowval small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 5px; }
+.flowmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { font-size: 12px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); font-weight: 500; }
+.chip.rec { border-color: #BBDDF7; background: #EDF6FD; color: #1B6FBF; }
+.stepbtn { width: 30px; height: 28px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; cursor: pointer; color: var(--text-secondary); font-size: 15px; font-family: inherit; line-height: 1; }
+.stepbtn:hover { background: var(--surface); color: var(--text); }
+
+.slider-wrap { position: relative; padding-top: 4px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer; margin: 8px 0 4px; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-moz-range-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); margin-top: -8px; }
+input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.recmark { position: absolute; top: 0; width: 2px; height: 22px; background: var(--blue); opacity: .45; pointer-events: none; border-radius: 1px; }
+
+/* tables */
+.tablewrap { overflow-x: auto; }
+table.dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.dtable th { background: var(--surface); font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.dtable td { padding: 7px 10px; border-bottom: 1px solid #f0f0ed; }
+table.dtable tr:hover td { background: #FAFAF8; }
+table.dtable td.num, table.dtable th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.gov td { background: #EDF6FD !important; font-weight: 600; }
+.badge { font-size: 11.5px; padding: 2px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; display: inline-block; }
+.badge.ok { background: #E8F3E9; color: #2E7D32; }
+.badge.bad { background: #FBEAE9; color: var(--red); }
+.badge.na { background: var(--surface); color: var(--gray); }
+
+.eq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.9;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue);
+  border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre;
+  font-variant-numeric: tabular-nums; color: var(--text-secondary); margin-bottom: 14px;
+}
+.eq b { color: var(--text); font-weight: 600; }
+.note { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #F6FAFE; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
+.note.warn { border-left-color: var(--orange); background: #FDF8EF; }
+.note b { color: var(--text); }
+.prose { font-size: 14px; color: var(--text); }
+.prose p { margin-bottom: 12px; max-width: 74ch; }
+.prose h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
+.prose ul, .prose ol { margin: 0 0 14px 20px; max-width: 74ch; }
+.prose li { margin-bottom: 6px; }
+.sectitle { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+/* embedded inside Design Management Dashboard */
+.embed .header { display: none; }
+.embed .tabs { position: static; top: auto; padding: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; background: transparent; }
+.embed .page { padding: 0; max-width: none; }
+.embed body { background: transparent; height: -moz-fit-content; height: fit-content; overflow: hidden; }
+.footer { color: var(--gray); font-size: 12px; padding: 18px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
+
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px}
+.dtable input[type=number]{padding:4px 6px; font-size:12.5px; border:1px solid var(--border); border-radius:4px; background:var(--card-bg); color:var(--text)}
+.dtable input[type=checkbox]{accent-color:var(--blue); width:15px; height:15px}
+.sectitle{font-size:22px; font-weight:700; margin-bottom:20px}
+.ref h3{font-size:15px}
+.warnbox{border:1px solid var(--border); border-left:4px solid #CB912F; background:#FDF8EF; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text-secondary)}
+.warnbox b{color:var(--text)}
+.prose{font-size:14px}
+.prose p{margin-bottom:12px; max-width:74ch}
+.prose ol,.prose ul{margin:0 0 14px 20px; max-width:74ch}
+.prose li{margin-bottom:6px}
+tfoot td{background:var(--surface); font-weight:600}
+.card-title-row .segbar{flex:none}
+.card-title-row .segbar button{padding:4px 10px; font-size:11.5px}
+</style>
+
+<style>
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.page a{color:var(--blue);text-decoration:none;font-weight:500}
+.page a:hover{text-decoration:underline}
+table.dtable td a{white-space:nowrap}
+.sectitle{font-size:22px;font-weight:700;margin-bottom:20px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>คู่มือการใช้งานเครื่องมือวิศวกรรม</h1>
+    <div class="sub">เปิดตัวไหน ต้องเตรียมอะไร อ่านผลยังไง และตรงไหนที่พลาดกันบ่อย</div>
+  </div>
+  <div class="header-right">
+    <span class="timestamp" id="stamp"></span>
+    <button class="btn ghost" onclick="window.print()">พิมพ์</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-p="start">เริ่มตรงนี้</button>
+  <button class="tab" data-p="vent">Ventilation &amp; CO₂</button>
+  <button class="tab" data-p="ac">Noise Breakout</button>
+  <button class="tab" data-p="erv">ERV Load Impact</button>
+  <button class="tab" data-p="common">ข้อควรระวังร่วม</button>
+</div>
+
+<!-- ═══════════ START ═══════════ -->
+<div class="page active" id="p-start">
+
+  <div class="note"><b>เครื่องมือทั้งสามตัวเป็นเว็บ เปิดจากมือถือได้ ไม่ต้องติดตั้งอะไร ไม่ต้องล็อกอิน</b><br>
+  เข้าได้จากเมนู Tools ใน <a href="https://nchatupongtrakul-ops.github.io/erv-team-portal/">ERV Team Portal</a>
+  หรือกดลิงก์ตรงในตารางข้างล่าง · ทุกตัวคำนวณในเครื่องผู้ใช้เอง <b>ไม่มีการส่งข้อมูลออกไปไหน</b>
+  ปิดหน้าแล้วค่าที่กรอกจะหายไป ถ้าต้องเก็บให้กดพิมพ์เป็น PDF</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>เปิดตัวไหนดี</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>คำถามที่ตอบไม่ได้</th><th>เปิดตัวนี้</th><th>ต้องมีข้อมูลอะไรก่อน</th></tr></thead>
+        <tbody>
+          <tr><td>ห้องนี้ต้องเติมลมกี่ CMH ถึงจะผ่านกฎหมายและ ASHRAE</td>
+            <td><a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/ventilation/">Ventilation &amp; CO₂</a></td>
+            <td>ขนาดห้อง · ประเภทห้อง · จำนวนคน · ลักษณะกิจกรรม</td></tr>
+          <tr><td>ถ้าเติมลมเท่านี้ CO₂ จะลงมาเท่าไร</td>
+            <td><a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/ventilation/">Ventilation &amp; CO₂</a></td>
+            <td>เพิ่มระยะเวลาที่ใช้ห้อง และ CO₂ นอกอาคาร</td></tr>
+          <tr><td>ระบบเดิมของลูกค้าดีอยู่แล้วหรือยัง เทียบกันให้ดูหน่อย</td>
+            <td><a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/ventilation/">Ventilation &amp; CO₂</a></td>
+            <td>CMH ของระบบเดิม แค่ตัวเลขเดียว</td></tr>
+          <tr><td>เจาะช่องลมแล้วเสียงจะรบกวนเพื่อนบ้านไหม</td>
+            <td><a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/acoustic/">Noise Breakout</a></td>
+            <td>เสียงในห้อง · ขนาดช่องเปิด · ระยะถึงเพื่อนบ้าน · เสียงพื้นฐาน</td></tr>
+          <tr><td>ต้องใส่ silencer แค่ไหนถึงจะพอ</td>
+            <td><a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/acoustic/">Noise Breakout</a></td>
+            <td>เพิ่มขนาดและความยาวท่อลม</td></tr>
+          <tr><td>ห้องประเภทนี้ระบบแอร์ควรเงียบแค่ไหน NC เท่าไร</td>
+            <td><a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/acoustic/">Noise Breakout</a> แท็บกฎหมายและที่มา</td>
+            <td>แค่รู้ว่าเป็นห้องประเภทไหน</td></tr>
+          <tr><td>ลม ERV ที่เติมเข้าไป กินกำลังแอร์เดิมเท่าไร</td>
+            <td><a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/ervload/">ERV Load Impact</a></td>
+            <td>สภาวะนอก/ใน · ηs ηt ของแกน · ขนาดแอร์ · ลมแอร์</td></tr>
+          <tr><td>ห้องจะร้อนขึ้นหรือชื้นขึ้นไหมถ้าเติมลมเข้าไป</td>
+            <td><a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/ervload/">ERV Load Impact</a></td>
+            <td>เพิ่มว่าแอร์ใช้กำลังอยู่กี่ % และต่อลมเข้าทางไหน</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ลำดับที่ใช้จริงในโครงการหนึ่ง</h3>
+      <div class="prose"><p>สามตัวนี้ต่อกันเป็นสายเดียว ถ้าทำตามลำดับนี้ผลของตัวก่อนหน้าจะเป็นอินพุตของตัวถัดไปพอดี</p></div>
+      <div class="eq"><b>1</b>  Ventilation &amp; CO₂     →  ได้ <b>ปริมาณลมที่ต้องเติม</b> เป็น CMH
+     ใส่ขนาดห้องกับจำนวนคน ดูว่าต้องเติมเท่าไรถึงผ่านเกณฑ์ และ CO₂ จะลงมาที่เท่าไร
+
+<b>2</b>  ERV Load Impact       →  ได้ <b>ผลกระทบต่อแอร์เดิม</b> เป็น RT และ °C
+     เอา CMH จากข้อ 1 มาใส่ ดูว่าแอร์เดิมรับไหวไหม ต้องเพิ่มขนาดหรือเปล่า
+
+<b>3</b>  Noise Breakout        →  ได้ <b>ชุดลดเสียงที่ต้องมี</b>
+     เอา CMH จากข้อ 1 มาแปลงเป็นขนาดช่องเปิด ดูว่าเสียงรั่วเกินกฎหมายไหม
+
+ถ้าข้อ 2 หรือ 3 ไม่ผ่าน  →  ย้อนกลับไปข้อ 1 ลดลมลง แล้วไล่ใหม่</div>
+      <div class="note warn" style="margin-bottom:0"><b>จุดที่มักลืม</b>
+      ข้อ 2 กับ 3 เป็นตัวที่ทำให้ตัวเลขสวย ๆ จากข้อ 1 ใช้ไม่ได้จริง
+      การเติมลมเยอะเกินไปทำให้แอร์ไม่พอและเสียงรั่วเกิน <b>อย่าเสนอ CMH ก่อนไล่ครบสามข้อ</b></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>สิ่งที่เหมือนกันทั้งสามตัว</h3>
+      <div class="prose"><ul>
+        <li><b>แท็บแรกคือที่คำนวณ แท็บที่เหลือคือที่มา</b> ทุกตัวมีแท็บสมการอ้างอิงที่เปิดดูได้ว่า
+        เลขแต่ละตัวมาจากสมการไหน หนังสือเล่มไหน หน้าไหน</li>
+        <li><b>แก้ค่าได้ทุกช่อง</b> ค่าที่ใส่มาให้เป็นแค่จุดตั้งต้น ถ้ามีข้อมูลจริงจากแคตตาล็อกให้พิมพ์ทับ</li>
+        <li><b>ป้ายสีบอกความมั่นใจของข้อมูล</b> ป้ายเขียวคือมีที่มายืนยัน ป้ายแดงคือค่าประมาณที่ควรหาของจริงมาแทน</li>
+        <li><b>กราฟกดขยายได้</b> เอาไปแปะในรายงานหรือพรีเซนต์ได้เลย</li>
+        <li><b>กดพิมพ์แล้วได้ PDF</b> ที่จัดหน้ามาแล้ว ใช้แนบข้อเสนอได้</li>
+      </ul></div>
+    </div>
+    <div class="card">
+      <h3>สิ่งที่เครื่องมือชุดนี้ไม่ได้ทำ</h3>
+      <div class="prose"><ul>
+        <li><b>ไม่ได้คำนวณ heat load ของอาคาร</b> ตัวที่สามคิดเฉพาะภาระที่ลมภายนอกเพิ่มเข้ามา
+        ไม่ได้คิดผนัง หลังคา กระจก คน หรือไฟ ถ้าต้องการทั้งอาคารต้องใช้โปรแกรม heat load ตามปกติ</li>
+        <li><b>ไม่ได้ออกแบบท่อลม</b> ไม่มีการคำนวณความดันตก ขนาดท่อ หรือการเลือกพัดลม</li>
+        <li><b>ไม่ได้เลือกรุ่นเครื่อง</b> ให้ตัวเลขที่ใช้ไปคุยกับผู้ผลิต ไม่ได้บอกว่าซื้อรุ่นไหน</li>
+        <li><b>ไม่ใช่เอกสารที่ใช้เซ็นแบบก่อสร้างได้</b> โดยเฉพาะฝั่งเสียง ต้องให้วิศวกรอะคูสติกทวนสอบก่อน</li>
+      </ul></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ VENTILATION ═══════════ -->
+<div class="page" id="p-vent">
+  <div class="sectitle">Ventilation &amp; CO₂ Calculator</div>
+  <div class="note"><b>ตอบคำถามว่า</b> ห้องนี้ต้องเติมลมบริสุทธิ์เท่าไร และถ้าเติมเท่านั้นแล้ว CO₂ จะอยู่ที่เท่าไร<br>
+  <b>เปิดที่</b> <a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/ventilation/">ventilation</a>
+  · สามแท็บ คือ Calculator · สมการอ้างอิง · ตารางอ้างอิง</div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เตรียมข้อมูลก่อนเปิด</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ต้องรู้</th><th>ถ้าไม่รู้ทำยังไง</th></tr></thead>
+        <tbody>
+          <tr><td>กว้าง × ยาว × สูง ของห้อง</td><td>วัดจากแบบ · ความสูงใช้ถึงฝ้า ไม่ใช่ถึงพื้นชั้นบน</td></tr>
+          <tr><td>ประเภทห้องตาม ASHRAE 62.1</td><td>เลือกจากรายการ 108 หมวดในเครื่องมือ · <b>เลือกให้ตรงกับการใช้งานจริง ไม่ใช่ชื่อห้องในแบบ</b></td></tr>
+          <tr><td>จำนวนคนสูงสุด</td><td>ใช้จำนวนที่จัดงานจริง ไม่ใช่จำนวนที่นั่ง</td></tr>
+          <tr><td>กิจกรรมของคนในห้อง</td><td>นั่ง ยืน หรือเต้น · <b>ตัวแปรนี้พลิกผลได้ถึง 3.6 เท่า</b></td></tr>
+          <tr><td>CO₂ นอกอาคาร</td><td>ในเมืองใช้ 420–450 ppm · ถ้าติดถนนใหญ่ใช้สูงกว่านั้น</td></tr>
+          <tr><td>ระยะเวลาที่ใช้ห้องต่อรอบ</td><td>สำคัญ เพราะ CO₂ ไต่ขึ้นตามเวลา ห้องที่ใช้ 2 ชม. กับ 8 ชม. ต่างกันมาก</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>อ่านผลยังไง</h3>
+      <div class="prose"><ol>
+        <li><b>ดูตารางเกณฑ์ก่อน</b> จะมีหลายบรรทัด กฎกระทรวงฉบับที่ 39 · ASHRAE 62.1 · LEED/WELL
+        <b>ตัวที่บังคับตามกฎหมายไทยคือกฎกระทรวง</b> ที่เหลือเป็นมาตรฐานสมัครใจ</li>
+        <li><b>เลื่อนแถบลมจนกราฟ CO₂ ลงมาต่ำกว่าเส้นที่ต้องการ</b> ค่าตั้งต้นแสดงเส้น 1,000 · 1,400 · และเพดาน ASHRAE</li>
+        <li><b>ดูว่ากราฟนิ่งเมื่อไร</b> ถ้ายังไต่อยู่ตอนจบงาน แปลว่าลมยังไม่พอสำหรับระยะเวลาที่ใช้จริง</li>
+        <li><b>ใช้ช่องย้อนกลับ</b> ถ้ารู้เป้าหมาย ppm อยู่แล้ว ใส่เป้าแล้วเครื่องมือบอก CMH ที่ต้องใช้</li>
+      </ol></div>
+      <div class="note" style="margin-bottom:0"><b>เส้นเปรียบเทียบระบบเดิม</b>
+      ใส่ CMH ของระบบที่มีอยู่ลงไป จะได้เส้นที่สองมาเทียบ ใช้ตอนคุยกับลูกค้าเพื่อให้เห็นว่าดีขึ้นเท่าไร</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ที่พลาดกันบ่อย</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>อาการ</th><th>สาเหตุ</th><th>แก้</th></tr></thead>
+        <tbody>
+          <tr><td>ตัวเลขต่ำกว่าที่ควรมาก</td><td>เลือกหมวด ASHRAE ผ่อนเกินไป เช่นเลือก Conference/meeting ให้ห้องจัดคอนเสิร์ต</td>
+            <td>เลือกหมวดตามการใช้งานจริง ไม่ใช่ชื่อในแบบ · ห้องดนตรีที่มีคนยืนควรใช้ Music/theater/dance</td></tr>
+          <tr><td>คำนวณผ่าน แต่หน้างานจริง CO₂ ยังสูง</td><td>ล็อกกิจกรรมไว้ที่นั่งเฉย ๆ ทั้งที่คนยืนหรือเต้น</td>
+            <td>เปลี่ยนกิจกรรมให้ตรง · ยืน +17% เต้น +258%</td></tr>
+          <tr><td>ตัวเลขกฎกระทรวงดูน้อยผิดปกติ</td><td>เข้าใจว่าตารางห้องปรับอากาศเป็น ACH</td>
+            <td><b>ตารางนั้นเป็น CMH ต่อตารางเมตร ไม่ใช่ ACH</b> เครื่องมือคิดให้ถูกแล้ว แต่อย่าไปแปลงเองซ้ำ</td></tr>
+          <tr><td>เอาผลไปเสนอแล้วโดนถามว่าอ้างอิงจากไหน</td><td>ไม่ได้เปิดแท็บสมการอ้างอิง</td>
+            <td>แท็บนั้นมีที่มาครบทุกเส้น ทุกตัวเลข · <b>พิมพ์แนบไปกับข้อเสนอได้เลย</b></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ACOUSTIC ═══════════ -->
+<div class="page" id="p-ac">
+  <div class="sectitle">Noise Breakout Calculator</div>
+  <div class="note"><b>ตอบคำถามว่า</b> เจาะช่องลมเข้าห้องที่มีเสียงดัง แล้วเสียงที่รั่วออกไปถึงเพื่อนบ้านจะเกินกฎหมายไหม
+  และต้องใส่ชุดลดเสียงแค่ไหน<br>
+  <b>เปิดที่</b> <a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/acoustic/">acoustic</a>
+  · สามแท็บ คือ Calculator · สมการอ้างอิง · กฎหมายและที่มา</div>
+
+  <div class="note warn"><b>สองคำถามคนละเรื่องที่อยู่ในตัวเดียวกัน</b><br>
+  <b>แท็บ Calculator</b> คำนวณเสียงที่<b>รั่วออกไปหาเพื่อนบ้าน</b> ผ่านช่องลม ·
+  <b>ตาราง NC ในแท็บกฎหมาย</b> คือเสียงที่ระบบแอร์สร้างขึ้น<b>ภายในห้องเอง</b>
+  สองอันนี้คนละปัญหา คนละเกณฑ์ ใช้คนละตอน อย่าสลับกัน</div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เตรียมข้อมูลก่อนเปิด</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ต้องรู้</th><th>หมายเหตุ</th></tr></thead>
+        <tbody>
+          <tr><td>ระดับเสียงในห้อง</td><td>ถ้าได้<b>แยก 7 ย่านความถี่</b>จะแม่นกว่ามาก ใส่ dB(A) ตัวเดียวได้แต่ต้องเลือกรูปสเปกตรัมเอา</td></tr>
+          <tr><td>ขนาดช่องเปิด</td><td>ใส่เป็นตารางเมตรตรง ๆ หรือใส่ CMH กับความเร็วลมหน้ากากแล้วให้คำนวณให้</td></tr>
+          <tr><td>ระยะถึงจุดที่วัด</td><td>ปกติคือแนวเขตที่ดินหรือหน้าต่างบ้านที่ใกล้ที่สุด</td></tr>
+          <tr><td>เสียงพื้นฐานบริเวณนั้น</td><td><b>ตัวนี้เป็นตัวกำหนดเพดานตามกฎหมาย</b> ต้องวัดในช่วงเวลาที่จัดงานจริง</td></tr>
+          <tr><td>ขนาดและความยาวท่อลม</td><td>เครื่องมือคำนวณค่าลดเสียงของท่อบุฉนวนให้ตามสูตร SMACNA</td></tr>
+          <tr><td>ผนัง Rw และพื้นที่ผนัง</td><td>ใช้ตรวจว่าช่องเปิดทำให้ผนังแย่ลงหรือไม่</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>อ่านผลยังไง</h3>
+      <div class="prose"><ol>
+        <li><b>ดูค่ารวมที่ผู้รับก่อน</b> แล้วเทียบกับเสียงพื้นฐาน · <b>เกณฑ์ไทยคือห้ามเกินพื้นฐาน 10 dB(A)</b></li>
+        <li><b>ดูกราฟไล่ทีละชิ้น</b> จะเห็นว่าชิ้นไหนลดเสียงได้เยอะ ชิ้นไหนแทบไม่ช่วย ใช้ตัดสินใจว่าจะลงทุนตรงไหน</li>
+        <li><b>ดูตารางแยกย่านความถี่</b> ถ้าค่ารวมผ่านแต่ที่ 63 กับ 125 Hz ยังสูง แปลว่ายังมีปัญหาเสียงเบสที่ dB(A) มองไม่เห็น</li>
+        <li><b>เช็กเกณฑ์ผนังไม่แย่ลง</b> ถ้าไม่ผ่าน แปลว่าเจาะช่องแล้วผนังทั้งบานเสียของ ต้องเพิ่มชุดลดเสียง</li>
+      </ol></div>
+      <div class="note" style="margin-bottom:0"><b>เพิ่มชิ้นส่วนเองได้</b>
+      ถ้าในงานมีอุปกรณ์ที่ไม่มีในรายการตั้งต้น กดเพิ่มแล้วใส่ค่าจากแคตตาล็อกได้เลย</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ที่พลาดกันบ่อย</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>อาการ</th><th>สาเหตุ</th><th>แก้</th></tr></thead>
+        <tbody>
+          <tr><td>ผลออกมาดูดีเกินจริง</td><td>ค่าลดเสียงของ silencer และชิ้นอื่นยังเป็น<b>ค่าประมาณ</b> ไม่ใช่ของจริง</td>
+            <td>ดูป้ายสีข้างแต่ละแถว · ป้ายแดงแปลว่ายังเป็นค่าเดา ต้องขอ insertion loss แยกย่านความถี่จากผู้ผลิตมาใส่</td></tr>
+          <tr><td>คิดว่า acoustic louver ตัวเดียวพอ</td><td>louver ให้แค่ 6–18 dB</td>
+            <td>เกณฑ์ผนังทั่วไปต้องการ 24 dB ขึ้นไป <b>ต้องมี silencer และท่อบุฉนวนเสริมเสมอ</b></td></tr>
+          <tr><td>ค่ารวมผ่านแต่เพื่อนบ้านยังร้องเรียน</td><td>ปัญหาอยู่ที่ความถี่ต่ำ ซึ่ง dB(A) หักไปถึง 26 dB ที่ 63 Hz</td>
+            <td>ดูตารางแยกย่านเสมอ · <b>ระบุเป้าหมายในสัญญาเป็น octave band ไม่ใช่ dB(A) ตัวเดียว</b></td></tr>
+          <tr><td>ใส่ค่าลดเสียงรวมกันแล้วได้เกิน 40 dB</td><td>ไม่ใช่บั๊ก · SMACNA ตัดเพดานไว้ที่ 40 dB</td>
+            <td>เพราะเสียงเดินลัดผ่านผนังท่อได้ การใส่ silencer เพิ่มเรื่อย ๆ ไม่ได้ผลเกินจุดนั้น</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ERV LOAD ═══════════ -->
+<div class="page" id="p-erv">
+  <div class="sectitle">ERV Load Impact Calculator</div>
+  <div class="note"><b>ตอบคำถามว่า</b> ลม ERV ที่เติมเข้าห้องปรับอากาศ กินกำลังแอร์เดิมไปเท่าไร
+  และทำให้อุณหภูมิกับความชื้นในห้องเปลี่ยนไปแค่ไหน<br>
+  <b>เปิดที่</b> <a href="https://nchatupongtrakul-ops.github.io/design-management-dashboard/ervload/">ervload</a>
+  · สามแท็บ คือ คำนวณ · สมการและที่มา · ตรวจไฟล์ของทีม</div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เตรียมข้อมูลก่อนเปิด</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ต้องรู้</th><th>หมายเหตุ</th></tr></thead>
+        <tbody>
+          <tr><td>อุณหภูมิและ RH ภายนอก</td><td>อย่าใส่ค่าสุดขั้วทั้งคู่ · ตอนบ่ายที่ร้อนที่สุด RH มักต่ำกว่า 60%</td></tr>
+          <tr><td>อุณหภูมิและ RH ที่ต้องการในห้อง</td><td>ปกติ 25 °C 50%</td></tr>
+          <tr><td>ηs และ ηt ของแกน ERV</td><td><b>ต้องเป็นค่าที่อัตราลมใช้งานจริง</b> ไม่ใช่ค่าสูงสุดในโบรชัวร์ · ต้องวัดตาม AHRI 1060</td></tr>
+          <tr><td>ขนาดแอร์เดิมเป็น RT</td><td>ขนาดที่ติดตั้งจริง</td></tr>
+          <tr><td>ปริมาณลมหมุนเวียนของแอร์ CMH</td><td>ปกติอยู่ราว 500–680 CMH ต่อ RT</td></tr>
+          <tr class="gov"><td><b>แอร์ใช้กำลังอยู่กี่ % ก่อนเติมลม</b></td>
+            <td><b>ตัวชี้ขาดว่าห้องจะร้อนขึ้นจริงหรือไม่</b> · ถ้าไม่ทราบใส่ 85%</td></tr>
+          <tr class="gov"><td><b>ลม ERV ต่อเข้าทางไหน</b></td>
+            <td>เข้าท่อลมกลับของแอร์ หรือจ่ายเข้าห้องตรง · ให้คำตอบต่างกัน</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>อ่านผลยังไง</h3>
+      <div class="prose"><ol>
+        <li><b>อ่านกล่องสรุปด้านบนก่อน</b> เขียนเป็นภาษาคนว่าเติมได้เลย หรือกินสัดส่วนเยอะ หรือแอร์รับไม่ไหว</li>
+        <li><b>ดูช่องอุณหภูมิเปลี่ยน</b> ถ้าขึ้น 0.00 °C แปลว่าแอร์ยังมีกำลังเหลือ ห้องไม่เปลี่ยน
+        <b>ที่เปลี่ยนคือค่าไฟ ไม่ใช่ความสบาย</b></li>
+        <li><b>ดูตารางแยกภาระ</b> ในเมืองไทยภาระแฝงมักเป็น 70–80% <b>ตัวเลข SHR นี้คือตัวที่เอาไปเลือกคอยล์</b></li>
+        <li><b>ดูแผนภูมิไซโครเมตริก</b> เส้นม่วงคือสิ่งที่แกน ERV ทำให้ เส้นประน้ำเงินคือที่เหลือให้แอร์จัดการ
+        ยิ่งเส้นประสั้นยิ่งดี · <b>ใช้อธิบายลูกค้าได้ดีที่สุด</b></li>
+        <li><b>ลากแถบลมดูกราฟความไว</b> เห็นทันทีว่าลดลมลงนิดเดียวช่วยได้เท่าไร</li>
+      </ol></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ปุ่มความหนาแน่นลม · ตัวที่คนงงบ่อยที่สุด</h3>
+      <div class="prose"><p>ใต้แถบเลื่อนลมมีปุ่มให้เลือกสองแบบ ปุ่มนี้ไม่ได้เปลี่ยนฟิสิกส์
+      แต่เปลี่ยนว่า<b>ตีความตัวเลข CMH ที่กรอกไปว่าอย่างไร</b></p></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ปุ่ม</th><th>หมายความว่า</th><th>ใช้ตอนไหน</th></tr></thead>
+        <tbody>
+          <tr class="gov"><td><b>ลมมาตรฐาน ASHRAE</b><br><span class="badge ok">ค่าตั้งต้น</span></td>
+            <td>คิดที่ความหนาแน่น 1.200 kg/m³ ตามที่ค่าคงที่ของ ASHRAE สมมติไว้</td>
+            <td><b>ใช้ตัวนี้เป็นหลัก</b> ตรงกับไฟล์ Excel ของทีม และเผื่อไว้ในฝั่งปลอดภัย</td></tr>
+          <tr><td>ความหนาแน่นจริงที่หน้ากาก</td>
+            <td>คิดที่ความหนาแน่นจริงของอากาศนอก ซึ่งที่ 38 °C เหลือ 1.090</td>
+            <td>ตอนอยากรู้ว่ากำลังเผื่อไว้เท่าไรกันแน่ ก่อนตัดสินใจเพิ่มขนาดเครื่อง</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note" style="margin-top:14px;margin-bottom:0"><b>ต่างกันประมาณ 10%</b>
+      ที่เงื่อนไข 38 °C ลม 3,000 CMH ให้ผล 5.00 RT แบบลมมาตรฐาน และ 4.54 RT แบบสภาวะจริง
+      ทั้งสองแบบถูกต้องทั้งคู่ ต่างกันที่นิยาม <b>ถ้าไม่แน่ใจว่าผู้ผลิตระบุ CMH ที่สภาวะไหน ให้ใช้ค่าตั้งต้น</b></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ที่พลาดกันบ่อย</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>อาการ</th><th>สาเหตุ</th><th>แก้</th></tr></thead>
+        <tbody>
+          <tr><td>อุณหภูมิขึ้น 0.00 แล้วสรุปว่าไม่มีผลอะไรเลย</td>
+            <td>อ่านแค่ช่องเดียว</td>
+            <td>ห้องไม่เปลี่ยนก็จริง แต่แอร์ทำงานหนักขึ้นและค่าไฟสูงขึ้น <b>ดูช่องสัดส่วนภาระควบไปด้วย</b></td></tr>
+          <tr><td>ผลเปลี่ยนไปมากเมื่อกดสลับวิธีต่อลม</td>
+            <td>ไม่ใช่บั๊ก · สองวิธีใช้ปริมาณลมที่ดึงความร้อนออกจากห้องคนละค่า</td>
+            <td>เลือกให้ตรงกับแบบจริง · ยิ่งลม ERV เป็นสัดส่วนสูงเทียบกับลมแอร์ ยิ่งต่างกันมาก</td></tr>
+          <tr><td>เอา SHR ไปเลือกคอยล์แล้วห้องเย็นแต่ชื้น</td>
+            <td>ใช้ SHR จากไฟล์ Excel เดิมซึ่งคำนวณผิด</td>
+            <td><b>เปิดแท็บตรวจไฟล์ของทีม</b> · คอลัมน์ Sensible ในไฟล์นั้นรายงานความร้อนที่ ERV ดึงคืน
+            ไม่ใช่ภาระที่เหลือ ทำให้ SHR อ่านได้ 0.53 ทั้งที่จริงคือ 0.23</td></tr>
+          <tr><td>ใส่ ηt สูง ๆ จากโบรชัวร์แล้วผลออกมาดีมาก</td>
+            <td>ค่าในโบรชัวร์มักวัดที่ลมต่ำกว่าจุดใช้งาน</td>
+            <td>ขอค่าที่อัตราลมออกแบบจริง · ประสิทธิภาพแกนลดลงเมื่อลมแรงขึ้น</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ COMMON ═══════════ -->
+<div class="page" id="p-common">
+  <div class="sectitle">ข้อควรระวังที่ใช้กับทุกตัว</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ป้ายสีบอกอะไร</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ป้าย</th><th>หมายความว่า</th><th>เอาไปใช้ได้แค่ไหน</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge ok">มีที่มายืนยัน</span></td>
+            <td>เปิดตัวบทหรือแคตตาล็อกจริงมาแล้ว ระบุเลขสมการหรือเลขตารางได้</td>
+            <td>ใช้อ้างในข้อเสนอได้</td></tr>
+          <tr><td><span class="badge bad">ประมาณการ</span></td>
+            <td>เป็นค่ากลางทั่วไป ยังไม่ได้ยืนยันกับแหล่งใด</td>
+            <td><b>ใช้ดูแนวโน้มได้ ใช้เซ็นแบบไม่ได้</b> ต้องหาข้อมูลจริงมาพิมพ์ทับก่อน</td></tr>
+          <tr><td><span class="badge na">ใช้ดูแนวโน้ม</span></td>
+            <td>เป็นตัวชี้วัดเชิงเปรียบเทียบ ไม่มีเกณฑ์ตายตัว</td>
+            <td>ใช้เทียบทางเลือก ไม่ใช้ตัดสินผ่านไม่ผ่าน</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note warn" style="margin-top:14px;margin-bottom:0"><b>ในตัว Noise Breakout มีป้ายแดงอยู่หลายแถว</b>
+      ค่าลดเสียงของ silencer ข้องอ ตัวเครื่อง ERV และห้องลดเสียง ยังเป็นค่าประมาณ
+      มีเพียง acoustic louver กับท่อลมที่มีที่มาจริง <b>งานที่เสียงเป็นประเด็นหลัก ต้องขอข้อมูลผู้ผลิตมาแทนก่อนเสมอ</b></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>เวลาโดนถามว่าเชื่อได้ยังไง</h3>
+      <div class="prose"><p>ทุกตัวมีแท็บที่มา ที่เขียนไว้ว่าสมการมาจากหนังสือเล่มไหน สมการที่เท่าไร
+      และมีการพิสูจน์ว่าเขียนสมการถูก โดยเอาไปเทียบกับตัวอย่างในหนังสือหรือตารางที่หนังสือพิมพ์ไว้</p>
+      <p><b>คำตอบสั้นที่ใช้ได้เลย</b> คือเปิดแท็บนั้นให้ดู แล้วชี้ที่ตารางเทียบ
+      มันแสดงทั้งค่าที่หนังสือให้ และค่าที่เครื่องมือคำนวณได้ พร้อมส่วนต่าง</p></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>เครื่องมือ</th><th>อ้างอิงหลัก</th></tr></thead>
+        <tbody>
+          <tr><td>Ventilation &amp; CO₂</td><td>ASHRAE 62.1 · ASHRAE Position Document on Indoor CO₂ · กฎกระทรวงฉบับที่ 39</td></tr>
+          <tr><td>Noise Breakout</td><td>ASHRAE Fundamentals บทที่ 8 · SMACNA HVAC Systems Duct Design บทที่ 11 · ประกาศ กก.สวล. ฉบับที่ 29</td></tr>
+          <tr><td>ERV Load Impact</td><td>ASHRAE Fundamentals 2021 บทที่ 1 และ 18 · Cengel &amp; Boles บทที่ 14</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>ถ้าอยากได้ตัวเลขไปทำรายงาน</h3>
+      <div class="prose"><ol>
+        <li><b>กราฟ</b> กดปุ่มขยายที่มุมขวาบนของการ์ด แล้วจับภาพหน้าจอ</li>
+        <li><b>ทั้งหน้า</b> กดปุ่มพิมพ์ที่มุมขวาบน แล้วเลือก Save as PDF</li>
+        <li><b>ตาราง</b> ลากคลุมแล้วคัดลอก วางลง Excel ได้ตรง ๆ</li>
+      </ol>
+      <p><b>ค่าที่กรอกไว้ไม่ถูกบันทึก</b> ปิดหน้าแล้วหาย ถ้าต้องกลับมาทำต่อ ให้พิมพ์เป็น PDF เก็บไว้
+      หรือจดค่าอินพุตไว้ในไฟล์งาน</p></div>
+      <div class="note" style="margin-bottom:0"><b>ส่งลิงก์ให้ลูกค้าได้เลย</b>
+      เป็นหน้าเว็บสาธารณะ ไม่ต้องล็อกอิน แต่ลูกค้าจะเห็นเป็นหน้าเปล่าที่ยังไม่ได้กรอกค่า
+      ถ้าอยากให้เห็นเคสของเขา ให้ส่ง PDF แทน</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ขอบเขตความรับผิดชอบ</h3>
+      <div class="prose"><p>เครื่องมือชุดนี้ช่วยให้ตัดสินใจเร็วขึ้นและตรวจงานกันเองได้
+      แต่<b>ไม่ได้แทนที่การคำนวณเพื่อยื่นขออนุญาตหรือการเซ็นรับรองแบบ</b> โดยเฉพาะสามเรื่องนี้</p>
+      <ul>
+        <li><b>งานเสียง</b> ต้องให้วิศวกรอะคูสติกทวนสอบก่อนออกแบบก่อสร้าง เพราะค่าหลายตัวยังเป็นค่าประมาณ</li>
+        <li><b>งานที่ต้องยื่นราชการ</b> ต้องคำนวณตามแบบฟอร์มที่หน่วยงานกำหนด เครื่องมือนี้ใช้ตรวจทานได้ แต่ไม่ใช่เอกสารยื่น</li>
+        <li><b>การรับประกันค่าที่วัดได้หน้างาน</b> ทุกผลคำนวณอยู่บนสมมติฐานที่กรอกเข้าไป
+        ถ้าจะผูกตัวเลขในสัญญา ต้องระบุเงื่อนไขที่ใช้คำนวณกำกับไว้ด้วยเสมอ เช่นจำนวนคนและลักษณะกิจกรรม</li>
+      </ul></div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  คู่มือนี้อยู่ใน repo <span class="mono">design-management-dashboard</span> โฟลเดอร์ <span class="mono">guide/</span>
+  · แก้ไขแล้ว push ได้เลย ไม่มีขั้นตอน build
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    document.getElementById('p-' + b.dataset.p).classList.add('active');
+    window.scrollTo(0,0);
+  });
+});
+document.getElementById('stamp').textContent = new Date().toLocaleDateString('th-TH',
+  { year:'numeric', month:'short', day:'numeric' });
+</script>
+</body>
+</html>
