@@ -760,32 +760,55 @@ table.dtable td.st{white-space:nowrap}
 
   <div class="chart-grid g2">
     <div class="card">
-      <h3>Panasonic · ตัวอย่างที่ยืนยันได้</h3>
+      <div class="card-title-row"><h3>Panasonic · รุ่นที่ขายในไทย</h3>
+        <span class="pill src">220 V 50 Hz</span></div>
+      <div class="tablewrap" style="max-height:360px;overflow-y:auto"><table class="dtable">
+        <thead><tr><th>รุ่น</th><th class="num">CMH</th><th class="num">CFM</th>
+          <th class="num">กำลังไฟ W</th><th class="num">rpm</th><th class="num">เสียง dB(A)</th>
+          <th class="num">W/CMH</th></tr></thead>
+        <tbody id="panaBody"></tbody>
+      </table></div>
+      <div class="srcline" style="margin-top:10px"><b>ที่มา</b> Panasonic General Catalog IAQ
+      ฉบับภาษาไทย · ตาราง Specification หน้า 4 ถึง 17 · ตัวบทระบุว่าเป็นค่าตัวแทนที่ 220 V 50 Hz
+      และวัดเสียงที่ระยะ 1 เมตรจากพัดลม · รอบเป็นค่าอ้างอิงที่อาจต่างไปตามเงื่อนไข<br>
+      <b>ไม่ได้ลอกมาทั้งเล่ม</b> ตารางพัดลมแรงดันสูงสำหรับงานอุตสาหกรรมหน้า 25
+      มีการจัดวางที่ดึงข้อความออกมาแล้วจับคู่รุ่นกับตัวเลขไม่ได้แน่นอน จึงไม่เอามาใส่
+      ถ้าต้องใช้ช่วงลมสูงกว่านี้ให้เปิดหน้านั้นในเล่มโดยตรง</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>ตารางนี้พิสูจน์ว่าทำไม W ต่อ CMH ใช้เทียบข้ามชนิดพัดลมไม่ได้</h3>
       <div class="tablewrap"><table class="dtable">
-        <thead><tr><th>ความดันสถิต</th><th class="num">ลม CFM</th><th class="num">ลม m³/h</th>
-          <th class="num">กำลังไฟ W</th><th class="num">W ต่อ CMH</th></tr></thead>
+        <thead><tr><th>รุ่น</th><th>ชนิด</th><th class="num">CMH</th>
+          <th class="num">W</th><th class="num">W/CMH</th></tr></thead>
         <tbody>
-          <tr><td>0.1 นิ้วน้ำ ≈ 25 Pa</td><td class="num">280</td><td class="num">476</td>
-            <td class="num">67.1</td><td class="num">0.141</td></tr>
-          <tr><td>0.25 นิ้วน้ำ ≈ 62 Pa</td><td class="num">243</td><td class="num">413</td>
-            <td class="num">65.8</td><td class="num">0.159</td></tr>
+          <tr><td class="mono">FV-38CH8</td><td>ฝ้า สิรอคโค ต่อท่อ</td>
+            <td class="num">800</td><td class="num">140</td><td class="num">0.175</td></tr>
+          <tr class="gov"><td class="mono">FV-25FUT1</td><td>ผนัง ใบพัดตามแกน ไม่ต่อท่อ</td>
+            <td class="num">835</td><td class="num">34</td><td class="num">0.041</td></tr>
         </tbody>
       </table></div>
-      <div class="warnbox" style="margin-bottom:0"><b>เป็นรุ่นที่ขายในอเมริกา 120 V 60 Hz</b>
-      ไม่ใช่รุ่นที่ขายในไทย และเป็นพัดลมฝ้าสำหรับที่พักอาศัย ไม่ใช่งานพาณิชย์
-      <b>ใช้ดูลำดับความมากน้อยได้ แต่ห้ามอ้างเป็นสเปกของงานไทย</b><br><br>
-      <b>ที่มา</b> Panasonic WhisperCeiling FV-30VQ3 Specification Submittal Data
-      ดาวน์โหลดจาก ftp.panasonic.com</div>
+      <div class="prose" style="margin-top:12px"><p>สองรุ่นนี้ลมเกือบเท่ากัน แต่<b>กินไฟต่างกันสี่เท่า</b>
+      ไม่ใช่เพราะรุ่นหนึ่งดีกว่า แต่เพราะทำงานคนละอย่าง</p>
+      <p>ตัวบนเป็นพัดลมสิรอคโคที่ออกแบบมาสู้ความดันในท่อ ส่วนตัวล่างเป็นใบพัดตามแกนติดผนัง
+      ที่แทบไม่ต้องสู้ความดันอะไรเลย · <b>เอาตัวล่างไปต่อท่อยาว ๆ ลมจะตกลงทันที</b>
+      และตัวเลข 0.041 W/CMH จะไม่เป็นจริงอีกต่อไป</p></div>
+      <div class="warnbox" style="margin-bottom:0"><b>สรุปสิ่งที่ต้องจำ</b>
+      กำลังไฟของพัดลมไม่ได้ขึ้นกับปริมาณลมอย่างเดียว แต่ขึ้นกับ<b>ความดันที่มันต้องเอาชนะ</b>ด้วย
+      ซึ่งเป็นเหตุผลที่เครื่องมือนี้คำนวณจาก W = Q × Δp ÷ η แทนที่จะให้เลือกรุ่นจากรายการ<br>
+      ใช้ตารางข้าง ๆ ดูว่าพัดลมชนิดเดียวกันขนาดนั้นอยู่ในระดับกี่วัตต์ แล้วเทียบกับที่คำนวณได้</div>
     </div>
     <div class="card">
-      <h3>ที่ยังหาไม่ได้ และจะทำให้ครบได้ยังไง</h3>
-      <div class="prose"><p><b>แคตตาล็อก Panasonic ฝั่งอาเซียนและไทย ดึงข้อมูลอัตโนมัติไม่ได้</b>
-      หน้าสเปกของ Panasonic Middle East และ Panasonic Malaysia ปิดกั้นการเข้าถึงแบบอัตโนมัติทั้งหมด</p>
-      <p>ถ้าต้องการข้อมูลรุ่นที่ขายในไทยจริง ๆ วิธีที่ได้ผลคือ<b>ดาวน์โหลดแคตตาล็อกมาเป็นไฟล์
-      แล้วส่งเข้ามาให้ดึงข้อมูล</b> แบบเดียวกับที่ทำกับ SMACNA และ Cengel มาแล้ว</p>
-      <p><b>แต่ก่อนจะทำแบบนั้น ควรถามก่อนว่าจำเป็นจริงไหม</b> เพราะสิ่งที่เครื่องมือนี้ต้องการคือ
-      ความดันกับประสิทธิภาพที่จุดทำงาน ซึ่งได้จากการเลือกพัดลมของงานนั้นอยู่แล้ว
-      ไม่ได้ต้องการรายชื่อรุ่นทั้งหมดในตลาด</p></div>
+      <h3>สิ่งที่ตารางเหล่านี้ยังบอกไม่ได้</h3>
+      <div class="prose"><p><b>ทุกตารางในหน้านี้ไม่ได้ระบุความดันที่วัด</b>
+      เส้นโค้งสมรรถนะอยู่คนละที่กับตารางสเปก และเป็นรูปภาพ ดึงเป็นตัวเลขไม่ได้</p>
+      <p>แปลว่าค่ากำลังไฟในตารางใช้ได้เฉพาะที่จุดที่ผู้ผลิตวัด ซึ่งใกล้สภาพปล่อยอิสระ
+      <b>งานจริงที่ต่อท่อจะกินไฟมากกว่านั้น</b> ตัวเลขในตารางจึงเป็นขอบล่าง ไม่ใช่ค่าที่จะได้จริง</p>
+      <p>วิธีที่ถูกต้องคือดูจุดทำงานบนเส้นโค้งของรุ่นที่เลือก อ่านความดันกับประสิทธิภาพ
+      แล้วใส่ลงในช่องคำนวณ · หรือถ้าผู้ผลิตให้กำลังไฟที่จุดทำงานมาแล้ว
+      ก็พิมพ์ลงช่องกำลังไฟโดยตรง</p></div>
       <div class="note" style="margin-bottom:0"><b>ทางที่เร็วกว่า</b>
       เมื่อเลือกรุ่นได้แล้ว ให้พิมพ์กำลังไฟจากแคตตาล็อกลงในช่องที่เตรียมไว้ในแท็บคำนวณโดยตรง
       แม่นกว่าการคำนวณและไม่ต้องมีฐานข้อมูลอะไรเลย</div>
@@ -1201,6 +1224,42 @@ function fillKruger(){
   }).join('');
 }
 
+
+/* Panasonic General Catalog IAQ, Thai edition, Specification tables.
+   220 V 50 Hz. Only rows whose model-to-number mapping could be read
+   with confidence; the high pressure industrial range is left out
+   because its layout scrambles on extraction. */
+var PANA = [
+  ['FV-17CUT5','',85,50,7.5,680,23],
+  ['FV-17CHT5','',100,60,9.5,770,27.5],
+  ['FV-24CUT5','',140,82,10.5,530,25],
+  ['FV-24CDT5','',170,100,13.5,635,28.5],
+  ['FV-24CHT5','',200,118,16.5,720,32],
+  ['FV-24CURT1','',140,82,11,570,25],
+  ['FV-24CHRT1','',200,118,17,760,32],
+  ['FV-27CH9','Hi',330,194,28,570,34],
+  ['FV-27CH9','Lo',260,153,23,480,30],
+  ['FV-32CD9','Hi',430,253,42,590,36],
+  ['FV-32CD9','Lo',300,176,32,460,28],
+  ['FV-32CH9','Hi',530,312,55,710,41],
+  ['FV-32CH9','Lo',400,235,45,570,34],
+  ['FV-38CD8','Hi',640,377,104,645,44],
+  ['FV-38CD8','Lo',430,253,66,456,35],
+  ['FV-38CH8','Hi',800,471,140,790,50],
+  ['FV-38CH8','Lo',525,309,89,540,40],
+  ['FV-25FUT1','',835,491,34,1100,42]
+];
+function fillPana(){
+  $('panaBody').innerHTML = PANA.map(function(r){
+    return '<tr><td class="mono" style="font-size:12px">'+r[0]
+      + (r[1] ? ' <span class="pill">'+r[1]+'</span>' : '') + '</td>'
+      + '<td class="num">'+fmt(r[2])+'</td><td class="num">'+fmt(r[3])+'</td>'
+      + '<td class="num">'+fmt(r[4],1)+'</td><td class="num">'+fmt(r[5])+'</td>'
+      + '<td class="num">'+fmt(r[6],1)+'</td>'
+      + '<td class="num">'+fmt(r[4]/r[2],3)+'</td></tr>';
+  }).join('');
+}
+
 /* ─────────────── render ─────────────── */
 function render(){
   var m = model();
@@ -1384,7 +1443,7 @@ window.addEventListener('resize', function(){ render(); });
 
 $('stamp').textContent = new Date().toLocaleDateString('th-TH',
   { year:'numeric', month:'short', day:'numeric' });
-fillKruger();
+fillKruger(); fillPana();
 render();
 })();
 
