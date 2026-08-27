@@ -369,6 +369,96 @@ table.dtable td.st{white-space:nowrap}
   font-variant-numeric:tabular-nums; width:1%;
 }
 </style>
+<style>
+/* ══════════════════════════════════════════════════════════════
+   Customer slide, following the deck the team already presents:
+   landscape, two columns side by side, a percentage ring under each
+   figure, and the saving called out in green on the right. Has to
+   survive printing to A4 landscape and being dropped into a deck.
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --sl-navy:#1F3864; --sl-cyan:#2BC4E8; --sl-red:#F1555A;
+  --sl-green:#00B894; --sl-peri:#6C7BC4;
+}
+#sheet{
+  position:relative; overflow:hidden;
+  background:linear-gradient(135deg,#F4F8FE 0%,#EAF2FC 55%,#F7FAFE 100%);
+  border:1px solid var(--border); border-radius:14px;
+  max-width:1120px; margin:0 auto; padding:24px 28px 16px;
+  aspect-ratio:297/210;            /* A4 landscape, so the screen matches the print */
+  display:flex; flex-direction:column;
+}
+.sl-bg{
+  position:absolute; right:-60px; top:-70px; width:340px; height:340px; border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, rgba(43,196,232,.16), rgba(108,123,196,.07) 62%, transparent 70%);
+  pointer-events:none;
+}
+.sl-head{position:relative; margin-bottom:12px; flex:none}
+.sl-title{font-size:26px; font-weight:800; color:var(--sl-navy); letter-spacing:.01em; line-height:1.1}
+.sl-sub{font-size:13.5px; color:#4A5578; margin-top:4px; line-height:1.35}
+
+.sl-body{position:relative; display:flex; align-items:stretch; gap:12px; flex:1; min-height:0}
+.sl-col{
+  flex:1; background:#fff; border-radius:16px; padding:14px 16px 12px;
+  box-shadow:0 2px 14px rgba(31,56,100,.07);
+  display:flex; flex-direction:column; min-width:0;
+}
+.sl-col-hi{box-shadow:0 3px 20px rgba(0,184,148,.14)}
+.sl-col-h{text-align:center; margin-bottom:8px; flex:none}
+.sl-col-h .t{font-size:16px; font-weight:800; color:var(--sl-navy); line-height:1.2}
+.sl-col-h .s{font-size:10px; color:var(--gray); margin-top:2px; line-height:1.35}
+
+.sl-metrics{display:flex; gap:10px; flex:1; min-height:0}
+.sl-m{flex:1; text-align:center; display:flex; flex-direction:column; min-width:0}
+.sl-m-hw{margin-bottom:8px}
+.sl-m-h{
+  font-size:11.5px; font-weight:600; color:#3F4A66; line-height:1.3;
+  border-bottom:2px solid #DFE6F2; padding-bottom:4px; display:inline-block;
+}
+.sl-m-v{font-size:20px; font-weight:800; line-height:1.1; font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em}
+.sl-m-u{font-size:9.5px; color:var(--gray); margin-top:2px; line-height:1.35}
+.sl-ring{margin:7px auto 6px; flex:none; display:block}
+.sl-m-v2{font-size:15px; font-weight:800; line-height:1.1; font-variant-numeric:tabular-nums}
+.sl-m-foot{font-size:9.5px; color:var(--gray); margin-top:auto; padding-top:5px; line-height:1.4}
+.cy{color:var(--sl-cyan)} .rd{color:var(--sl-red)} .pr{color:var(--sl-peri)} .gr{color:var(--sl-green)}
+
+.sl-mid{width:106px; flex:none; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center; gap:7px}
+.sl-mid-t{font-size:11px; color:#4A5578; line-height:1.45}
+.sl-arrows{color:var(--sl-peri); font-size:22px; letter-spacing:-4px; font-weight:700}
+
+.sl-save{margin-top:7px; text-align:center; border-top:1px dashed #CDEFE5; padding-top:7px; flex:none}
+.sl-save .l{font-size:12.5px; font-weight:800; color:var(--sl-green)}
+.sl-save .v{font-size:21px; font-weight:800; color:var(--sl-green); line-height:1.15;
+  font-variant-numeric:tabular-nums}
+.sl-save .u{font-size:9.5px; color:var(--gray)}
+
+.sl-notes{position:relative; font-size:8.5px; color:var(--sl-red); line-height:1.55; margin-top:9px; flex:none}
+.sl-by{position:relative; font-size:8.5px; color:var(--gray); margin-top:3px; flex:none}
+
+/* Screen only. An A4 landscape page is far wider than this breakpoint, but
+   without the screen keyword a narrow print context would collapse the two
+   columns the whole comparison depends on. */
+@media screen and (max-width:900px){
+  #sheet{aspect-ratio:auto; padding:20px 16px}
+  .sl-body{flex-direction:column}
+  .sl-mid{width:auto; flex-direction:row; gap:12px; padding:4px 0}
+  .sl-arrows{transform:rotate(90deg)}
+  .sl-title{font-size:21px}
+}
+
+@media print{
+  .header, .tabs, .noprint, .footer, #chartModal{display:none !important}
+  .page{display:none !important}
+  .page.active{display:block !important; padding:0 !important}
+  #sheet{max-width:none; width:100%; border:0; border-radius:0; margin:0;
+         aspect-ratio:auto; height:186mm; padding:5mm 3mm}
+  *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important}
+  .sl-col{box-shadow:none; border:1px solid #E3E8F2}
+  @page{size:A4 landscape; margin:10mm}
+}
+</style>
 </head>
 <body>
 
@@ -386,6 +476,7 @@ table.dtable td.st{white-space:nowrap}
 <div class="tabs">
   <button class="tab active" data-p="calc">คำนวณ</button>
   <button class="tab" data-p="eq">สมการและที่มา</button>
+  <button class="tab" data-p="present">ใบเสนอลูกค้า</button>
   <button class="tab" data-p="fan">ข้อมูลพัดลมอ้างอิง</button>
 </div>
 
@@ -552,6 +643,11 @@ table.dtable td.st{white-space:nowrap}
       </div>
       <div class="hint" id="fanEhint"></div>
       <div class="field" style="margin-top:10px">
+        <label class="flabel" for="ervpick">เลือกรุ่น Zehnder ComfoAir · จะเติมกำลังไฟและลมให้</label>
+        <select id="ervpick"></select>
+        <div class="hint" id="ervpickHint">เลือกรุ่นแล้วช่องกำลังไฟด้านล่างจะถูกเติมด้วยค่าจากแคตตาล็อก</div>
+      </div>
+      <div class="field">
         <label class="flabel">หรือใส่กำลังไฟจากแคตตาล็อกตรง ๆ · W รวมทั้งเครื่อง · เว้นว่างถ้าให้คำนวณ</label>
         <input type="number" id="w_e" placeholder="ปล่อยว่างไว้เพื่อให้คำนวณจากสมการ" step="10" min="0">
       </div>
@@ -601,6 +697,70 @@ table.dtable td.st{white-space:nowrap}
     </div>
   </div>
 
+</div>
+
+<!-- ══════════════════ PRESENTATION SLIDE ══════════════════ -->
+<div class="page" id="p-present">
+
+  <div class="note noprint"><b>สไลด์นี้ทำตามรูปแบบที่ทีมใช้อยู่</b>
+  ตัวเลขดึงจากแท็บคำนวณทั้งหมด แก้ที่นั่นแล้วสไลด์เปลี่ยนตาม ·
+  กดพิมพ์แล้วเลือก <b>Save as PDF</b> จะได้ A4 แนวนอนหน้าเดียว เอาไปแทรกในเด็คได้เลย<br>
+  <b>ต่างจากสไลด์ต้นแบบตรงที่</b> ตัวเลขในนี้เป็นเฉพาะส่วนของ<b>อากาศภายนอก</b>
+  ไม่ใช่ภาระของทั้งอาคาร เพราะเครื่องมือนี้ไม่ได้คำนวณผนัง หลังคา กระจก คน หรือไฟ ·
+  หัวข้อบนสไลด์เขียนกำกับไว้แล้วเพื่อไม่ให้ลูกค้าเข้าใจผิด</div>
+
+  <div class="card noprint" style="margin-bottom:20px">
+    <div class="grid3">
+      <div class="field"><label class="flabel" for="pjName">ชื่อโครงการ</label>
+        <input type="text" id="pjName" placeholder="เช่น โรงพยาบาล ก."
+          style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;
+                 font-size:13px;font-family:inherit;background:var(--card-bg);color:var(--text)"></div>
+      <div class="field"><label class="flabel" for="pjArea">พื้นที่ปรับอากาศ · ตร.ม. · เว้นว่างได้</label>
+        <input type="number" id="pjArea" min="0" step="10" placeholder="ใส่เพื่อให้แสดง BTU ต่อ ตร.ม."></div>
+      <div class="field"><label class="flabel" for="pjBy">ผู้จัดทำ</label>
+        <input type="text" id="pjBy" placeholder="Coral Life"
+          style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;
+                 font-size:13px;font-family:inherit;background:var(--card-bg);color:var(--text)"></div>
+    </div>
+    <button class="btn" onclick="window.print()" style="margin-top:4px">พิมพ์สไลด์</button>
+    <span class="hint" style="margin-left:10px">ตั้งค่าหน้ากระดาษเป็นแนวนอน · เปิด Background graphics ให้สีติดไปด้วย</span>
+  </div>
+
+  <div id="sheet">
+    <div class="sl-bg"></div>
+
+    <div class="sl-head">
+      <div class="sl-title">ENERGY SAVING ANALYSIS</div>
+      <div class="sl-sub" id="slSub">ภาระความเย็นจากอากาศภายนอก เทียบกับระบบเติมอากาศแบบเดิม</div>
+    </div>
+
+    <div class="sl-body">
+      <div class="sl-col">
+        <div class="sl-col-h">
+          <div class="t" id="slLeftT">Conventional System</div>
+          <div class="s" id="slLeftS"></div>
+        </div>
+        <div class="sl-metrics" id="slLeft"></div>
+      </div>
+
+      <div class="sl-mid">
+        <div class="sl-mid-t" id="slMidT"></div>
+        <div class="sl-arrows"><span>&#10095;&#10095;</span></div>
+      </div>
+
+      <div class="sl-col sl-col-hi">
+        <div class="sl-col-h">
+          <div class="t" id="slRightT">Coral Solution</div>
+          <div class="s" id="slRightS"></div>
+        </div>
+        <div class="sl-metrics" id="slRight"></div>
+        <div class="sl-save" id="slSave"></div>
+      </div>
+    </div>
+
+    <div class="sl-notes" id="slNotes"></div>
+    <div class="sl-by" id="slBy"></div>
+  </div>
 </div>
 
 <!-- ══════════════════ EQUATIONS ══════════════════ -->
@@ -719,6 +879,30 @@ table.dtable td.st{white-space:nowrap}
   และจะทำให้คนเลือกตัวเลขที่ไม่ตรงกับจุดทำงานของงานตัวเอง<br>
   วิธีที่ถูกคือคำนวณจากลม ความดัน และประสิทธิภาพ ที่จุดทำงานจริง ตารางข้างล่างมีไว้
   <b>ตรวจสอบความสมเหตุสมผล</b> ไม่ใช่ให้หยิบไปใช้ตรง ๆ</div>
+
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row"><h3>Zehnder ComfoAir · เครื่องที่ทีมขาย</h3>
+        <span class="pill src">EC fan ทุกรุ่น</span></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>รุ่น</th><th class="num">ลมที่ความเร็วสูงสุด<br>m³/h</th>
+          <th class="num">ความดันที่เหลือใช้ได้<br>Pa</th><th class="num">กำลังไฟทั้งเครื่อง<br>W</th>
+          <th class="num">W ต่อ CMH</th><th>ไฟฟ้า</th></tr></thead>
+        <tbody id="zehBody"></tbody>
+      </table></div>
+      <div class="note" style="margin-top:12px"><b>ทำไมตัวเลขนี้ดีกว่าที่สมการคำนวณได้</b>
+      เพราะเป็นกำลังไฟที่ผู้ผลิตวัดมาแล้วที่จุดทำงานจริง รวมพัดลมทั้งสองตัว แกนแลกเปลี่ยน
+      และชุดกรอง G4 กับ H11 ไว้หมดแล้ว · เลือกรุ่นในแท็บคำนวณแล้วค่านี้จะถูกเติมให้อัตโนมัติ</div>
+      <div class="warnbox" style="margin-bottom:0"><b>ที่ยังต้องกรอกเอง คือ ηt</b>
+      ตารางประสิทธิภาพในแคตตาล็อกมีสี่แถว คือความร้อนสัมผัสกับเอนทัลปี แยกโหมดทำความเย็นและทำความร้อน
+      แต่ลำดับแถวอ่านจากไฟล์ไม่ออกว่าแถวไหนเป็นอะไร · ที่ซีรีส์ <b>CA-D9 เล็ก</b> ทั้งสองแถวที่เป็นไปได้
+      อยู่ราว 70% ที่ความเร็วสูง จึงพอใช้ตัวเลขนั้นได้ แต่ที่ <b>ซีรีส์ Medium</b> สองแถวต่างกันราว 5 จุด
+      ซึ่งมากพอที่จะเปลี่ยนคำตอบ <b>ให้เปิดแคตตาล็อกอ่านแถวที่ถูกต้องเอง</b><br><br>
+      <b>ที่มา</b> Zehnder Comfoair ERV catalogue ชุด CA-D9 · CA-D9 Medium size · CA-L925
+      · ตาราง Performance parameters</div>
+    </div>
+  </div>
 
   <div class="chart-grid g1">
     <div class="card">
@@ -1215,6 +1399,15 @@ var KRUGER = [
   ['CCE 12-9 6P-1 3SY',4547,1150,940,5.8,59],
   ['CCE 12-12 6P-1 3SY',5200,1220,940,6.2,62]
 ];
+function fillZeh(){
+  $('zehBody').innerHTML = ZEHNDER.map(function(z){
+    return '<tr><td class="mono" style="font-size:12px">'+z[0]+'</td>'
+      + '<td class="num">'+fmt(z[1])+'</td><td class="num">'+fmt(z[2])+'</td>'
+      + '<td class="num"><b>'+fmt(z[3])+'</b></td>'
+      + '<td class="num">'+fmt(z[3]/z[1],3)+'</td>'
+      + '<td style="font-size:11.5px">'+z[4].split(' · ')[1]+'</td></tr>';
+  }).join('');
+}
 function fillKruger(){
   $('krugerBody').innerHTML = KRUGER.map(function(r){
     return '<tr><td class="mono" style="font-size:12px">'+r[0]+'</td>'
@@ -1360,9 +1553,152 @@ function render(){
     + '<td class="num"><b>' + (nv('baht_rt') > 0 ? baht(m.capex)+' บาท'
         : 'ใส่ราคาต่อ RT เพื่อคิดเป็นเงิน') + '</b></td></tr>';
 
+  renderSheet();
   drawBars($('bars')); drawSens($('sens'));
   attachChart($('bars')); attachChart($('sens'));
   if(MODAL) drawModal();
+}
+
+
+
+/* ── Zehnder ComfoAir, from the catalogues the team sells from ──
+   [label, m3/h at top speed, available Pa at top speed, rated W at top speed, source]
+   All EC fans. Rated power is for the whole unit, both fans together. */
+var ZEHNDER = [
+  ['CA-D915M-1 · เพดาน',      150, 160,  64, 'CA-D9 · 220V 50Hz'],
+  ['CA-D925M-1 · เพดาน',      250, 160, 107, 'CA-D9 · 220V 50Hz'],
+  ['CA-D935M-1 · เพดาน',      350, 180, 148, 'CA-D9 · 220V 50Hz'],
+  ['CA-D950M-1 · เพดาน',      500, 200, 215, 'CA-D9 · 220V 50Hz'],
+  ['CA-L925M1 · ตู้ตั้งพื้น',   250, 185, 106, 'CA-L925 · 220V 50Hz'],
+  ['CA-D9100R(L)-23 · เพดาน', 1000, 150, 450, 'CA-D9 Medium · 220V 50Hz'],
+  ['CA-D9150R(L)-23 · เพดาน', 1500, 150, 675, 'CA-D9 Medium · 220V 50Hz'],
+  ['CA-D9200-25 · เพดาน',     2000, 210, 900, 'CA-D9 Medium · 380V 50Hz'],
+  ['CA-D9300-25 · เพดาน',     3000, 210,1350, 'CA-D9 Medium · 380V 50Hz']
+];
+function fillErvPick(){
+  $('ervpick').innerHTML = '<option value="">ไม่ระบุรุ่น · ใช้การคำนวณ</option>'
+    + ZEHNDER.map(function(z,i){
+        return '<option value="'+i+'">' + z[0] + ' · ' + fmt(z[1]) + ' CMH · '
+             + fmt(z[3]) + ' W</option>'; }).join('');
+}
+$('ervpick').addEventListener('change', function(){
+  var z = ZEHNDER[+this.value];
+  if(!z){ $('ervpickHint').textContent = 'กลับไปคำนวณจากความดันและประสิทธิภาพที่กรอกไว้'; render(); return; }
+  /* widen the track before writing, or a large airflow gets clamped */
+  if(z[1] > (parseFloat($('oa').max)||0)) $('oa').max = Math.ceil(z[1]*1.15/1000)*1000;
+  $('oa').value = z[1];
+  $('w_e').value = z[3];
+  $('dp_e').value = z[2];
+  $('ervpickHint').innerHTML = z[0] + ' · ลม <b>' + fmt(z[1]) + '</b> CMH ที่ความเร็วสูงสุด · '
+    + 'ความดันที่เหลือใช้ได้ <b>' + fmt(z[2]) + '</b> Pa · กำลังไฟ <b>' + fmt(z[3]) + '</b> W<br>'
+    + '<b>ยังต้องกรอก ηt เอง</b> เพราะตารางในแคตตาล็อกมีสี่แถวประสิทธิภาพที่แยกไม่ออกว่าแถวไหนคือเอนทัลปีตอนทำความเย็น '
+    + '· ที่ซีรีส์ CA-D9 เล็กอยู่ราว 70% ที่ความเร็วสูง · ' + z[4];
+  render();
+});
+
+/* ─────────────── the customer slide ─────────────── */
+/* TGO board announcement of 30 Nov 2025, effective 1 Jan 2026:
+   0.4750 kgCO2e/kWh covers combustion plus transmission and distribution
+   losses, which is the Scope 2 figure a client reports. */
+var GRID_EF = 0.4750;
+var BTU_PER_KW = 3412.142;
+
+function esc(t){
+  return String(t == null ? '' : t).replace(/[&<>"]/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; });
+}
+/* percentage ring, drawn the way the team's deck draws it: a light track
+   with the value arc on top and the number in the middle */
+function ring(pct, col, track){
+  var R = 25, c = 2*Math.PI*R;
+  var p = Math.max(0, Math.min(100, pct));
+  return '<svg class="sl-ring" width="68" height="68" viewBox="0 0 68 68" aria-hidden="true">'
+    + '<circle cx="34" cy="34" r="'+R+'" fill="none" stroke="'+track+'" stroke-width="9"/>'
+    + (p > 0.5 ? '<circle cx="34" cy="34" r="'+R+'" fill="none" stroke="'+col+'" stroke-width="9"'
+        + ' stroke-linecap="round" stroke-dasharray="'+c.toFixed(2)+'"'
+        + ' stroke-dashoffset="'+(c*(1-p/100)).toFixed(2)+'"'
+        + ' transform="rotate(-90 34 34)"/>' : '')
+    + '<text x="34" y="39" text-anchor="middle" font-size="14.5" font-weight="700"'
+    + ' fill="#9B9A97">'+Math.round(p)+'%</text></svg>';
+}
+function metric(head, val, unit, cls, pct, col, track, v2, u2, foot){
+  return '<div class="sl-m">'
+    + '<div class="sl-m-hw"><span class="sl-m-h">'+head+'</span></div>'
+    + '<div class="sl-m-v '+cls+'">'+val+'</div><div class="sl-m-u">'+unit+'</div>'
+    + ring(pct, col, track)
+    + (v2 ? '<div class="sl-m-v2 '+cls+'">'+v2+'</div><div class="sl-m-u">'+u2+'</div>' : '')
+    + (foot ? '<div class="sl-m-foot">'+foot+'</div>' : '')
+    + '</div>';
+}
+
+function renderSheet(){
+  var m = model();
+  var name = ($('pjName').value || '').trim();
+  var by = ($('pjBy').value || '').trim();
+  var area = Math.max(0, nv('pjArea'));
+
+  $('slSub').textContent = (name ? name + ' · ' : '')
+    + 'ภาระความเย็นจากอากาศภายนอกและค่าไฟฟ้า เทียบกับการเติมอากาศแบบเดิม';
+
+  $('slLeftT').textContent = 'ระบบเติมอากาศแบบเดิม';
+  $('slLeftS').textContent = 'ใช้' + BASE_LABEL[BASE] + ' ไม่มีการดึงพลังงานกลับ';
+  $('slRightT').textContent = 'Coral Solution';
+  $('slRightS').textContent = 'ระบบดึงพลังงานกลับ ประสิทธิภาพแกน ' + fmt(m.et*100,0) + '%';
+
+  /* cooling load carried by the outdoor air, at the condition used for energy */
+  var kwBase = m.qBaseAv/1000, kwErv = m.qBaseAv*(1-m.et)/1000;
+  var btuBase = kwBase*BTU_PER_KW, btuErv = kwErv*BTU_PER_KW;
+  var pctLoad = kwBase > 0 ? kwErv/kwBase*100 : 0;
+
+  /* energy is the whole picture: cooling plus the fans that move the air */
+  var kwhBase = m.kwhCoolBase + m.kwhFanBase, kwhErv = m.kwhCoolErv + m.kwhFanErv;
+  var pctEnergy = kwhBase > 0 ? kwhErv/kwhBase*100 : 0;
+
+  $('slLeft').innerHTML =
+      metric('ภาระความเย็น<br>จากอากาศภายนอก', fmt(btuBase), 'BTU/h', 'cy',
+             100, '#2BC4E8', '#D8F4FB',
+             area ? fmt(btuBase/area) : '', area ? 'BTU/h ต่อ ตร.ม.' : '',
+             area ? 'พื้นที่ปรับอากาศ<br><b>'+fmt(area)+'</b> ตร.ม.' : '')
+    + metric('พลังงานไฟฟ้า<br>ที่ใช้ต่อปี', fmt(kwhBase), 'kWh/ปี', 'rd',
+             100, '#F1555A', '#FBDDDE',
+             fmt(m.bahtBase), 'บาท/ปี',
+             'เฉลี่ย <b>'+fmt(m.bahtBase/12)+'</b> บาท/เดือน');
+
+  $('slRight').innerHTML =
+      metric('ภาระความเย็น<br>จากอากาศภายนอก', fmt(btuErv), 'BTU/h', 'cy',
+             pctLoad, '#2BC4E8', '#D8F4FB',
+             area ? fmt(btuErv/area) : '', area ? 'BTU/h ต่อ ตร.ม.' : '',
+             area ? 'พื้นที่ปรับอากาศ<br><b>'+fmt(area)+'</b> ตร.ม.' : '')
+    + metric('พลังงานไฟฟ้า<br>ที่ใช้ต่อปี', fmt(kwhErv), 'kWh/ปี', 'rd',
+             pctEnergy, '#F1555A', '#FBDDDE',
+             fmt(m.bahtErv), 'บาท/ปี',
+             'เฉลี่ย <b>'+fmt(m.bahtErv/12)+'</b> บาท/เดือน');
+
+  var netKwh = kwhBase - kwhErv;
+  var tco2 = netKwh*GRID_EF/1000;
+  $('slSave').innerHTML = m.net > 0
+    ? '<div class="l">Saving</div><div class="v">' + baht(m.net) + '</div>'
+      + '<div class="u">บาท/ปี · หักค่าไฟพัดลมที่เพิ่มขึ้นแล้ว · ลดคาร์บอน '
+      + fmt(Math.max(0,tco2),1) + ' tCO₂e ต่อปี</div>'
+    : '<div class="l" style="color:var(--sl-red)">ยังไม่คุ้มค่าไฟที่เงื่อนไขนี้</div>'
+      + '<div class="u">ค่าไฟพัดลมที่เพิ่มขึ้นมากกว่าความเย็นที่ประหยัดได้ '
+      + 'ประโยชน์หลักจึงอยู่ที่คุณภาพอากาศ</div>';
+
+  $('slMidT').innerHTML = 'ด้วยระบบ<br>ดึงพลังงานกลับ<br>ของ Coral Life';
+
+  $('slNotes').innerHTML =
+      'ตัวเลขทั้งหมดเป็นเฉพาะส่วนของ<b>อากาศภายนอกที่เติมเข้าอาคาร</b> '
+    + 'ไม่ได้รวมภาระจากผนัง หลังคา กระจก คน และแสงสว่าง<br>'
+    + '* คิดที่ลมภายนอก ' + fmt(m.Q) + ' CMH · สภาวะนอกอาคาร ' + fmt(nv('tav'),1) + ' °C '
+    + fmt(nv('rav'),0) + '% · ในห้อง ' + fmt(m.Tr,1) + ' °C ' + fmt(nv('rr'),0) + '% · '
+    + 'ใช้งาน ' + fmt(nv('hpd'),1) + ' ชม./วัน ' + fmt(nv('dpy')) + ' วัน/ปี · '
+    + 'ค่าไฟ ' + fmt(m.rate,2) + ' บาท/หน่วย · COP ' + fmt(m.cop,2) + '<br>'
+    + '** ยังไม่รวมค่าบำรุงรักษาชุดกรองและแกนแลกเปลี่ยน และไม่ได้ตีมูลค่าคุณภาพอากาศที่ดีขึ้น '
+    + 'ซึ่งมักเป็นเหตุผลหลักในการติดตั้ง · ค่าการปล่อยคาร์บอน 0.4750 kgCO₂e ต่อหน่วย ตามประกาศ อบก.';
+
+  $('slBy').innerHTML = (by ? esc(by) + ' · ' : '')
+    + new Date().toLocaleDateString('th-TH', { year:'numeric', month:'long', day:'numeric' })
+    + ' · วิธีคำนวณอ้างอิง ASHRAE Handbook Fundamentals 2021 บทที่ 1 และบทที่ 18';
 }
 
 /* ─────────────── modal ─────────────── */
@@ -1396,7 +1732,7 @@ document.querySelectorAll('.tab').forEach(function(b){
     b.classList.add('active');
     $('p-'+b.dataset.p).classList.add('active');
     window.scrollTo(0,0);
-    if(b.dataset.p === 'calc') render();
+    if(b.dataset.p === 'calc' || b.dataset.p === 'present') render();
   });
 });
 $('basebar').addEventListener('click', function(e){
@@ -1409,7 +1745,8 @@ $('basebar').addEventListener('click', function(e){
   render();
 });
 ['tpk','rpk','tav','rav','tr','rr','et','hpd','dpy','rate','cop','baht_rt',
- 'dp_b','eta_b','nf_b','w_b','dp_e','eta_e','nf_e','w_e','oa'].forEach(function(id){
+ 'dp_b','eta_b','nf_b','w_b','dp_e','eta_e','nf_e','w_e','oa',
+ 'pjName','pjArea','pjBy'].forEach(function(id){
   $(id).addEventListener('input', render);
 });
 $('oanum').addEventListener('input', function(){
@@ -1443,7 +1780,7 @@ window.addEventListener('resize', function(){ render(); });
 
 $('stamp').textContent = new Date().toLocaleDateString('th-TH',
   { year:'numeric', month:'short', day:'numeric' });
-fillKruger(); fillPana();
+fillKruger(); fillPana(); fillErvPick(); fillZeh();
 render();
 })();
 
