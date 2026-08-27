@@ -410,6 +410,68 @@ tfoot td{background:var(--surface); font-weight:600}
     </div>
 
     <div class="card">
+      <div class="card-title-row">
+        <h3>Silencer และข้องอ · ค่าจากตาราง SMACNA</h3>
+        <div class="segbar" id="silmode" style="width:auto;margin:0">
+          <button type="button" data-sa="1" class="active">ใช้ตาราง</button>
+          <button type="button" data-sa="0">พิมพ์เอง</button>
+        </div>
+      </div>
+      <div id="silInputs">
+        <div class="field">
+          <label class="flabel" for="siltype">ชนิด silencer</label>
+          <select id="siltype">
+            <option value="rectStd">สี่เหลี่ยม ความดันตกมาตรฐาน · ตาราง 14-62</option>
+            <option value="rectLow">สี่เหลี่ยม ความดันตกต่ำ · ตาราง 14-63</option>
+            <option value="roundHigh">กลม ความดันตกสูง · ตาราง 14-64</option>
+            <option value="roundLow">กลม ความดันตกต่ำ · ตาราง 14-65</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="grid2">
+            <div><label class="flabel" for="silv">ความเร็วผ่านหน้าตัด · fpm</label>
+                 <input type="number" id="silv" value="1000" min="100" step="100"></div>
+            <div><label class="flabel">ทิศทางเสียงเทียบกับลม</label>
+                 <div class="segbar" id="sildir">
+                   <button type="button" data-ag="0" class="active">ตามทางลม</button>
+                   <button type="button" data-ag="1">สวนทางลม</button>
+                 </div></div>
+          </div>
+        </div>
+        <div class="hint" id="silhint"></div>
+        <div class="warnbox" id="silregen" style="margin:10px 0 0;display:none"></div>
+      </div>
+
+      <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div class="grid3">
+          <div><label class="flabel" for="elbw">กว้างข้องอ · มม.</label>
+               <input type="number" id="elbw" value="600" min="50" step="50"></div>
+          <div><label class="flabel" for="elbn">จำนวนข้องอ</label>
+               <input type="number" id="elbn" value="2" min="1" step="1"></div>
+          <div><label class="flabel" for="erd">ปลายท่อ · มม.</label>
+               <input type="number" id="erd" value="300" min="50" step="25"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="flabel" for="elbkind">ชนิดข้องอ</label>
+        <select id="elbkind">
+          <option value="plainLined">เหลี่ยม บุฉนวน ไม่มีใบกั้น · ตาราง 14-59</option>
+          <option value="plainUnlined">เหลี่ยม ไม่บุ ไม่มีใบกั้น · ตาราง 14-59</option>
+          <option value="vaneLined">เหลี่ยม บุฉนวน มีใบกั้น · ตาราง 14-61</option>
+          <option value="vaneUnlined">เหลี่ยม ไม่บุ มีใบกั้น · ตาราง 14-61</option>
+          <option value="round">กลม · ตาราง 14-60</option>
+        </select>
+        <div class="hint" id="elbhint"></div>
+      </div>
+      <div class="prose" style="font-size:12.5px;color:var(--text-secondary);margin-top:10px">
+        ตาราง silencer ของ SMACNA เป็นค่าที่ตัวบทระบุว่าใช้ได้<b>เมื่อยังไม่มีข้อมูลของผู้ผลิต</b>
+        พอเลือกรุ่นจริงได้แล้วให้พิมพ์ทับด้วยค่าจากแคตตาล็อก · ข้องอคิดจาก fw
+        คือความถี่กลางเป็น kHz คูณความกว้างข้องอเป็นนิ้ว ตามรูป 11-22
+      </div>
+    </div>
+
+
+    <div class="card">
       <h3>รวมหลายเส้นทาง</h3>
       <div class="prose" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">
         SMACNA คิดเสียงจากทุกเส้นทางแล้วบวกกันแบบพลังงาน เครื่องมือนี้คำนวณเส้นทางผ่านช่องลมให้
@@ -630,14 +692,22 @@ L<i>p</i>(r) = L<i>w</i> − 10·log₁₀(2πr²)
       ค่าเหล่านี้มาจากประสบการณ์และดุลยพินิจ ไม่ใช่ผลวัดปฏิกิริยาของคน จึงเป็นขอบเขตที่ยอมรับได้โดยทั่วไปเท่านั้น ·
       พื้นที่ที่ต้องการต่ำกว่า RC 30 และ<b>พื้นที่การแสดงทุกประเภท ควรให้ที่ปรึกษาด้านอะคูสติกดูแล</b> ·
       ถ้าคุณภาพของเสียงในห้องสำคัญให้ระบุเป็น RC(N) แทน NC
-      <br><br><b>ที่มา</b> ตารางค่า NC ที่ ASHRAE แนะนำ อ้างผ่าน Price Industries Air Distribution
-      Engineering Guide ตารางที่ 9 · ยังไม่ได้เปิด ASHRAE ฉบับต้นทางยืนยันโดยตรง</div>
+      <br><br><b>ที่มา</b> ตารางที่ 1 ของ Price Industries คู่มือ Terminal Units หน้า F-15
+      ซึ่งระบุต้นทางไว้สองแห่งคือ <b>ASHRAE Applications Handbook ปี 2007 ตารางที่ 42 หน้า 47.34</b>
+      และ <b>AHRI Standard 885-2008 ตารางที่ 15 หน้า 31</b> · ยังไม่ได้เปิดสองเล่มนั้นทานเองโดยตรง
+      แต่ผู้เผยแพร่ระบุเลขตารางและเลขหน้าไว้ชัด จึงตรวจสอบย้อนได้</div>
     </div>
   </div>
 
   <div class="chart-grid g1">
     <div class="card">
       <h3>ที่มาของค่าลดเสียงแต่ละชิ้น</h3>
+      <div class="note" style="margin-bottom:14px"><b>อัปเดต</b> Silencer ข้องอ และ end reflection
+      เปลี่ยนจากค่าประมาณมาเป็นค่าจากตารางแล้ว · silencer อ่านจาก <b>SMACNA ตาราง 14-62 ถึง 14-65</b>
+      ข้องอจาก <b>ตาราง 14-59 ถึง 14-61 กับรูป 11-22</b> และ end reflection จาก
+      <b>AHRI 885-2008 ภาคผนวก D ตาราง D13</b><br>
+      เหลือที่ยังเป็นค่าประมาณสองรายการ คือ <b>ตัวเครื่อง ERV</b> และ <b>ห้องลดเสียง</b>
+      ซึ่งต้องใช้ข้อมูลผู้ผลิตเท่านั้น</div>
       <div class="tablewrap">
         <table class="dtable">
           <thead><tr><th>ชิ้นส่วน</th><th>ที่มา</th><th>ความมั่นใจ</th></tr></thead>
@@ -709,10 +779,10 @@ var SPECTRA = {
 var ELEMENTS = [
   { id:'duct',   on:true,  name:'ท่อลมบุฉนวน 6 ม.',        il:[1,3,6,12,18,18,15],
     src:'ค่ากลางทั่วไปของท่อบุใยแก้ว 25 มม.', conf:'ประมาณการ' },
-  { id:'elbow',  on:true,  name:'ข้องอบุฉนวน 2 ตัว',        il:[1,2,4,6,8,8,7],
-    src:'ค่ากลางทั่วไป', conf:'ประมาณการ' },
-  { id:'sil1',   on:true,  name:'Silencer หลัก 1.5–2.4 ม.', il:[5,9,16,28,35,30,22],
-    src:'ค่ากลางทั่วไปของ splitter silencer', conf:'ประมาณการ' },
+  { id:'elbow',  on:true,  name:'ข้องอ',                    il:[1,2,4,6,8,8,7],
+    src:'SMACNA ตาราง 14-59', conf:'คำนวณตาม SMACNA' },
+  { id:'sil1',   on:true,  name:'Silencer หลัก',            il:[5,14,31,45,51,53,51],
+    src:'SMACNA ตาราง 14-62', conf:'คำนวณตาม SMACNA' },
   { id:'erv',    on:true,  name:'ตัวเครื่อง ERV',           il:[3,5,8,10,12,12,10],
     src:'ค่ากลางทั่วไปของตัวถังบุฉนวนพร้อมแกนแลกเปลี่ยน', conf:'ประมาณการ' },
   { id:'sil2',   on:true,  name:'Silencer ตัวที่สอง 0.9–1.5 ม.', il:[2,5,12,22,28,24,18],
@@ -721,7 +791,9 @@ var ELEMENTS = [
     src:'IAC Slimshield SL-300 · Transmission Loss จากแคตตาล็อก rev 23/12/2019 · free area 45%',
     conf:'ข้อมูลผู้ผลิต' },
   { id:'plenum', on:false, name:'ห้องลดเสียงก่ออิฐ 2 หักเลี้ยว', il:[6,9,14,20,24,22,18],
-    src:'ค่ากลางทั่วไปของห้องลดเสียงบุฉนวน', conf:'ประมาณการ' }
+    src:'ค่ากลางทั่วไปของห้องลดเสียงบุฉนวน', conf:'ประมาณการ' },
+  { id:'endref', on:false, name:'End reflection ที่ปลายท่อ', il:[0,6,3,1,0,0,0],
+    src:'AHRI 885-2008 ภาคผนวก D ตาราง D13', conf:'ข้อมูลมาตรฐาน' }
 ];
 
 /* IAC SL-300 static pressure drop vs face velocity, from the same sheet */
@@ -788,7 +860,99 @@ function massLawTL(ws){
   return BANDS.map(function(f){ return Math.max(0, 20*Math.log10(ws*f) - 47); });
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   SMACNA · duct silencers, tables 14-62 to 14-65
+   Rows are face velocity in fpm. A positive velocity means sound and
+   air travel the same way, negative means they oppose. Rectangular
+   tables are for a 7 ft (2.13 m) unit; the book publishes no other
+   length, so the length is stated rather than scaled.
+   Bands: 63 125 250 500 1k 2k 4k
+   ═══════════════════════════════════════════════════════════════════ */
+var SIL = {
+  rectStd: { name:'สี่เหลี่ยม ความดันตกมาตรฐาน 7 ฟุต', tbl:'14-62', len:'7 ฟุต (2.13 ม.)',
+    il:{  1000:[5,14,31,45,51,53,51],  2000:[4,12,26,43,47,48,47],
+         '-1000':[7,19,36,44,48,50,48], '-2000':[4,19,34,42,46,48,46] },
+    lw:{  1000:[58,52,42,36,37,35,30], 1500:[64,57,58,49,45,49,48], 2000:[72,65,64,63,55,56,57],
+         '-1000':[55,52,54,55,55,64,64],'-1500':[61,58,59,61,61,66,75],'-2000':[69,66,65,75,71,73,79] } },
+  rectLow: { name:'สี่เหลี่ยม ความดันตกต่ำ 7 ฟุต', tbl:'14-63', len:'7 ฟุต (2.13 ม.)',
+    il:{  1000:[2,8,18,33,41,47,24],  2000:[1,8,17,32,39,44,24],  2500:[1,7,17,30,37,42,24],
+         '-1000':[1,11,21,35,41,45,22],'-2000':[1,11,21,36,40,43,21],'-3000':[1,9,21,34,38,40,20] },
+    lw:{  1000:[58,51,40,34,35,28,27], 2000:[67,61,58,53,51,54,52], 2500:[74,68,65,62,56,59,60],
+         '-1000':[58,49,46,44,49,45,34],'-2000':[70,61,59,56,57,62,58],'-2500':[74,67,64,62,61,65,65] } },
+  roundHigh:{ name:'กลม ความดันตกสูง', tbl:'14-64', len:'ตามที่ตัวบทระบุ',
+    il:{  1000:[4,7,21,32,38,38,26],  2000:[4,7,20,32,38,38,27],  3000:[4,7,19,31,38,38,27],
+         '-1000':[5,9,23,33,39,37,25],'-2000':[5,9,23,34,37,36,24],'-3000':[6,10,24,34,37,36,24] },
+    lw:{  1000:[62,43,38,39,36,25,22], 2000:[62,58,53,54,53,51,45], 3000:[72,66,62,64,63,64,61],
+         '-1000':[56,43,41,38,37,31,23],'-2000':[66,56,54,54,57,54,49],'-3000':[76,64,63,64,67,67,65] } },
+  roundLow: { name:'กลม ความดันตกต่ำ', tbl:'14-65', len:'ตามที่ตัวบทระบุ',
+    il:{  1000:[4,6,13,26,32,24,16],  2000:[4,5,13,25,32,24,16],  3000:[4,6,13,23,31,24,16],
+         '-1000':[5,7,16,28,35,25,24],'-2000':[4,7,16,28,35,25,17],'-3000':[6,7,16,29,35,25,16] },
+    lw:{  1000:[60,44,39,34,29,25,24], 2000:[62,58,48,47,49,45,38], 3000:[69,63,55,55,57,58,54] } }
+};
+
+/* linear interpolation between the tabulated face velocities, clamped at
+   the ends - the book gives no basis for going outside them */
+function pickVel(map, v){
+  var keys = Object.keys(map).map(Number).sort(function(a,b){ return a-b; });
+  var lo = keys[0], hi = keys[keys.length-1], out = false;
+  if(v <= lo){ return { band:map[lo], out:v < lo, at:lo }; }
+  if(v >= hi){ return { band:map[hi], out:v > hi, at:hi }; }
+  for(var i=0;i<keys.length-1;i++){
+    if(v >= keys[i] && v <= keys[i+1]){
+      var f = (v-keys[i])/(keys[i+1]-keys[i]);
+      return { band: map[keys[i]].map(function(a,k){ return a + (map[keys[i+1]][k]-a)*f; }),
+               out:false, at:v };
+    }
+  }
+  return { band:map[lo], out:true, at:lo };
+}
+function smacnaSilencer(type, vel, against){
+  var s = SIL[type] || SIL.rectStd;
+  var signed = against ? -Math.abs(vel) : Math.abs(vel);
+  var ilMap = {}, lwMap = {};
+  Object.keys(s.il).forEach(function(k){ if((+k < 0) === !!against) ilMap[k] = s.il[k]; });
+  Object.keys(s.lw).forEach(function(k){ if((+k < 0) === !!against) lwMap[k] = s.lw[k]; });
+  if(!Object.keys(ilMap).length) ilMap = s.il;
+  if(!Object.keys(lwMap).length) lwMap = s.lw;
+  var a = pickVel(ilMap, signed), b = pickVel(lwMap, signed);
+  return { il:a.band, lw:b.band, outOfRange:a.out || b.out, def:s };
+}
+
+/* ── SMACNA elbows, tables 14-59 / 14-60 / 14-61, figure 11-22 ──
+   Banded on fw = band centre frequency in kHz times elbow width in inches */
+function smacnaElbow(w_mm, kind){
+  var w = w_mm/25.4;
+  return BANDS.map(function(f){
+    var fw = (f/1000)*w;
+    if(kind === 'round')      return fw<1.9?0 : fw<3.8?1 : fw<7.5?2 : 3;              /* 14-60 */
+    if(kind === 'vaneUnlined')return fw<1.9?0 : fw<3.8?1 : fw<7.5?4 : fw<15?6 : 4;    /* 14-61 */
+    if(kind === 'vaneLined')  return fw<1.9?0 : fw<3.8?1 : fw<7.5?4 : fw<15?7 : 7;    /* 14-61 */
+    if(kind === 'plainUnlined')return fw<1.9?0: fw<3.8?1 : fw<7.5?5 : fw<15?8 : fw<30?4 : 3; /* 14-59 */
+    return                     fw<1.9?0 : fw<3.8?1 : fw<7.5?6 : fw<15?11 : 10;        /* 14-59 lined */
+  });
+}
+
+/* ── AHRI 885-2008 appendix D table D13 · end reflection ──
+   Read through Price Industries, Terminal Units guide, table 9.
+   Columns are octave bands 2 to 7, so 125 Hz up. The standard gives no
+   63 Hz figure; zero is used there rather than an invented one. */
+var ENDREF = [[150,[0,12,6,3,1,0,0]], [200,[0,9,5,2,0,0,0]], [250,[0,8,3,1,0,0,0]],
+              [300,[0,6,3,1,0,0,0]], [400,[0,5,2,0,0,0,0]]];
+function endReflection(d_mm){
+  if(d_mm <= ENDREF[0][0]) return ENDREF[0][1];
+  for(var i=0;i<ENDREF.length-1;i++){
+    var a=ENDREF[i], b=ENDREF[i+1];
+    if(d_mm>=a[0] && d_mm<=b[0]){
+      var f=(d_mm-a[0])/(b[0]-a[0]);
+      return a[1].map(function(v,k){ return v + (b[1][k]-v)*f; });
+    }
+  }
+  return ENDREF[ENDREF.length-1][1];
+}
+
 var AREA_MODE = 'direct', SPEC = 'music', roomBand = null, WALL_MODE = 'rw', DUCT_AUTO = true;
+var SIL_AUTO = true, ELB_AUTO = true;
 
 function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
 function fmt(n,d){ return (isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
@@ -846,6 +1010,54 @@ function applyDuctAuto(){
   e.conf = d.inRange ? 'คำนวณตาม SMACNA' : 'นอกช่วงสูตร';
   return d;
 }
+
+
+/* Silencer insertion loss, and the noise the silencer itself makes.
+   SMACNA presents these as typical data to use when the manufacturer has
+   none, so the badge says tabulated, not measured. */
+function applySilAuto(){
+  if(!SIL_AUTO) return null;
+  var e = ELEMENTS.filter(function(x){ return x.id === 'sil1'; })[0];
+  if(!e) return null;
+  var vel = Math.max(1, nv('silv'));
+  var r = smacnaSilencer(SIL_TYPE, vel, SIL_AGAINST);
+  e.il = r.il.map(function(v){ return Math.round(v*10)/10; });
+  e.name = 'Silencer · ' + r.def.name;
+  e.src = 'SMACNA ตาราง ' + r.def.tbl + ' · ยาว ' + r.def.len + ' · หน้าตัดผ่านลม '
+        + fmt(vel) + ' fpm · เสียงเดิน' + (SIL_AGAINST ? 'สวนทางลม' : 'ตามทางลม')
+        + (r.outOfRange ? ' · <b>นอกช่วงความเร็วที่ตารางให้ไว้</b>' : '');
+  e.conf = r.outOfRange ? 'นอกช่วงตาราง' : 'ตาราง SMACNA';
+  return r;
+}
+function applyElbowAuto(){
+  if(!ELB_AUTO) return null;
+  var e = ELEMENTS.filter(function(x){ return x.id === 'elbow'; })[0];
+  if(!e) return null;
+  var w = Math.max(25, nv('elbw')), cnt = Math.max(1, Math.round(nv('elbn')));
+  var one = smacnaElbow(w, ELB_KIND);
+  e.il = one.map(function(v){ return v*cnt; });
+  var tblName = ELB_KIND === 'round' ? '14-60'
+              : (ELB_KIND.indexOf('vane') === 0 ? '14-61' : '14-59');
+  e.name = 'ข้องอ ' + cnt + ' ตัว · ' + ELB_LABEL[ELB_KIND];
+  e.src = 'SMACNA ตาราง ' + tblName + ' และรูป 11-22 · กว้าง ' + fmt(w) + ' มม. · '
+        + 'ค่าต่อตัว ' + one.join('/') + ' dB';
+  e.conf = 'ตาราง SMACNA';
+  return { il:one, cnt:cnt };
+}
+function applyEndRef(){
+  var e = ELEMENTS.filter(function(x){ return x.id === 'endref'; })[0];
+  if(!e || !e.on) return null;
+  var d = Math.max(50, nv('erd'));
+  e.il = endReflection(d).map(function(v){ return Math.round(v*10)/10; });
+  e.src = 'AHRI 885-2008 ภาคผนวก D ตาราง D13 · ปลายท่อกลม ' + fmt(d) + ' มม. · '
+        + 'มาตรฐานไม่ให้ค่าที่ 63 Hz จึงใส่ 0 ไว้';
+  e.conf = 'ข้อมูลมาตรฐาน';
+  return e.il;
+}
+var ELB_LABEL = { plainLined:'เหลี่ยม บุฉนวน ไม่มีใบกั้น', plainUnlined:'เหลี่ยม ไม่บุ ไม่มีใบกั้น',
+                  vaneLined:'เหลี่ยม บุฉนวน มีใบกั้น', vaneUnlined:'เหลี่ยม ไม่บุ มีใบกั้น',
+                  round:'กลม' };
+var SIL_TYPE = 'rectStd', SIL_AGAINST = false, ELB_KIND = 'plainLined';
 
 function totalIL(){
   var t = [0,0,0,0,0,0,0];
@@ -1176,6 +1388,8 @@ function buildElements(){
 function render(skipInputs){
   if(!roomBand) applySpectrum();
   var ductInfo = applyDuctAuto();
+  var silInfo = applySilAuto();
+  applyElbowAuto(); applyEndRef();
   if(ductInfo){
     $('ducthint').innerHTML = 'P/A = <b>' + fmt(ductInfo.pa,2) + ' 1/ft</b> · '
       + (ductInfo.inRange ? 'อยู่ในช่วงที่สูตรรับรอง 1.17 ถึง 6'
@@ -1183,6 +1397,31 @@ function render(skipInputs){
       + (ductInfo.capped ? ' · <b>บางย่านถูกตัดที่เพดาน 40 dB</b>' : '')
       + '<br>ได้ ' + ductInfo.il.map(function(v){ return Math.round(v); }).join(' / ') + ' dB';
   }
+
+  if(silInfo){
+    $('silhint').innerHTML = 'ค่าลดเสียงที่ได้ ' + silInfo.il.map(function(v){ return Math.round(v); }).join(' / ')
+      + ' dB' + (silInfo.outOfRange
+          ? ' · <b>ความเร็วอยู่นอกช่วงที่ตารางให้ไว้ ใช้ค่าที่ขอบตารางแทน</b>' : '');
+    /* The silencer's own noise reaches the receiver through everything
+       downstream of it, so compare like with like before warning. */
+    var after = 0;
+    ELEMENTS.forEach(function(x){ if(x.on && x.id !== 'sil1') after += 0; });
+    var regenA = esum(silInfo.lw.map(function(v,i){ return v + AW[i]; }));
+    var box = $('silregen');
+    box.style.display = 'block';
+    box.innerHTML = '<b>เสียงที่ silencer สร้างขึ้นเอง</b> '
+      + silInfo.lw.map(function(v){ return Math.round(v); }).join(' / ') + ' dB · รวม '
+      + fmt(regenA,1) + ' dB(A) ที่ตัวเครื่อง<br>'
+      + 'ตัวเลขนี้เป็นกำลังเสียงที่ตัว silencer เอง ไม่ใช่เสียงที่ผู้รับได้ยิน '
+      + 'แต่<b>ยิ่งดันลมเร็วยิ่งดัง</b> ถ้าเลือกความเร็วสูงจนเสียงที่มันสร้างสูงกว่าเสียงที่มันลดได้ '
+      + 'การใส่ silencer เพิ่มก็ไม่ช่วยอะไร · ตาราง SMACNA ให้คอลัมน์นี้มาคู่กับค่าลดเสียงเสมอ';
+  } else {
+    $('silregen').style.display = 'none';
+    $('silhint').textContent = '';
+  }
+  var elbEl = ELEMENTS.filter(function(x){ return x.id === 'elbow'; })[0];
+  if(ELB_AUTO && elbEl) $('elbhint').textContent = 'รวมทั้งชุด ' + elbEl.il.map(function(v){ return Math.round(v); }).join(' / ') + ' dB';
+
   if(!skipInputs){ $('lroomVal').textContent = fmt(overallRoom(),1); }
   $('distVal').textContent = fmt(nv('dist'));
   $('bgVal').textContent = fmt(nv('bg'));
@@ -1294,6 +1533,31 @@ function render(skipInputs){
 }
 
 /* ---------------- events ---------------- */
+
+$('silmode').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  SIL_AUTO = b.dataset.sa === '1';
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  $('silInputs').hidden = !SIL_AUTO;
+  if(!SIL_AUTO){
+    var e2 = ELEMENTS.filter(function(x){ return x.id === 'sil1'; })[0];
+    if(e2){ e2.name = 'Silencer หลัก'; e2.src = 'พิมพ์ค่าเอง ไม่ได้อ่านจากตาราง';
+            e2.conf = 'ประมาณการ'; }
+  }
+  buildElements(); render();
+});
+$('sildir').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  SIL_AGAINST = b.dataset.ag === '1';
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  buildElements(); render();
+});
+$('siltype').addEventListener('change', function(){ SIL_TYPE = this.value; buildElements(); render(); });
+$('elbkind').addEventListener('change', function(){ ELB_KIND = this.value; buildElements(); render(); });
+['silv','elbw','elbn','erd'].forEach(function(id){
+  $(id).addEventListener('input', function(){ buildElements(); render(); });
+});
+
 ['lroom','dist','bg','area','cmh','fv','wallA','wallRw','wallMass','dw','dh','dt','dl','other'].forEach(function(id){
   $(id).addEventListener('input', function(){
     if(id === 'lroom') shiftRoomTo(nv('lroom'));
