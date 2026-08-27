@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERV Energy Saving Calculator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F7F5;
+  --surface: #F4F3F0;
+  --card-bg: #FFFFFF;
+  --border: #E3E2DE;
+  --text: #37352F;
+  --text-secondary: #787774;
+  --blue: #2383E2;
+  --red: #D44C47;
+  --purple: #6940A5;
+  --green: #669BBC;
+  --orange: #CB912F;
+  --gray: #9B9A97;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .sub { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.timestamp { font-size: 12px; color: var(--text-secondary); }
+
+.btn {
+  background: var(--blue); color: #fff; border: none;
+  padding: 6px 14px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; font-weight: 500; transition: opacity .15s; font-family: inherit;
+}
+.btn:hover { opacity: .85; }
+.btn:active { opacity: .7; }
+.btn.ghost { background: none; border: 1px solid var(--border); color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--surface); color: var(--text); opacity: 1; }
+
+.tabs {
+  display: flex; gap: 0; background: var(--card-bg);
+  border-bottom: 1px solid var(--border); padding: 0 32px; flex-wrap: wrap;
+  position: sticky; top: 65px; z-index: 99;
+}
+.tab {
+  padding: 10px 20px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+  user-select: none; background: none; border-top: 0; border-left: 0; border-right: 0; font-family: inherit;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.page { display: none; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+.kpi-value { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi-value.ok { color: #2E7D32; } .kpi-value.warn { color: var(--orange); } .kpi-value.bad { color: var(--red); }
+.kpi-value small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 4px; }
+.kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+.kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
+
+.chart-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+.chart-grid.g1 { grid-template-columns: 1fr; }
+.chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) {
+  .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
+  .page { padding: 16px; }
+  .header { padding: 12px 16px; }
+  .tabs { padding: 0 16px; top: 61px; }
+}
+
+.chart-grid > *, .kpi-row > * { min-width: 0; }
+.card > * { max-width: 100%; }
+.card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; position: relative; }
+.card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.card-title-row h3 { margin-bottom: 0; }
+
+.card-expand-btn {
+  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px;
+  border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer;
+  color: #787774; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; z-index: 5; font-family: inherit;
+}
+.card:hover .card-expand-btn { opacity: 1; }
+.card-expand-btn:focus-visible { opacity: 1; }
+.card-expand-btn:hover { background: var(--surface); color: #37352F; }
+
+#chartModal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
+#chartModal.open { display: flex; }
+.chart-modal-box { background: #fff; border-radius: 12px; padding: 20px 26px; width: min(1100px, 94vw); height: min(78vh, 700px); display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.chart-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+.chart-modal-head h3 { font-size: 15px; font-weight: 600; }
+.chart-modal-close { border: none; background: none; font-size: 22px; color: #787774; cursor: pointer; line-height: 1; font-family: inherit; }
+.chart-modal-close:hover { color: #37352F; }
+.chart-modal-body { flex: 1; position: relative; min-height: 0; }
+
+.canvas-wrap { position: relative; width: 100%; height: 300px; }
+.canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.canvas-wrap canvas:active { cursor: grabbing; }
+.chart-modal-body .canvas-wrap { height: 100%; }
+.zoomhint { font-size: 11.5px; color: var(--gray); margin-top: 8px; }
+.refwrap{position:relative; display:inline-block; margin-top:12px}
+.refbtn{
+  display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:12.5px;
+  padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500;
+}
+.refbtn:hover{background:var(--surface); color:var(--text)}
+.refbtn .caret{font-size:9px; opacity:.7; transition:transform .15s}
+.refbtn.open .caret{transform:rotate(180deg)}
+.refmenu{
+  display:none; position:absolute; left:0; top:calc(100% + 6px); z-index:60;
+  background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; min-width:330px;
+  max-height:340px; overflow-y:auto;
+}
+.refmenu.open{display:block}
+.refgroup{
+  font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--gray); padding:8px 10px 3px;
+}
+.refitem{
+  display:flex; align-items:flex-start; gap:9px; width:100%; text-align:left; background:none;
+  border:0; padding:7px 10px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px;
+  color:var(--text); line-height:1.4;
+}
+.refitem:hover{background:var(--surface)}
+.refitem .tick{
+  width:14px; height:14px; border-radius:4px; border:1.5px solid var(--border); flex:none;
+  margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;
+}
+.refitem.on .tick{background:var(--text); border-color:var(--text)}
+.refitem .body{flex:1; min-width:0}
+.refitem .val{font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; margin-left:8px}
+.refitem .note{display:block; font-size:11px; color:var(--gray); margin-top:1px}
+.refitem.na{opacity:.45; cursor:not-allowed}
+.refitem .dash{display:inline-block; width:14px; border-top:2px dashed currentColor; vertical-align:middle; margin-right:5px}
+.refchip{
+  display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:11.5px;
+  padding:4px 10px; border-radius:20px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500; transition:.12s;
+}
+.refchip:hover{border-color:var(--gray); color:var(--text)}
+.refchip .sw{width:14px; height:0; border-top:2px dashed currentColor; opacity:.5; flex:none}
+.refchip.on{color:var(--text); background:var(--surface-2)}
+.refchip.on .sw{opacity:1}
+.refchip.off-scale{opacity:.5}
+
+/* form controls */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.flabel { font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+input[type=number], select {
+  width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: var(--card-bg); color: var(--text);
+}
+input[type=number] { font-variant-numeric: tabular-nums; }
+select { cursor: pointer; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 11.5px; color: var(--gray); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+.segbar { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segbar button {
+  flex: 1; padding: 6px 8px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  background: var(--card-bg); color: var(--text-secondary); border: 0; border-right: 1px solid var(--border); font-weight: 500;
+}
+.segbar button:last-child { border-right: 0; }
+.segbar button.active { background: var(--text); color: #fff; }
+
+/* airflow slider block */
+.flowhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.flowval { font-size: 38px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.flowval small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 5px; }
+.flowmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { font-size: 12px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); font-weight: 500; }
+.chip.rec { border-color: #BBDDF7; background: #EDF6FD; color: #1B6FBF; }
+.stepbtn { width: 30px; height: 28px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; cursor: pointer; color: var(--text-secondary); font-size: 15px; font-family: inherit; line-height: 1; }
+.stepbtn:hover { background: var(--surface); color: var(--text); }
+
+.slider-wrap { position: relative; padding-top: 4px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer; margin: 8px 0 4px; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-moz-range-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); margin-top: -8px; }
+input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.recmark { position: absolute; top: 0; width: 2px; height: 22px; background: var(--blue); opacity: .45; pointer-events: none; border-radius: 1px; }
+
+/* tables */
+.tablewrap { overflow-x: auto; }
+table.dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.dtable th { background: var(--surface); font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.dtable td { padding: 7px 10px; border-bottom: 1px solid #f0f0ed; }
+table.dtable tr:hover td { background: #FAFAF8; }
+table.dtable td.num, table.dtable th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.gov td { background: #EDF6FD !important; font-weight: 600; }
+.badge { font-size: 11.5px; padding: 2px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; display: inline-block; }
+.badge.ok { background: #E8F3E9; color: #2E7D32; }
+.badge.bad { background: #FBEAE9; color: var(--red); }
+.badge.na { background: var(--surface); color: var(--gray); }
+
+.eq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.9;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue);
+  border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre;
+  font-variant-numeric: tabular-nums; color: var(--text-secondary); margin-bottom: 14px;
+}
+.eq b { color: var(--text); font-weight: 600; }
+.note { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #F6FAFE; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
+.note.warn { border-left-color: var(--orange); background: #FDF8EF; }
+.note b { color: var(--text); }
+.prose { font-size: 14px; color: var(--text); }
+.prose p { margin-bottom: 12px; max-width: 74ch; }
+.prose h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
+.prose ul, .prose ol { margin: 0 0 14px 20px; max-width: 74ch; }
+.prose li { margin-bottom: 6px; }
+.sectitle { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+/* embedded inside Design Management Dashboard */
+.embed .header { display: none; }
+.embed .tabs { position: static; top: auto; padding: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; background: transparent; }
+.embed .page { padding: 0; max-width: none; }
+.embed body { background: transparent; height: -moz-fit-content; height: fit-content; overflow: hidden; }
+.footer { color: var(--gray); font-size: 12px; padding: 18px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
+
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px}
+.dtable input[type=number]{padding:4px 6px; font-size:12.5px; border:1px solid var(--border); border-radius:4px; background:var(--card-bg); color:var(--text)}
+.dtable input[type=checkbox]{accent-color:var(--blue); width:15px; height:15px}
+.sectitle{font-size:22px; font-weight:700; margin-bottom:20px}
+.ref h3{font-size:15px}
+.warnbox{border:1px solid var(--border); border-left:4px solid #CB912F; background:#FDF8EF; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text-secondary)}
+.warnbox b{color:var(--text)}
+.prose{font-size:14px}
+.prose p{margin-bottom:12px; max-width:74ch}
+.prose ol,.prose ul{margin:0 0 14px 20px; max-width:74ch}
+.prose li{margin-bottom:6px}
+tfoot td{background:var(--surface); font-weight:600}
+.card-title-row .segbar{flex:none}
+.card-title-row .segbar button{padding:4px 10px; font-size:11.5px}
+</style>
+
+<style>
+.statedot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:middle;flex:none}
+.modebar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.modecard{flex:1;min-width:220px;border:1px solid var(--border);border-radius:8px;padding:11px 14px;
+  cursor:pointer;background:var(--card-bg);transition:.15s;text-align:left;font-family:inherit}
+.modecard:hover{border-color:var(--gray)}
+.modecard.active{border-color:var(--text);box-shadow:0 0 0 1px var(--text)}
+.modecard .t{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+.modecard .d{font-size:11.5px;color:var(--gray);line-height:1.45}
+.delta{font-variant-numeric:tabular-nums;font-weight:600}
+.delta.up{color:var(--red)} .delta.dn{color:#2E7D32}
+.srcline{font-size:11.5px;color:var(--gray);margin-top:6px;line-height:1.5}
+.srcline b{color:var(--text-secondary);font-weight:600}
+.verdict{border-radius:8px;padding:16px 20px;margin-bottom:20px;border:1px solid var(--border);border-left:4px solid var(--gray);background:var(--card-bg)}
+.verdict.ok{border-left-color:#2E7D32;background:#F1F7F1}
+.verdict.warn{border-left-color:#CB912F;background:#FDF8EF}
+.verdict.bad{border-left-color:var(--red);background:#FDF1F0}
+.verdict .vh{font-size:15px;font-weight:700;color:var(--text);margin-bottom:5px}
+.verdict .vb{font-size:13.5px;color:var(--text-secondary);line-height:1.6;max-width:80ch}
+.verdict .vb b{color:var(--text)}
+table.dtable td.st{white-space:nowrap}
+.pill{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface);color:var(--text-secondary);font-weight:500;white-space:nowrap}
+.pill.src{background:#EDF6FD;color:#1B6FBF}
+.pill.err{background:#FBEAE9;color:var(--red)}
+
+/* these charts are click-to-explain, not pan-and-zoom */
+.canvas-wrap canvas{cursor:crosshair}
+.canvas-wrap canvas:active{cursor:crosshair}
+.card-expand-btn{opacity:.45}
+.card:hover .card-expand-btn{opacity:1}
+
+/* floating explanation panel */
+.cinfo{
+  position:absolute; z-index:20; display:none; width:min(286px,calc(100% - 12px));
+  background:var(--card-bg); border:1px solid var(--border2,#D6D4CE); border-radius:9px;
+  box-shadow:0 6px 22px rgba(0,0,0,.16); padding:9px 11px; font-size:12.5px;
+  /* always leave room to drag it vertically; longer content scrolls inside */
+  max-height:calc(100% - 66px); overflow-y:auto;
+}
+.cinfo.open{display:block}
+.cinfo{touch-action:none}
+.cinfo-x{
+  position:absolute; top:6px; right:7px; border:0; background:none; cursor:pointer;
+  font-size:17px; line-height:1; color:var(--gray); font-family:inherit; padding:2px 4px;
+}
+.cinfo-x:hover{color:var(--text)}
+.cinfo-h{font-weight:700; font-size:12px; color:var(--text); margin-bottom:6px; padding-right:20px;
+         display:flex; align-items:center; cursor:grab; user-select:none;
+         margin:-2px -4px 7px; padding:2px 20px 2px 4px; border-radius:5px}
+.cinfo-h:hover{background:var(--surface)}
+.cinfo.dragging .cinfo-h{cursor:grabbing}
+.cinfo.dragging{box-shadow:0 12px 34px rgba(0,0,0,.24); opacity:.97}
+.cinfo.reflow{transition:left .22s ease, top .22s ease}
+/* grip dots, so it reads as something you can pick up */
+.cinfo-grip{
+  width:9px; height:12px; flex:none; margin-right:7px; opacity:.42;
+  background-image:radial-gradient(currentColor 1px, transparent 1.1px);
+  background-size:4px 4px; background-position:0 1px; color:var(--gray);
+}
+.cinfo-eq{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:10.5px; line-height:1.45;
+  background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--blue);
+  border-radius:5px; padding:6px 8px; margin-bottom:7px; white-space:pre; overflow-x:auto;
+  color:var(--text-secondary);
+}
+.cinfo-eq b{color:var(--text); font-weight:600}
+.cinfo-t{width:100%; border-collapse:collapse; margin-bottom:7px}
+.cinfo-t td{padding:1px 0; border-bottom:1px solid #F2F1EE; color:var(--text-secondary); font-size:11.5px;
+            line-height:1.5}
+.cinfo-t tr:last-child td{border-bottom:0}
+.cinfo-t td.v{text-align:right; font-variant-numeric:tabular-nums; font-weight:600;
+              color:var(--text); white-space:nowrap; padding-left:10px}
+.cinfo-m{font-size:11px; line-height:1.45; color:var(--text-secondary);
+         border-top:1px solid var(--border); padding-top:7px}
+.cinfo-m b{color:var(--text)}
+@media (max-width:560px){ .cinfo{width:calc(100% - 12px)} }
+
+/* symbol key, folded away so the panel stays small enough to move */
+.cinfo-symt{
+  display:flex; align-items:center; gap:5px; width:100%; border:0; background:none;
+  font-family:inherit; font-size:11px; font-weight:600; color:var(--blue);
+  cursor:pointer; padding:0 0 4px; text-align:left;
+}
+.cinfo-symt:hover{text-decoration:underline}
+.cinfo-symt .cv{font-size:9px; transition:transform .15s; display:inline-block}
+.cinfo-symt.open .cv{transform:rotate(180deg)}
+.cinfo-syms{margin:0 0 7px}
+.cinfo-syms table{width:100%; border-collapse:collapse}
+.cinfo-syms td{padding:1.5px 0; vertical-align:top; font-size:10.5px; line-height:1.45;
+               border-bottom:1px solid #F4F3F0}
+.cinfo-syms tr:last-child td{border-bottom:0}
+.cinfo-syms td.s{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-weight:600;
+  color:var(--text); white-space:nowrap; padding-right:8px; width:1%;
+}
+.cinfo-syms td.s sub{font-size:8px}
+.cinfo-syms td.d{color:var(--text-secondary)}
+.cinfo-syms td.v{
+  text-align:right; white-space:nowrap; padding-left:8px; color:var(--gray);
+  font-variant-numeric:tabular-nums; width:1%;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>ERV Energy Saving Calculator</h1>
+    <div class="sub">เทียบ ERV กับพัดลมระบายอากาศธรรมดา · ประหยัดกี่บาทต่อปี หักค่าไฟพัดลมที่เพิ่มแล้ว</div>
+  </div>
+  <div class="header-right">
+    <span class="timestamp" id="stamp"></span>
+    <button class="btn ghost" onclick="window.print()">พิมพ์</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-p="calc">คำนวณ</button>
+  <button class="tab" data-p="eq">สมการและที่มา</button>
+  <button class="tab" data-p="fan">ข้อมูลพัดลมอ้างอิง</button>
+</div>
+
+<!-- ══════════════════ CALC ══════════════════ -->
+<div class="page active" id="p-calc">
+
+  <div id="verdict" class="verdict"></div>
+
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-value" id="k1">–<small>บาท/ปี</small></div>
+      <div class="kpi-label">ประหยัดสุทธิต่อปี</div>
+      <div class="kpi-note" id="k1n">หักค่าไฟพัดลมที่เพิ่มแล้ว</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value" id="k2">–<small>บาท/ปี</small></div>
+      <div class="kpi-label">ค่าไฟทำความเย็นที่ลดได้</div>
+      <div class="kpi-note" id="k2n"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value" id="k3">–<small>บาท/ปี</small></div>
+      <div class="kpi-label">ค่าไฟพัดลมที่เพิ่มขึ้น</div>
+      <div class="kpi-note" id="k3n"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value" id="k4">–<small>RT</small></div>
+      <div class="kpi-label">ขนาดแอร์ที่เล็กลงได้</div>
+      <div class="kpi-note" id="k4n">เงินก้อนครั้งเดียว ไม่ใช่ทุกปี</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="flowhead">
+        <div>
+          <div class="flabel">ปริมาณลมภายนอกที่ต้องเติม</div>
+          <div class="flowval" id="oaVal">3,000<small>CMH</small></div>
+        </div>
+        <div class="flowmeta">
+          <span class="numwrap"><input type="number" id="oanum" class="numbox" min="0" step="50"><span class="u">CMH</span></span>
+          <button class="stepbtn" data-step="-100">−</button>
+          <button class="stepbtn" data-step="100">+</button>
+          <span class="chip" id="oaLs"></span>
+        </div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="oa" min="0" max="20000" step="1" value="3000">
+        <div class="ticks"><span>0</span><span id="tk1"></span><span id="tk2"></span><span id="tk3"></span><span id="tkm"></span></div>
+      </div>
+      <div class="hint">ตัวเลขนี้มาจากเครื่องมือ Ventilation &amp; CO₂ · ทั้งสองทางเลือกเติมลมเท่ากัน ต่างกันที่วิธี</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>เทียบกับอะไร</h3>
+      <div class="modebar" id="basebar">
+        <button class="modecard active" data-b="ex">
+          <div class="t">พัดลมดูดอากาศอย่างเดียว</div>
+          <div class="d">ห้องเป็นลบ อากาศนอกไหลเข้าตามรอยรั่ว · พัดลมตัวเดียว ความดันต่ำ
+          แต่ภาระอากาศนอกเข้าห้องเต็ม ๆ ไม่มีการดึงคืน</div>
+        </button>
+        <button class="modecard" data-b="sup">
+          <div class="t">พัดลมจ่าย + ดูด เป็นคู่</div>
+          <div class="d">สมดุลลม มีท่อทั้งสองทาง ควบคุมทิศทางลมได้ดีกว่า
+          แต่ใช้พัดลมสองตัวและมีท่อยาว ค่าไฟพัดลมสูงกว่า · ยังไม่มีการดึงคืนพลังงาน</div>
+        </button>
+      </div>
+      <div class="hint" id="baseHint"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g3">
+    <div class="card">
+      <h3>สภาวะออกแบบ · ใช้หาขนาดเครื่อง</h3>
+      <div class="grid2">
+        <div class="field"><label class="flabel">อุณหภูมินอก °C</label><input type="number" id="tpk" value="35" step="0.5"></div>
+        <div class="field"><label class="flabel">ความชื้นสัมพัทธ์ %</label><input type="number" id="rpk" value="60" step="1"></div>
+      </div>
+      <div class="hint" id="pkHint"></div>
+      <div class="srcline"><b>ใช้ตัวนี้หาขนาดแอร์ที่เล็กลงได้เท่านั้น</b> ไม่ได้ใช้คิดค่าไฟรายปี
+      เพราะอากาศไม่ได้ร้อนสุดตลอดเวลา</div>
+    </div>
+    <div class="card">
+      <h3>สภาวะเฉลี่ยขณะใช้งาน · ใช้คิดค่าไฟ</h3>
+      <div class="grid2">
+        <div class="field"><label class="flabel">อุณหภูมินอก °C</label><input type="number" id="tav" value="31" step="0.5"></div>
+        <div class="field"><label class="flabel">ความชื้นสัมพัทธ์ %</label><input type="number" id="rav" value="70" step="1"></div>
+      </div>
+      <div class="hint" id="avHint"></div>
+      <div class="srcline"><b>ต้องเป็นค่าเฉลี่ยของช่วงเวลาที่ระบบเดินจริง</b> ไม่ใช่ค่าเฉลี่ยทั้งวันทั้งปี
+      ถ้าใส่ค่าออกแบบสูงสุดลงตรงนี้ ตัวเลขประหยัดจะสูงเกินความจริงมาก</div>
+    </div>
+    <div class="card">
+      <h3>สภาวะในห้อง</h3>
+      <div class="grid2">
+        <div class="field"><label class="flabel">อุณหภูมิ °C</label><input type="number" id="tr" value="25" step="0.5"></div>
+        <div class="field"><label class="flabel">ความชื้นสัมพัทธ์ %</label><input type="number" id="rr" value="50" step="1"></div>
+      </div>
+      <div class="field"><label class="flabel">ประสิทธิภาพเอนทัลปีของแกน ηt %</label>
+        <input type="number" id="et" value="67" step="1"></div>
+      <div class="srcline"><b>ต้องเป็นค่าที่อัตราลมใช้งานจริง ตาม AHRI 1060</b> ไม่ใช่ค่าสูงสุดในโบรชัวร์</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g3">
+    <div class="card">
+      <h3>ชั่วโมงใช้งานและค่าไฟ</h3>
+      <div class="grid2">
+        <div class="field"><label class="flabel">ชั่วโมงต่อวัน</label><input type="number" id="hpd" value="10" step="0.5" min="0" max="24"></div>
+        <div class="field"><label class="flabel">วันต่อปี</label><input type="number" id="dpy" value="300" step="5" min="0" max="365"></div>
+      </div>
+      <div class="field"><label class="flabel">ค่าไฟ บาทต่อหน่วย</label><input type="number" id="rate" value="4.15" step="0.01"></div>
+      <div class="hint" id="hrHint"></div>
+      <div class="srcline"><b>ที่มาค่าตั้งต้น</b> ค่าไฟเฉลี่ยที่เรียกเก็บ 4.15 บาท/หน่วย ช่วง ม.ค.–เม.ย. 2568
+      และ 3.98 บาท/หน่วย ช่วง พ.ค.–ส.ค. 2568 · <b>Ft ปรับทุก 4 เดือน ควรใส่ค่าปัจจุบันเอง</b></div>
+    </div>
+    <div class="card">
+      <h3>ประสิทธิภาพระบบทำความเย็น</h3>
+      <div class="field"><label class="flabel">COP ของระบบปรับอากาศ</label>
+        <input type="number" id="cop" value="3.2" step="0.1" min="1"></div>
+      <div class="hint" id="copHint"></div>
+      <div class="field"><label class="flabel">ราคาแอร์ต่อ RT · บาท</label>
+        <input type="number" id="baht_rt" value="0" step="1000" min="0"></div>
+      <div class="hint" id="rtHint"></div>
+      <div class="srcline"><b>ไม่มีค่าตั้งต้นให้ เพราะไม่มีตัวเลขที่อ้างอิงได้</b>
+      ราคาต่อ RT ต่างกันมากตามชนิดระบบและช่วงเวลา ตั้งแต่หลักหมื่นต้นสำหรับสปลิต
+      ไปจนถึงหลายหมื่นสำหรับ VRF และชิลเลอร์ · <b>ใส่ราคาจริงของงานนั้นเอง</b>
+      ถ้าเว้นไว้เป็นศูนย์ เครื่องมือจะแสดงเฉพาะจำนวน RT ที่ลดได้</div>
+    </div>
+    <div class="card">
+      <h3>ตัวเลขที่ต้องระวัง</h3>
+      <div class="prose" style="font-size:13px">
+        <p style="margin-bottom:8px">ผลลัพธ์ไวต่อสามตัวนี้มากที่สุด เรียงตามความแรง</p>
+        <ol style="margin-left:18px">
+          <li><b>สภาวะเฉลี่ยขณะใช้งาน</b> ใส่ค่าออกแบบแทนค่าเฉลี่ยทำให้ประหยัดดูสูงเกินจริงได้เกิน 50%</li>
+          <li><b>ηt ที่อัตราลมจริง</b> โบรชัวร์มักวัดที่ลมต่ำกว่าจุดใช้งาน</li>
+          <li><b>ความดันตกของฝั่ง ERV</b> แกนแลกเปลี่ยนกับฟิลเตอร์เพิ่มความดันมาก ทำให้ค่าไฟพัดลมสูงกว่าพัดลมธรรมดาเสมอ</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>พัดลมของทางเลือกที่เอามาเทียบ</h3>
+      <div class="grid3">
+        <div class="field"><label class="flabel">ความดันรวม Pa</label><input type="number" id="dp_b" value="150" step="10" min="0"></div>
+        <div class="field"><label class="flabel">ประสิทธิภาพ %</label><input type="number" id="eta_b" value="45" step="1" min="5" max="90"></div>
+        <div class="field"><label class="flabel">จำนวนพัดลม</label><input type="number" id="nf_b" value="1" step="1" min="1" max="4"></div>
+      </div>
+      <div class="hint" id="fanBhint"></div>
+      <div class="field" style="margin-top:10px">
+        <label class="flabel">หรือใส่กำลังไฟจากแคตตาล็อกตรง ๆ · W ต่อพัดลม 1 ตัว · เว้นว่างถ้าให้คำนวณ</label>
+        <input type="number" id="w_b" placeholder="ปล่อยว่างไว้เพื่อให้คำนวณจากสมการ" step="10" min="0">
+      </div>
+    </div>
+    <div class="card">
+      <h3>พัดลมของ ERV</h3>
+      <div class="grid3">
+        <div class="field"><label class="flabel">ความดันรวม Pa</label><input type="number" id="dp_e" value="300" step="10" min="0"></div>
+        <div class="field"><label class="flabel">ประสิทธิภาพ %</label><input type="number" id="eta_e" value="45" step="1" min="5" max="90"></div>
+        <div class="field"><label class="flabel">จำนวนพัดลม</label><input type="number" id="nf_e" value="2" step="1" min="1" max="4"></div>
+      </div>
+      <div class="hint" id="fanEhint"></div>
+      <div class="field" style="margin-top:10px">
+        <label class="flabel">หรือใส่กำลังไฟจากแคตตาล็อกตรง ๆ · W รวมทั้งเครื่อง · เว้นว่างถ้าให้คำนวณ</label>
+        <input type="number" id="w_e" placeholder="ปล่อยว่างไว้เพื่อให้คำนวณจากสมการ" step="10" min="0">
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <button class="card-expand-btn" data-chart="bars" type="button" title="ขยายเต็มจอ">⤢</button>
+      <div class="card-title-row"><h3>ค่าไฟต่อปี · เทียบสองทางเลือก</h3>
+        <span class="pill" id="basePill"></span></div>
+      <div class="canvas-wrap" style="height:340px"><canvas id="bars"></canvas></div>
+      <div class="zoomhint">แท่งล่างคือค่าไฟทำความเย็นของภาระอากาศนอก แท่งบนคือค่าไฟพัดลม · กดที่แท่งเพื่อดูรายละเอียด</div>
+    </div>
+    <div class="card">
+      <button class="card-expand-btn" data-chart="sens" type="button" title="ขยายเต็มจอ">⤢</button>
+      <div class="card-title-row"><h3>ถ้าประสิทธิภาพแกนต่างไป</h3>
+        <span class="pill src">จุดคุ้มทุนอยู่ตรงไหน</span></div>
+      <div class="canvas-wrap" style="height:340px"><canvas id="sens"></canvas></div>
+      <div class="zoomhint">เส้นคือประหยัดสุทธิต่อปี · จุดที่ตัดเส้นศูนย์คือ ηt ต่ำสุดที่ยังคุ้ม</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ตารางเทียบทีละบรรทัด</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>รายการ</th><th class="num" id="colBase">พัดลมธรรมดา</th>
+          <th class="num">ERV</th><th class="num">ต่างกัน</th></tr></thead>
+        <tbody id="cmpBody"></tbody>
+      </table></div>
+      <div class="hint" id="cmpHint"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>เงินก้อนครั้งเดียว · แยกจากค่าไฟรายปี</h3>
+      <div class="tablewrap"><table class="dtable">
+        <tbody id="capBody"></tbody>
+      </table></div>
+      <div class="note warn" style="margin-top:12px;margin-bottom:0"><b>อย่าเอาสองอย่างนี้มาบวกกันแล้วเรียกว่าประหยัดต่อปี</b>
+      ค่าไฟเป็นเงินที่ประหยัดได้<b>ทุกปี</b> ส่วนแอร์ที่เล็กลงเป็นเงินที่ประหยัดได้<b>ครั้งเดียวตอนซื้อ</b>
+      เวลาเสนอลูกค้าให้แยกสองบรรทัดนี้ให้ชัด ไม่งั้นตัวเลขจะดูดีเกินจริงและถูกจับได้<br><br>
+      และตัวเลขแอร์ที่เล็กลงจะเป็นจริงก็ต่อเมื่อ<b>ยังไม่ได้ซื้อแอร์</b> ถ้าแอร์ติดตั้งไปแล้ว
+      สิ่งที่ได้คือกำลังเหลือเพิ่มขึ้น ไม่ใช่เงินคืน</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ EQUATIONS ══════════════════ -->
+<div class="page" id="p-eq">
+  <div class="sectitle">สมการทุกตัวและที่มา</div>
+
+  <div class="note"><b>หลักที่ยึด</b> เครื่องมือนี้ไม่ได้ใช้ฐานข้อมูลรุ่นพัดลม แต่คำนวณกำลังไฟจากจุดทำงานจริง
+  ด้วยสมการที่ตรวจสอบกับตัวอย่างในแคตตาล็อกของผู้ผลิตเองแล้ว · ดูหลักฐานที่แท็บข้อมูลพัดลมอ้างอิง</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>1 · ภาระอากาศภายนอกของสองทางเลือก</h3>
+      <div class="eq">อากาศภายนอกพาพลังงานเข้ามาเท่ากันทั้งสองทาง ต่างกันที่แกน ERV ดึงคืนได้
+
+<b>พัดลมธรรมดา</b>  ไม่มีการดึงคืน
+   q<b>base</b> = 1.2 · Q · (h<b>oa</b> − h<b>r</b>)                    ASHRAE บทที่ 18 สมการ (7)
+
+<b>ERV</b>  แกนดึงคืนได้ตามประสิทธิภาพเอนทัลปี
+   q<b>erv</b> = 1.2 · Q · (1 − η<b>t</b>) · (h<b>oa</b> − h<b>r</b>)
+
+<b>ส่วนที่ตัดออกไปได้</b>
+   q<b>saved</b> = η<b>t</b> · q<b>base</b>
+
+   Q หน่วย L/s · h หน่วย kJ/kg · ผลลัพธ์เป็นวัตต์
+   เอนทัลปีคำนวณจาก ASHRAE บทที่ 1 สมการ (21) และ (32) ชุดเดียวกับเครื่องมือ ERV Load Impact</div>
+      <div class="note" style="margin-bottom:0"><b>สังเกตว่าสมการนี้ใช้เอนทัลปี ไม่ใช่อุณหภูมิ</b>
+      เพราะในเมืองไทยภาระส่วนใหญ่เป็นความชื้น ไม่ใช่ความร้อน การคิดด้วยอุณหภูมิอย่างเดียว
+      จะมองไม่เห็นงานหลักที่แกน ERV ทำให้</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>2 · ค่าไฟทำความเย็น</h3>
+      <div class="eq">kWh ต่อปี = q(kW) ÷ COP × ชั่วโมงต่อวัน × วันต่อปี
+บาทต่อปี  = kWh ต่อปี × ค่าไฟต่อหน่วย
+
+<b>COP</b> คืออัตราส่วนความเย็นที่ได้ต่อไฟฟ้าที่ใช้ · ถ้ามีแต่ค่า kW/RT ให้แปลงด้วย
+   COP = 3.517 ÷ (kW ต่อ RT)
+
+   ตัวอย่าง  1.1 kW/RT → COP 3.20     0.9 kW/RT → COP 3.91</div>
+      <div class="note warn" style="margin-bottom:0"><b>จุดที่ทำให้ตัวเลขเพี้ยนมากที่สุด</b>
+      คือใช้<b>สภาวะออกแบบสูงสุด</b>มาคิดค่าไฟทั้งปี · อากาศนอกร้อนสุดแค่ไม่กี่ชั่วโมงต่อปี
+      เครื่องมือนี้จึงแยกช่องสภาวะออกเป็นสองชุด ชุดออกแบบใช้หาขนาดเครื่อง
+      ชุดเฉลี่ยใช้คิดค่าไฟ · <b>ถ้าใส่เหมือนกันทั้งสองช่อง ผลประหยัดจะสูงเกินจริง</b></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>3 · ค่าไฟพัดลม · จุดที่คนขายมักไม่พูดถึง</h3>
+      <div class="eq"><b>กำลังไฟที่พัดลมกิน</b>
+   W = Q · Δp / η
+
+   Q  ปริมาณลม           m³/s
+   Δp ความดันรวมที่ต้องเอาชนะ   Pa
+   η  ประสิทธิภาพรวมของพัดลมและมอเตอร์
+
+<b>ERV กินไฟพัดลมมากกว่าเสมอ</b> ด้วยสองเหตุผล
+   1. มีพัดลมสองตัว จ่ายและดูด ส่วนพัดลมดูดอย่างเดียวมีตัวเดียว
+   2. ลมต้องผ่านแกนแลกเปลี่ยนและฟิลเตอร์ ความดันจึงสูงกว่ามาก
+
+ประหยัดสุทธิ = ค่าไฟทำความเย็นที่ลดได้ − ค่าไฟพัดลมที่เพิ่มขึ้น</div>
+      <div class="note" style="margin-bottom:0"><b>ทำไมต้องหักส่วนนี้</b>
+      เครื่องคิดเลขของฝ่ายการตลาดส่วนใหญ่บอกแต่ความเย็นที่ประหยัดได้ แล้วลืมค่าไฟพัดลมที่เพิ่ม
+      ทำให้ตัวเลขคืนทุนดูดีเกินจริง · <b>การแสดงทั้งสองฝั่งทำให้ข้อเสนอน่าเชื่อถือกว่ามาก</b>
+      เวลาไปเจอวิศวกรฝั่งลูกค้าที่ตรวจงานเป็น</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>4 · สองฐานเทียบให้ผลไม่เท่ากัน</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ฐานที่เทียบ</th><th>พัดลม</th><th>ความดันทั่วไป</th><th>ผลต่อตัวเลขประหยัด</th></tr></thead>
+        <tbody>
+          <tr><td><b>ดูดอากาศอย่างเดียว</b></td><td class="num">1 ตัว</td><td class="num">ต่ำ ราว 100–200 Pa</td>
+            <td>ค่าไฟพัดลมฝั่งเทียบต่ำมาก ทำให้ส่วนต่างที่ ERV ต้องจ่ายเพิ่มดูสูง
+            <b>เป็นการเทียบที่โหดกับ ERV ที่สุด</b></td></tr>
+          <tr><td><b>จ่าย + ดูด เป็นคู่</b></td><td class="num">2 ตัว</td><td class="num">ปานกลาง ราว 200–350 Pa</td>
+            <td>ฝั่งเทียบกินไฟพัดลมใกล้เคียง ERV อยู่แล้ว ส่วนต่างจึงเหลือน้อย
+            <b>ทำให้ ERV ดูคุ้มขึ้น และเป็นการเทียบที่ตรงกว่า</b>เมื่องานนั้นต้องการลมสมดุลอยู่แล้ว</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note" style="margin-top:12px;margin-bottom:0"><b>เลือกฐานให้ตรงกับสิ่งที่ลูกค้าจะทำจริงถ้าไม่ซื้อ ERV</b>
+      ถ้างานนั้นยังไงก็ต้องมีลมจ่ายเพื่อคุมแรงดันห้อง การเทียบกับพัดลมดูดตัวเดียวไม่ยุติธรรมกับ ERV
+      แต่ถ้าลูกค้าจะติดพัดลมดูดอย่างเดียวจริง ๆ ก็ต้องเทียบแบบนั้น</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>5 · ข้อจำกัดที่ต้องรู้ก่อนเอาไปเสนอ</h3>
+      <div class="prose"><ol>
+        <li><b>ใช้สภาวะเดียวแทนทั้งปี</b> ของจริงอากาศนอกเปลี่ยนทุกชั่วโมง การคำนวณที่ละเอียดกว่านี้
+        ต้องใช้ข้อมูลรายชั่วโมงทั้งปี ตัวเลขที่ได้จึงเป็นค่าประมาณระดับตัดสินใจ ไม่ใช่ระดับรับประกัน</li>
+        <li><b>ถือว่าแอร์เดินตลอดเวลาที่ระบบเติมลมเดิน</b> ถ้าแอร์ปิดแต่พัดลมยังเดิน
+        ส่วนที่ประหยัดจะไม่เกิดขึ้นในช่วงนั้น</li>
+        <li><b>COP ถือว่าคงที่</b> ของจริงเปลี่ยนตามภาระและอุณหภูมิภายนอก</li>
+        <li><b>ไม่ได้คิดค่าบำรุงรักษา</b> ERV มีฟิลเตอร์และแกนที่ต้องล้างหรือเปลี่ยน
+        ซึ่งเป็นค่าใช้จ่ายที่พัดลมธรรมดาไม่มีหรือมีน้อยกว่า · <b>ถ้าจะเสนอแบบครบควรบวกส่วนนี้เข้าไปเอง</b></li>
+        <li><b>ไม่ได้คิดประโยชน์ที่ตีเป็นเงินยาก</b> เช่นคุณภาพอากาศที่ดีขึ้น การกรองฝุ่น
+        และการควบคุมแรงดันห้อง ซึ่งมักเป็นเหตุผลหลักที่ลูกค้าซื้อจริง มากกว่าเรื่องค่าไฟ</li>
+      </ol></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ FAN DATA ══════════════════ -->
+<div class="page" id="p-fan">
+  <div class="sectitle">ข้อมูลพัดลมอ้างอิง</div>
+
+  <div class="note"><b>ทำไมเครื่องมือนี้ไม่มีฐานข้อมูลรุ่นให้เลือก</b><br>
+  ตารางในแคตตาล็อกให้ <i>Max Q</i> ซึ่งเป็นลมที่ความดันศูนย์ กับ <i>กำลังมอเตอร์สูงสุด</i>
+  ซึ่งเป็นคนละจุดทำงานกัน <b>เอามาหารกันจะได้ค่า W ต่อ CMH ที่ไม่มีความหมาย</b>
+  และจะทำให้คนเลือกตัวเลขที่ไม่ตรงกับจุดทำงานของงานตัวเอง<br>
+  วิธีที่ถูกคือคำนวณจากลม ความดัน และประสิทธิภาพ ที่จุดทำงานจริง ตารางข้างล่างมีไว้
+  <b>ตรวจสอบความสมเหตุสมผล</b> ไม่ใช่ให้หยิบไปใช้ตรง ๆ</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>พิสูจน์ว่าสมการกำลังพัดลมถูก · เทียบกับตัวอย่างของ Kruger เอง</h3>
+      <div class="prose"><p>แคตตาล็อก CFC Series ของ Kruger หน้า 4 มีตัวอย่างการเลือกพัดลมพร้อมคำตอบ
+      เอามาแทนในสมการแล้วได้ตรงกัน</p></div>
+      <div class="eq">ที่ Kruger พิมพ์ไว้
+   Q = 7,710 m³/h   Pt = 730 Pa   η = 62%   <b>W = 2.5 kW</b>
+
+แทนในสมการ
+   Q = 7,710 ÷ 3,600 = 2.1417 m³/s
+   W = 2.1417 × 730 ÷ 0.62 = 2,522 W = <b>2.522 kW</b>
+
+   ต่างจากที่แคตตาล็อกพิมพ์ <b>0.9%</b>
+
+จุดที่สองบนหน้าเดียวกัน 7,520 m³/h ที่ 744 Pa และ 2.5 kW
+   ย้อนหาประสิทธิภาพได้ <b>62.2%</b> ตรงกับที่เขาระบุว่า 62%</div>
+      <div class="srcline"><b>ที่มา</b> Kruger Ventilation · CFC Series Cabinet Fan Product Catalogue หน้า 4
+      · ดาวน์โหลดจาก krugerfan.com</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>Kruger CCE Series · พัดลมในท่อขับตรง</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>รุ่น</th><th class="num">Max Q<br>m³/h</th><th class="num">กำลังมอเตอร์สูงสุด<br>W</th>
+          <th class="num">รอบ<br>rpm</th><th class="num">กระแส<br>A</th><th class="num">เสียงที่ 3 ม.<br>dB(A)</th></tr></thead>
+        <tbody id="krugerBody"></tbody>
+      </table></div>
+      <div class="warnbox" style="margin-top:12px;margin-bottom:0"><b>อ่านตารางนี้ให้ถูก</b>
+      สองคอลัมน์แรกเป็นคนละจุดทำงาน · Max Q คือลมตอนไม่มีความดันต้าน ซึ่งตอนนั้นมอเตอร์ไม่ได้กินไฟสูงสุด
+      ส่วนกำลังสูงสุดเกิดที่จุดอื่นบนเส้นโค้ง · <b>ห้ามเอาสองค่านี้มาหารกัน</b><br>
+      ใช้ตารางนี้เพื่อดูว่าพัดลมขนาดนี้อยู่ในระดับกี่ร้อยวัตต์ แล้วเทียบกับที่สมการคำนวณได้ว่าสมเหตุสมผลไหม
+      <br><br><b>ที่มา</b> Kruger Ventilation · In-Line Direct Driven Fan CCE Series แผ่นข้อมูล CCELEA138
+      ตาราง Technical Data · 220 V 50 Hz 1 เฟส</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g2">
+    <div class="card">
+      <h3>Panasonic · ตัวอย่างที่ยืนยันได้</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ความดันสถิต</th><th class="num">ลม CFM</th><th class="num">ลม m³/h</th>
+          <th class="num">กำลังไฟ W</th><th class="num">W ต่อ CMH</th></tr></thead>
+        <tbody>
+          <tr><td>0.1 นิ้วน้ำ ≈ 25 Pa</td><td class="num">280</td><td class="num">476</td>
+            <td class="num">67.1</td><td class="num">0.141</td></tr>
+          <tr><td>0.25 นิ้วน้ำ ≈ 62 Pa</td><td class="num">243</td><td class="num">413</td>
+            <td class="num">65.8</td><td class="num">0.159</td></tr>
+        </tbody>
+      </table></div>
+      <div class="warnbox" style="margin-bottom:0"><b>เป็นรุ่นที่ขายในอเมริกา 120 V 60 Hz</b>
+      ไม่ใช่รุ่นที่ขายในไทย และเป็นพัดลมฝ้าสำหรับที่พักอาศัย ไม่ใช่งานพาณิชย์
+      <b>ใช้ดูลำดับความมากน้อยได้ แต่ห้ามอ้างเป็นสเปกของงานไทย</b><br><br>
+      <b>ที่มา</b> Panasonic WhisperCeiling FV-30VQ3 Specification Submittal Data
+      ดาวน์โหลดจาก ftp.panasonic.com</div>
+    </div>
+    <div class="card">
+      <h3>ที่ยังหาไม่ได้ และจะทำให้ครบได้ยังไง</h3>
+      <div class="prose"><p><b>แคตตาล็อก Panasonic ฝั่งอาเซียนและไทย ดึงข้อมูลอัตโนมัติไม่ได้</b>
+      หน้าสเปกของ Panasonic Middle East และ Panasonic Malaysia ปิดกั้นการเข้าถึงแบบอัตโนมัติทั้งหมด</p>
+      <p>ถ้าต้องการข้อมูลรุ่นที่ขายในไทยจริง ๆ วิธีที่ได้ผลคือ<b>ดาวน์โหลดแคตตาล็อกมาเป็นไฟล์
+      แล้วส่งเข้ามาให้ดึงข้อมูล</b> แบบเดียวกับที่ทำกับ SMACNA และ Cengel มาแล้ว</p>
+      <p><b>แต่ก่อนจะทำแบบนั้น ควรถามก่อนว่าจำเป็นจริงไหม</b> เพราะสิ่งที่เครื่องมือนี้ต้องการคือ
+      ความดันกับประสิทธิภาพที่จุดทำงาน ซึ่งได้จากการเลือกพัดลมของงานนั้นอยู่แล้ว
+      ไม่ได้ต้องการรายชื่อรุ่นทั้งหมดในตลาด</p></div>
+      <div class="note" style="margin-bottom:0"><b>ทางที่เร็วกว่า</b>
+      เมื่อเลือกรุ่นได้แล้ว ให้พิมพ์กำลังไฟจากแคตตาล็อกลงในช่องที่เตรียมไว้ในแท็บคำนวณโดยตรง
+      แม่นกว่าการคำนวณและไม่ต้องมีฐานข้อมูลอะไรเลย</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  ที่มาทั้งหมด · ASHRAE Handbook 2021 Fundamentals บทที่ 1 และบทที่ 18 ·
+  Kruger Ventilation CFC และ CCE Series catalogues · Panasonic FV-30VQ3 submittal data ·
+  อัตราค่าไฟฟ้าจากประกาศของการไฟฟ้านครหลวง ปี 2568
+</div>
+
+<div id="chartModal">
+  <div class="chart-modal-box">
+    <div class="chart-modal-head"><h3 id="modalTitle"></h3>
+      <button class="chart-modal-close" id="modalClose">×</button></div>
+    <div class="chart-modal-body"><div class="canvas-wrap"><canvas id="modalCanvas"></canvas></div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(i){ return document.getElementById(i); };
+var C = { blue:'#2383E2', red:'#D44C47', purple:'#6940A5', green:'#2E7D32',
+          orange:'#CB912F', grid:'#E3E2DE', txt:'#787774', ink:'#37352F', gray:'#9B9A97' };
+
+/* ═══════════════════════════════════════════════════════════════
+   ASHRAE Handbook 2021 Fundamentals, chapter 1 - same set as the
+   ERV Load Impact tool, so the two agree by construction.
+   eq (5) IAPWS-IF97 saturation pressure, eq (21) humidity ratio,
+   eq (32) enthalpy.
+   ═══════════════════════════════════════════════════════════════ */
+var NC = [ 0.11670521452767e4, -0.72421316703206e6, -0.17073846940092e2,
+           0.12020824702470e5, -0.32325550323333e7,  0.14915108613530e2,
+          -0.48232657361591e4,  0.40511340542057e6, -0.23855557567849e0,
+           0.65017534844798e3 ];
+var PATM = 101.325;
+function pws(t){
+  var T = t + 273.15, th = T + NC[8]/(T - NC[9]);
+  var A = th*th + NC[0]*th + NC[1];
+  var B = NC[2]*th*th + NC[3]*th + NC[4];
+  var D = NC[5]*th*th + NC[6]*th + NC[7];
+  return Math.pow(2*D/(-B + Math.sqrt(B*B - 4*A*D)), 4) * 1000;
+}
+function Wof(t, rh){
+  var pw = rh * pws(t);
+  if(pw >= PATM) pw = PATM * 0.9999;
+  return 0.621945 * pw / (PATM - pw);
+}
+function hof(t, W){ return 1.006*t + W*(2501 + 1.86*t); }
+var CT = 1.2;      /* ch.18 eq (7), standard air */
+var RTW = 3517;
+
+function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
+function raw(id){ var s = ($(id).value || '').trim(); return s === '' ? null : parseFloat(s); }
+function fmt(n,d){ d = d||0; return (isFinite(n)?n:0).toLocaleString('en-US',
+  {minimumFractionDigits:d, maximumFractionDigits:d}); }
+function baht(n){ return fmt(Math.round(n)); }
+
+var BASE = 'ex';   /* 'ex' exhaust only, 'sup' supply + exhaust pair */
+var BASE_LABEL = { ex:'พัดลมดูดอย่างเดียว', sup:'พัดลมจ่าย + ดูด' };
+
+/* ─────────────── the model ─────────────── */
+function model(etOverride){
+  var Q  = nv('oa'), Ql = Q/3.6;
+  var et = (etOverride === undefined ? nv('et')/100 : etOverride);
+  var Tr = nv('tr'), Wr = Wof(Tr, nv('rr')/100), hr = hof(Tr, Wr);
+
+  /* design condition drives equipment size only */
+  var Wpk = Wof(nv('tpk'), nv('rpk')/100), hpk = hof(nv('tpk'), Wpk);
+  var qBasePk = CT*Ql*(hpk - hr);
+  var rtSaved = qBasePk*et/RTW;
+
+  /* the condition the system actually runs in drives the bill */
+  var Wav = Wof(nv('tav'), nv('rav')/100), hav = hof(nv('tav'), Wav);
+  var qBaseAv = CT*Ql*(hav - hr);
+  var qSavedAv = qBaseAv*et;
+
+  var hours = Math.max(0, nv('hpd'))*Math.max(0, nv('dpy'));
+  var cop = Math.max(0.5, nv('cop')), rate = nv('rate');
+
+  var kwhCoolBase = qBaseAv/1000/cop*hours;
+  var kwhCoolErv  = qBaseAv*(1-et)/1000/cop*hours;
+  var kwhCoolSaved = kwhCoolBase - kwhCoolErv;
+
+  /* W = Q x dp / eta, verified against Kruger's own worked example */
+  function fanW(dpId, etaId, nId, wId){
+    var manual = raw(wId), n = Math.max(1, Math.round(nv(nId)));
+    if(manual !== null && isFinite(manual)){
+      /* the ERV box asks for the whole machine, the other for one fan */
+      return { W: (wId === 'w_e') ? manual : manual*n, manual:true, n:n };
+    }
+    var eta = Math.max(0.05, nv(etaId)/100);
+    return { W: (Ql/1000)*nv(dpId)/eta*n, manual:false, n:n };
+  }
+  var fb = fanW('dp_b','eta_b','nf_b','w_b');
+  var fe = fanW('dp_e','eta_e','nf_e','w_e');
+  var kwhFanBase = fb.W/1000*hours, kwhFanErv = fe.W/1000*hours;
+
+  var bahtCoolSaved = kwhCoolSaved*rate;
+  var bahtFanExtra  = (kwhFanErv - kwhFanBase)*rate;
+  var net = bahtCoolSaved - bahtFanExtra;
+
+  return { Q:Q, Ql:Ql, et:et, hr:hr, hpk:hpk, hav:hav, Tr:Tr,
+           qBasePk:qBasePk, rtSaved:rtSaved, qBaseAv:qBaseAv, qSavedAv:qSavedAv,
+           hours:hours, cop:cop, rate:rate,
+           kwhCoolBase:kwhCoolBase, kwhCoolErv:kwhCoolErv, kwhCoolSaved:kwhCoolSaved,
+           fb:fb, fe:fe, kwhFanBase:kwhFanBase, kwhFanErv:kwhFanErv,
+           bahtCoolSaved:bahtCoolSaved, bahtFanExtra:bahtFanExtra, net:net,
+           bahtBase:(kwhCoolBase + kwhFanBase)*rate,
+           bahtErv:(kwhCoolErv + kwhFanErv)*rate,
+           capex: rtSaved*nv('baht_rt') };
+}
+
+/* ─────────────── canvas plumbing ─────────────── */
+function prep(cv){
+  var r = window.devicePixelRatio || 1, b = cv.getBoundingClientRect();
+  cv.width = Math.max(1, Math.round(b.width*r));
+  cv.height = Math.max(1, Math.round(b.height*r));
+  var g = cv.getContext('2d');
+  g.setTransform(r,0,0,r,0,0);
+  g.clearRect(0,0,b.width,b.height);
+  g.font = '11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+  cv._hits = [];
+  return { g:g, w:b.width, h:b.height };
+}
+function dot(g,x,y,col){
+  g.beginPath(); g.arc(x,y,5.5,0,6.2832);
+  g.fillStyle = col; g.fill();
+  g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+}
+function distToSeg(px,py,x1,y1,x2,y2){
+  var dx=x2-x1, dy=y2-y1, L=dx*dx+dy*dy;
+  var t = L ? ((px-x1)*dx + (py-y1)*dy)/L : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.sqrt(Math.pow(px-(x1+t*dx),2) + Math.pow(py-(y1+t*dy),2));
+}
+function hitAt(cv, x, y){
+  var best=null, bd=1e9, hs=cv._hits||[];
+  hs.forEach(function(h){ if(h.kind!=='point') return;
+    var d=Math.sqrt(Math.pow(x-h.x,2)+Math.pow(y-h.y,2));
+    if(d<15 && d<bd){ bd=d; best=h; } });
+  if(best) return best;
+  hs.forEach(function(h){ if(h.kind!=='rect') return;
+    if(x>=h.x && x<=h.x+h.w && y>=h.y && y<=h.y+h.h){ bd=0; best=h; } });
+  if(best) return best;
+  hs.forEach(function(h){ if(h.kind!=='seg') return;
+    var d=distToSeg(x,y,h.x1,h.y1,h.x2,h.y2);
+    if(d<10 && d<bd){ bd=d; best=h; } });
+  return best;
+}
+var SHOW_SYMS = false;
+function buildSymbols(el, wrap, syms){
+  var eq = el.querySelector('.cinfo-eq'); if(!eq) return;
+  var t = document.createElement('button');
+  t.type='button'; t.className='cinfo-symt';
+  t.innerHTML = 'ตัวแปรในสมการ<span class="cv">▾</span>';
+  var body = document.createElement('div');
+  body.className='cinfo-syms';
+  body.innerHTML = '<table>' + syms.map(function(s){
+    return '<tr><td class="s">'+s[0]+'</td><td class="d">'+s[1]+'</td><td class="v">'+(s[2]||'')+'</td></tr>';
+  }).join('') + '</table>';
+  eq.parentNode.insertBefore(t, eq.nextSibling);
+  eq.parentNode.insertBefore(body, t.nextSibling);
+  function paint(){ t.classList.toggle('open', SHOW_SYMS); body.style.display = SHOW_SYMS?'block':'none'; }
+  paint();
+  t.addEventListener('click', function(e){
+    e.stopPropagation(); SHOW_SYMS = !SHOW_SYMS; paint();
+    placeInfo(el, wrap, el._px, el._py);
+  });
+}
+function placeInfo(el, wrap, px, py){
+  var w=wrap.clientWidth, h=wrap.clientHeight, bw=el.offsetWidth, bh=el.offsetHeight, x, y;
+  if(wrap._cinfoPos){ x=wrap._cinfoPos.x; y=wrap._cinfoPos.y; }
+  else { x = (px < w/2) ? w-bw-6 : 6; y = (py < h/2) ? h-bh-6 : 6; }
+  el.style.left = Math.min(Math.max(6,x), Math.max(6,w-bw-6)) + 'px';
+  el.style.top  = Math.min(Math.max(6,y), Math.max(6,h-bh-6)) + 'px';
+}
+function makeDraggable(el, wrap){
+  if(el._drag) return; el._drag = true;
+  var sx, sy, ox, oy, on=false;
+  function pt(e){ return e.touches && e.touches[0] ? e.touches[0] : e; }
+  function down(e){
+    if(e.target.closest('.cinfo-x')) return;
+    var p=pt(e); on=true; sx=p.clientX; sy=p.clientY;
+    ox=parseFloat(el.style.left)||0; oy=parseFloat(el.style.top)||0;
+    el.classList.add('dragging'); e.preventDefault();
+  }
+  function move(e){
+    if(!on) return; var p=pt(e);
+    var x=ox+(p.clientX-sx), y=oy+(p.clientY-sy);
+    x=Math.min(Math.max(0,x), Math.max(0,wrap.clientWidth-el.offsetWidth));
+    y=Math.min(Math.max(0,y), Math.max(0,wrap.clientHeight-el.offsetHeight));
+    el.style.left=x+'px'; el.style.top=y+'px';
+    wrap._cinfoPos={x:x,y:y}; e.preventDefault();
+  }
+  function up(){ on=false; el.classList.remove('dragging'); }
+  el.addEventListener('mousedown', function(e){ if(e.target.closest('.cinfo-h')) down(e); });
+  el.addEventListener('touchstart', function(e){ if(e.target.closest('.cinfo-h')) down(e); }, {passive:false});
+  document.addEventListener('mousemove', move);
+  document.addEventListener('touchmove', move, {passive:false});
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchend', up);
+  el.addEventListener('dblclick', function(e){
+    if(!e.target.closest('.cinfo-h')) return;
+    wrap._cinfoPos = null; placeInfo(el, wrap, el._px, el._py);
+  });
+}
+function showInfo(cv, hit, px, py){
+  var wrap = cv.parentElement, el = wrap.querySelector('.cinfo');
+  if(!el){ el = document.createElement('div'); el.className='cinfo'; wrap.appendChild(el); }
+  var i = hit.info;
+  el.innerHTML =
+      '<button class="cinfo-x" type="button" aria-label="ปิด">×</button>'
+    + '<div class="cinfo-h" title="ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่ง">'
+    + '<span class="cinfo-grip" aria-hidden="true"></span>'
+    + '<span class="statedot" style="background:'+i.col+'"></span>'+i.title+'</div>'
+    + (i.eq ? '<div class="cinfo-eq">'+i.eq+'</div>' : '')
+    + '<table class="cinfo-t"><tbody>'
+    + i.rows.map(function(r){ return '<tr><td>'+r[0]+'</td><td class="v">'+r[1]+'</td></tr>'; }).join('')
+    + '</tbody></table><div class="cinfo-m">'+i.mean+'</div>';
+  el.classList.add('open');
+  el.querySelector('.cinfo-x').onclick = function(e){ e.stopPropagation(); el.classList.remove('open'); };
+  el._px = px; el._py = py;
+  el.style.left='0px'; el.style.top='0px';
+  if(i.syms) buildSymbols(el, wrap, i.syms);
+  placeInfo(el, wrap, px, py);
+  makeDraggable(el, wrap);
+}
+function attachChart(cv){
+  if(cv._wired) return; cv._wired = true;
+  cv.addEventListener('click', function(e){
+    var b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
+    var hit = hitAt(cv,x,y);
+    if(hit) showInfo(cv,hit,x,y);
+    else { var el=cv.parentElement.querySelector('.cinfo'); if(el) el.classList.remove('open'); }
+  });
+  cv.addEventListener('mousemove', function(e){
+    var b=cv.getBoundingClientRect();
+    cv.style.cursor = hitAt(cv, e.clientX-b.left, e.clientY-b.top) ? 'pointer' : 'crosshair';
+  });
+}
+
+/* ─────────────── stacked bars ─────────────── */
+function drawBars(cv){
+  var p = prep(cv), g = p.g, m = model();
+  var L=64, R=16, T=22, B=48;
+  var maxV = Math.max(m.bahtBase, m.bahtErv, 1)*1.15;
+  var py = function(v){ return p.h-B - v/maxV*(p.h-B-T); };
+
+  g.strokeStyle=C.grid; g.lineWidth=1; g.fillStyle=C.txt; g.textAlign='right';
+  for(var k=0;k<=4;k++){
+    var v = maxV*k/4, yy = py(v);
+    g.beginPath(); g.moveTo(L,yy); g.lineTo(p.w-R,yy); g.stroke();
+    g.fillText(baht(v), L-6, yy+4);
+  }
+  g.textAlign='left'; g.fillText('บาทต่อปี', 4, T-8);
+
+  var cols = [
+    { x:0, label:BASE_LABEL[BASE], cool:m.kwhCoolBase*m.rate, fan:m.kwhFanBase*m.rate, w:m.fb.W },
+    { x:1, label:'ERV',            cool:m.kwhCoolErv*m.rate,  fan:m.kwhFanErv*m.rate,  w:m.fe.W }
+  ];
+  var slot = (p.w-L-R)/2, bw = Math.min(140, slot*0.5);
+  cols.forEach(function(c){
+    var cx = L + slot*c.x + slot/2, x0 = cx - bw/2;
+    var yCool = py(c.cool), hCool = p.h-B-yCool;
+    var yTop  = py(c.cool + c.fan), hFan = yCool - yTop;
+    g.fillStyle = C.blue;   g.fillRect(x0, yCool, bw, hCool);
+    g.fillStyle = C.orange; g.fillRect(x0, yTop,  bw, hFan);
+    g.fillStyle = C.ink; g.textAlign='center';
+    g.font='600 12px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+    g.fillText(baht(c.cool + c.fan), cx, yTop - 7);
+    g.font='11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+    g.fillStyle=C.txt;
+    g.fillText(c.label, cx, p.h-B+16);
+    g.fillText('พัดลม ' + fmt(c.w) + ' W', cx, p.h-B+30);
+
+    cv._hits.push({ kind:'rect', x:x0, y:yCool, w:bw, h:Math.max(6,hCool), info:{
+      col:C.blue, title:'ค่าไฟทำความเย็น · ' + c.label,
+      eq:'q = 1.2 · Q · Δh          ASHRAE บทที่ 18 สมการ (7)\nkWh = q ÷ COP × ชั่วโมง',
+      syms:[['Q','ปริมาณลมภายนอก', fmt(m.Ql,1)+' L/s'],
+            ['Δh','ส่วนต่างเอนทัลปีที่สภาวะเฉลี่ย', fmt(m.hav-m.hr,2)+' kJ/kg'],
+            ['COP','ประสิทธิภาพระบบทำความเย็น', fmt(m.cop,2)],
+            ['ชั่วโมง','ชั่วโมงใช้งานต่อปี', fmt(m.hours)+' ชม.']],
+      rows:[['ภาระอากาศนอก', fmt((c.x?m.qBaseAv*(1-m.et):m.qBaseAv)/1000,2)+' kW'],
+            ['พลังงานต่อปี', fmt(c.x?m.kwhCoolErv:m.kwhCoolBase)+' kWh'],
+            ['ค่าไฟต่อปี', baht(c.cool)+' บาท']],
+      mean: c.x ? 'ฝั่ง ERV เตี้ยกว่าเพราะแกนดึงพลังงานคืนได้ <b>'+fmt(m.et*100,0)+'%</b> ก่อนลมถึงห้อง'
+                : 'อากาศนอกเข้าห้องเต็มที่ ไม่มีการดึงคืน แอร์ต้องรับทั้งหมด' }});
+    cv._hits.push({ kind:'rect', x:x0, y:yTop, w:bw, h:Math.max(6,hFan), info:{
+      col:C.orange, title:'ค่าไฟพัดลม · ' + c.label,
+      eq:'W = Q · Δp / η\nตรวจกับตัวอย่างในแคตตาล็อก Kruger แล้ว ต่างกัน 0.9%',
+      syms:[['Q','ปริมาณลม', fmt(m.Ql/1000,4)+' m³/s'],
+            ['Δp','ความดันรวมที่ต้องเอาชนะ',
+              fmt(c.x?nv('dp_e'):nv('dp_b'))+' Pa'],
+            ['η','ประสิทธิภาพพัดลมรวมมอเตอร์',
+              fmt(c.x?nv('eta_e'):nv('eta_b'))+' %'],
+            ['จำนวน','พัดลมกี่ตัว', (c.x?m.fe.n:m.fb.n)+' ตัว']],
+      rows:[['กำลังไฟรวม', fmt(c.w)+' W'],
+            ['พลังงานต่อปี', fmt(c.x?m.kwhFanErv:m.kwhFanBase)+' kWh'],
+            ['ค่าไฟต่อปี', baht(c.fan)+' บาท'],
+            ['ที่มาของตัวเลข', (c.x?m.fe.manual:m.fb.manual)?'พิมพ์จากแคตตาล็อก':'คำนวณจากสมการ']],
+      mean: c.x ? '<b>ERV กินไฟพัดลมมากกว่าเสมอ</b> เพราะมีสองตัวและลมต้องผ่านแกนกับฟิลเตอร์ '
+                + 'ส่วนนี้ต้องหักออกจากที่ประหยัดได้ ไม่งั้นตัวเลขจะเกินจริง'
+                : 'ฐานที่เอามาเทียบ · ยิ่งฐานกินไฟพัดลมน้อย ส่วนต่างที่ ERV ต้องจ่ายเพิ่มยิ่งดูสูง' }});
+  });
+
+  /* legend */
+  g.textAlign='left'; g.font='11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+  var ly = p.h-6;
+  g.fillStyle=C.blue;   g.fillRect(L, ly-9, 10, 10);
+  g.fillStyle=C.txt;    g.fillText('ทำความเย็น', L+15, ly);
+  g.fillStyle=C.orange; g.fillRect(L+95, ly-9, 10, 10);
+  g.fillStyle=C.txt;    g.fillText('พัดลม', L+110, ly);
+}
+
+/* ─────────────── net saving against core effectiveness ─────────────── */
+function drawSens(cv){
+  var p = prep(cv), g = p.g;
+  var L=68, R=18, T=18, B=34;
+  var pts = [];
+  for(var i=0;i<=60;i++){
+    var e = i/60*0.9;
+    pts.push({ e:e, net:model(e).net });
+  }
+  var cur = model();
+  var lo = Math.min(0, Math.min.apply(null, pts.map(function(o){return o.net;})));
+  var hi = Math.max(1, Math.max.apply(null, pts.map(function(o){return o.net;})));
+  var pad = (hi-lo)*0.12; lo -= pad; hi += pad;
+  var px = function(e){ return L + e/0.9*(p.w-L-R); };
+  var py = function(v){ return p.h-B - (v-lo)/(hi-lo)*(p.h-B-T); };
+
+  g.strokeStyle=C.grid; g.lineWidth=1; g.fillStyle=C.txt; g.textAlign='right';
+  for(var k=0;k<=4;k++){
+    var v = lo + (hi-lo)*k/4, yy = py(v);
+    g.beginPath(); g.moveTo(L,yy); g.lineTo(p.w-R,yy); g.stroke();
+    g.fillText(baht(v), L-6, yy+4);
+  }
+  g.textAlign='center';
+  for(k=0;k<=3;k++){ var e=k*0.3; g.fillText(Math.round(e*100)+'%', px(e), p.h-B+15); }
+  g.fillText('ประสิทธิภาพเอนทัลปีของแกน ηt', (L+p.w-R)/2, p.h-4);
+  g.textAlign='left'; g.fillText('บาท/ปี', 4, T-4);
+
+  /* the zero line is the whole point of this chart */
+  if(lo < 0 && hi > 0){
+    var y0 = py(0);
+    g.beginPath(); g.moveTo(L,y0); g.lineTo(p.w-R,y0);
+    g.strokeStyle=C.red; g.lineWidth=1.5; g.setLineDash([5,4]); g.stroke(); g.setLineDash([]);
+    g.fillStyle=C.red; g.textAlign='left'; g.fillText('เสมอตัว', L+4, y0-5);
+  }
+
+  g.beginPath(); pts.forEach(function(o,i){ i?g.lineTo(px(o.e),py(o.net)):g.moveTo(px(o.e),py(o.net)); });
+  g.strokeStyle=C.green; g.lineWidth=2.6; g.stroke();
+
+  /* break-even effectiveness */
+  var be = null;
+  for(i=0;i<pts.length-1;i++){
+    if(pts[i].net <= 0 && pts[i+1].net > 0){
+      var f = -pts[i].net/(pts[i+1].net - pts[i].net);
+      be = pts[i].e + f*(pts[i+1].e - pts[i].e); break;
+    }
+  }
+  if(be !== null){
+    g.beginPath(); g.moveTo(px(be), T); g.lineTo(px(be), p.h-B);
+    g.strokeStyle=C.gray; g.lineWidth=1; g.setLineDash([3,3]); g.globalAlpha=.6;
+    g.stroke(); g.globalAlpha=1; g.setLineDash([]);
+    dot(g, px(be), py(0), C.red);
+    cv._hits.push({ kind:'point', x:px(be), y:py(0), info:{
+      col:C.red, title:'จุดเสมอตัว', eq:null,
+      rows:[['ηt ที่ทำให้เสมอตัว', fmt(be*100,1)+' %'],
+            ['ηt ที่ใช้อยู่', fmt(cur.et*100,0)+' %'],
+            ['เผื่อไว้', fmt((cur.et-be)*100,1)+' จุด']],
+      mean: cur.et > be
+        ? '<b>แกนที่เลือกอยู่เหนือจุดเสมอตัว</b> ถ้าประสิทธิภาพจริงหน้างานต่ำกว่าที่โบรชัวร์บอก '
+          + 'ยังพอมีระยะเผื่อก่อนจะขาดทุนค่าไฟ'
+        : '<b>แกนที่เลือกอยู่ต่ำกว่าจุดเสมอตัว</b> ค่าไฟพัดลมที่เพิ่มมากกว่าความเย็นที่ประหยัดได้ '
+          + 'ต้องลดความดันตกหรือเลือกแกนที่ดีกว่านี้' }});
+  }
+  dot(g, px(cur.et), py(cur.net), C.green);
+  cv._hits.push({ kind:'point', x:px(cur.et), y:py(cur.net), info:{
+    col:C.green, title:'จุดที่ตั้งอยู่ตอนนี้', eq:null,
+    rows:[['ηt', fmt(cur.et*100,0)+' %'],
+          ['ประหยัดสุทธิ', baht(cur.net)+' บาท/ปี'],
+          ['ความเย็นที่ลดได้', baht(cur.bahtCoolSaved)+' บาท/ปี'],
+          ['ค่าไฟพัดลมที่เพิ่ม', baht(cur.bahtFanExtra)+' บาท/ปี']],
+    mean:'ลากช่อง ηt แล้วจุดนี้จะวิ่งตามเส้น · <b>ความชันบอกว่าประสิทธิภาพแกนที่เพิ่มขึ้น 1 จุด '
+       + 'มีค่าเท่าไรต่อปี</b>' }});
+}
+
+/* ─────────────── Kruger reference table ─────────────── */
+var KRUGER = [
+  ['CCE 140 4P-1 1SY',641,112,1450,0.6,61],
+  ['CCE 160 4P-1 1SY',914,148,1400,0.7,52],
+  ['CCE 7-7 4P-1 1SY',1577,255,1300,1.1,52],
+  ['CCE 8-8 4P-1 1SY',1613,328,1300,1.4,50],
+  ['CCE 9-7T 4P-1 3SY',1879,560,1200,2.6,51],
+  ['CCE 9-7 4P-1 3SY',2084,590,1200,2.7,47],
+  ['CCE 9-9T 4P-1 3SY',2426,780,1300,3.5,56],
+  ['CCE 9-9 4P-1 3SY',2574,800,1300,3.6,51],
+  ['CCE 10-8 4P-1 3SY',3639,1370,1300,6.3,59],
+  ['CCE 10-10 4P-1 3SY',3857,1420,1300,6.6,59],
+  ['CCE 12-9 6P-1 3SY',4547,1150,940,5.8,59],
+  ['CCE 12-12 6P-1 3SY',5200,1220,940,6.2,62]
+];
+function fillKruger(){
+  $('krugerBody').innerHTML = KRUGER.map(function(r){
+    return '<tr><td class="mono" style="font-size:12px">'+r[0]+'</td>'
+      + '<td class="num">'+fmt(r[1])+'</td><td class="num">'+fmt(r[2])+'</td>'
+      + '<td class="num">'+fmt(r[3])+'</td><td class="num">'+fmt(r[4],1)+'</td>'
+      + '<td class="num">'+r[5]+'</td></tr>';
+  }).join('');
+}
+
+/* ─────────────── render ─────────────── */
+function render(){
+  var m = model();
+  var mx = parseFloat($('oa').max);
+
+  $('oaVal').innerHTML = fmt(m.Q) + '<small>CMH</small>';
+  if(document.activeElement !== $('oanum')) $('oanum').value = Math.round(m.Q);
+  $('oaLs').textContent = fmt(m.Ql,1) + ' L/s';
+  ['tk1','tk2','tk3'].forEach(function(id,i){ $(id).textContent = fmt(mx*(i+1)/4); });
+  $('tkm').textContent = fmt(mx);
+
+  $('pkHint').textContent = 'เอนทัลปี ' + fmt(m.hpk,2) + ' kJ/kg · ภาระเต็ม '
+    + fmt(m.qBasePk/RTW,2) + ' RT';
+  $('avHint').textContent = 'เอนทัลปี ' + fmt(m.hav,2) + ' kJ/kg · ภาระเต็ม '
+    + fmt(m.qBaseAv/RTW,2) + ' RT';
+  if(nv('tav') >= nv('tpk') - 0.01 && nv('rav') >= nv('rpk') - 0.01){
+    $('avHint').innerHTML += ' · <b style="color:#B03A34">สภาวะเฉลี่ยเท่ากับหรือสูงกว่าสภาวะออกแบบ '
+      + 'ตัวเลขประหยัดจะสูงเกินจริง</b>';
+  }
+  $('hrHint').textContent = 'รวม ' + fmt(m.hours) + ' ชั่วโมงต่อปี';
+  $('copHint').textContent = 'เท่ากับ ' + fmt(3.517/m.cop,2) + ' kW ต่อ RT';
+  $('baseHint').textContent = 'กำลังไฟพัดลมฝั่งเทียบ ' + fmt(m.fb.W) + ' W · ฝั่ง ERV '
+    + fmt(m.fe.W) + ' W · ต่างกัน ' + fmt(m.fe.W - m.fb.W) + ' W';
+  $('fanBhint').textContent = m.fb.manual
+    ? 'ใช้ค่าที่พิมพ์ · รวม ' + fmt(m.fb.W) + ' W'
+    : 'คำนวณได้ ' + fmt(m.fb.W) + ' W รวมทุกตัว';
+  $('fanEhint').textContent = m.fe.manual
+    ? 'ใช้ค่าที่พิมพ์ · รวม ' + fmt(m.fe.W) + ' W'
+    : 'คำนวณได้ ' + fmt(m.fe.W) + ' W รวมทุกตัว';
+  $('basePill').textContent = BASE_LABEL[BASE];
+  $('colBase').textContent = BASE_LABEL[BASE];
+
+  var k1 = $('k1');
+  k1.innerHTML = baht(m.net) + '<small>บาท/ปี</small>';
+  k1.className = 'kpi-value ' + (m.net > 0 ? 'ok' : 'bad');
+  $('k1n').textContent = m.net > 0
+    ? 'หักค่าไฟพัดลมที่เพิ่มแล้ว'
+    : 'ค่าไฟพัดลมที่เพิ่มมากกว่าความเย็นที่ประหยัดได้';
+  $('k2').innerHTML = baht(m.bahtCoolSaved) + '<small>บาท/ปี</small>';
+  $('k2n').textContent = fmt(m.kwhCoolSaved) + ' kWh ต่อปี';
+  $('k3').innerHTML = baht(m.bahtFanExtra) + '<small>บาท/ปี</small>';
+  $('k3n').textContent = fmt((m.kwhFanErv-m.kwhFanBase)) + ' kWh ต่อปี';
+  $('k4').innerHTML = fmt(m.rtSaved,2) + '<small>RT</small>';
+
+  var v = $('verdict'), head, body;
+  if(m.Q === 0){
+    v.className='verdict'; head='ยังไม่ได้ใส่ปริมาณลม';
+    body='เลื่อนแถบหรือพิมพ์ตัวเลขลมที่ต้องเติม แล้วผลเทียบจะคำนวณให้ทันที';
+  } else if(m.net <= 0){
+    v.className='verdict bad'; head='ที่เงื่อนไขนี้ ERV ยังไม่คุ้มค่าไฟ';
+    body='ความเย็นที่ประหยัดได้ <b>'+baht(m.bahtCoolSaved)+' บาท/ปี</b> น้อยกว่าค่าไฟพัดลมที่เพิ่มขึ้น <b>'
+      +baht(m.bahtFanExtra)+' บาท/ปี</b> · ทางแก้คือลดความดันตกฝั่ง ERV เลือกแกนที่ประสิทธิภาพสูงขึ้น '
+      +'หรือเทียบกับฐานที่ใช้พัดลมสองตัวอยู่แล้ว · <b>แต่ค่าไฟไม่ใช่เหตุผลเดียวที่ลูกค้าซื้อ ERV</b> '
+      +'เรื่องคุณภาพอากาศและการกรองฝุ่นมักสำคัญกว่า';
+  } else {
+    var yr = m.bahtCoolSaved > 0 ? m.bahtFanExtra/m.bahtCoolSaved*100 : 0;
+    v.className='verdict ok'; head='ประหยัดได้ ' + baht(m.net) + ' บาทต่อปี';
+    body='เทียบกับ<b>'+BASE_LABEL[BASE]+'</b> ที่ลมเท่ากัน '+fmt(m.Q)+' CMH · '
+      +'ความเย็นที่ลดได้ <b>'+baht(m.bahtCoolSaved)+' บาท/ปี</b> '
+      +'หักค่าไฟพัดลมที่เพิ่ม <b>'+baht(m.bahtFanExtra)+' บาท/ปี</b> '
+      +'ซึ่งคิดเป็น '+fmt(yr,0)+'% ของที่ประหยัดได้<br>'
+      +'และถ้ายังไม่ได้ซื้อแอร์ ยังลดขนาดลงได้อีก <b>'+fmt(m.rtSaved,2)+' RT</b> '
+      +'ซึ่งเป็นเงินก้อนครั้งเดียว ไม่ใช่ทุกปี'
+      + (nv('baht_rt') > 0 ? ' คิดเป็น <b>'+baht(m.capex)+' บาท</b>' : '');
+  }
+  v.innerHTML = '<div class="vh">'+head+'</div><div class="vb">'+body+'</div>';
+
+  var rows = [
+    ['ปริมาณลมภายนอก', fmt(m.Q)+' CMH', fmt(m.Q)+' CMH', 'เท่ากัน'],
+    ['ภาระอากาศนอกที่ตกกับแอร์  ที่สภาวะเฉลี่ย',
+      fmt(m.qBaseAv/1000,2)+' kW', fmt(m.qBaseAv*(1-m.et)/1000,2)+' kW',
+      '−'+fmt(m.qSavedAv/1000,2)+' kW'],
+    ['พลังงานทำความเย็นต่อปี', fmt(m.kwhCoolBase)+' kWh', fmt(m.kwhCoolErv)+' kWh',
+      '−'+fmt(m.kwhCoolSaved)+' kWh'],
+    ['กำลังไฟพัดลม', fmt(m.fb.W)+' W', fmt(m.fe.W)+' W',
+      (m.fe.W>=m.fb.W?'+':'−')+fmt(Math.abs(m.fe.W-m.fb.W))+' W'],
+    ['พลังงานพัดลมต่อปี', fmt(m.kwhFanBase)+' kWh', fmt(m.kwhFanErv)+' kWh',
+      (m.kwhFanErv>=m.kwhFanBase?'+':'−')+fmt(Math.abs(m.kwhFanErv-m.kwhFanBase))+' kWh'],
+    ['<b>ค่าไฟรวมต่อปี</b>', '<b>'+baht(m.bahtBase)+' บาท</b>', '<b>'+baht(m.bahtErv)+' บาท</b>',
+      '<b>'+(m.net>=0?'−':'+')+baht(Math.abs(m.net))+' บาท</b>']
+  ];
+  $('cmpBody').innerHTML = rows.map(function(r,i){
+    return '<tr'+(i===rows.length-1?' class="gov"':'')+'><td>'+r[0]+'</td>'
+      + '<td class="num">'+r[1]+'</td><td class="num">'+r[2]+'</td>'
+      + '<td class="num">'+r[3]+'</td></tr>';
+  }).join('');
+  $('cmpHint').textContent = 'คิดที่สภาวะนอก ' + fmt(nv('tav'),1) + ' °C '
+    + fmt(nv('rav'),0) + '% ห้อง ' + fmt(m.Tr,1) + ' °C ' + fmt(nv('rr'),0) + '% · '
+    + fmt(m.hours) + ' ชั่วโมงต่อปี · ค่าไฟ ' + fmt(m.rate,2) + ' บาทต่อหน่วย';
+
+  $('rtHint').textContent = nv('baht_rt') > 0
+    ? 'จะได้ ' + baht(m.capex) + ' บาท ที่ ' + fmt(m.rtSaved,2) + ' RT'
+    : 'ยังไม่ได้ใส่ราคา · ตารางล่างจะแสดงเฉพาะจำนวน RT';
+  $('capBody').innerHTML =
+      '<tr><td>ภาระอากาศนอกที่สภาวะออกแบบ</td><td class="num">'+fmt(m.qBasePk/RTW,2)+' RT</td></tr>'
+    + '<tr><td>ส่วนที่แกน ERV ตัดออกไปได้</td><td class="num">'+fmt(m.rtSaved,2)+' RT</td></tr>'
+    + '<tr class="gov"><td><b>ประหยัดค่าเครื่องได้ครั้งเดียว</b></td>'
+    + '<td class="num"><b>' + (nv('baht_rt') > 0 ? baht(m.capex)+' บาท'
+        : 'ใส่ราคาต่อ RT เพื่อคิดเป็นเงิน') + '</b></td></tr>';
+
+  drawBars($('bars')); drawSens($('sens'));
+  attachChart($('bars')); attachChart($('sens'));
+  if(MODAL) drawModal();
+}
+
+/* ─────────────── modal ─────────────── */
+var MODAL = null;
+var MODAL_TITLE = { bars:'ค่าไฟต่อปี · เทียบสองทางเลือก', sens:'ถ้าประสิทธิภาพแกนต่างไป' };
+function drawModal(){
+  if(!MODAL) return;
+  var cv = $('modalCanvas');
+  if(MODAL === 'bars') drawBars(cv); else drawSens(cv);
+  attachChart(cv);
+}
+function openModal(which){
+  MODAL = which;
+  $('modalTitle').textContent = MODAL_TITLE[which];
+  $('chartModal').classList.add('open');
+  void $('modalCanvas').getBoundingClientRect().width;   /* force layout, then draw */
+  drawModal();
+}
+function closeModal(){
+  MODAL = null;
+  $('chartModal').classList.remove('open');
+  var el = $('modalCanvas').parentElement.querySelector('.cinfo');
+  if(el) el.classList.remove('open');
+}
+
+/* ─────────────── wiring ─────────────── */
+document.querySelectorAll('.tab').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    $('p-'+b.dataset.p).classList.add('active');
+    window.scrollTo(0,0);
+    if(b.dataset.p === 'calc') render();
+  });
+});
+$('basebar').addEventListener('click', function(e){
+  var t = e.target.closest('.modecard'); if(!t) return;
+  BASE = t.dataset.b;
+  this.querySelectorAll('.modecard').forEach(function(x){ x.classList.toggle('active', x===t); });
+  /* the two baselines differ in fan count and pressure, so move those with it */
+  if(BASE === 'ex'){ $('nf_b').value = 1; $('dp_b').value = 150; }
+  else             { $('nf_b').value = 2; $('dp_b').value = 250; }
+  render();
+});
+['tpk','rpk','tav','rav','tr','rr','et','hpd','dpy','rate','cop','baht_rt',
+ 'dp_b','eta_b','nf_b','w_b','dp_e','eta_e','nf_e','w_e','oa'].forEach(function(id){
+  $(id).addEventListener('input', render);
+});
+$('oanum').addEventListener('input', function(){
+  var v = parseFloat(this.value);
+  if(!isFinite(v) || v < 0) return;
+  if(v > (parseFloat($('oa').max)||0)) $('oa').max = Math.ceil(v*1.15/1000)*1000;
+  $('oa').value = v; render();
+});
+$('oanum').addEventListener('blur', function(){
+  if(!isFinite(parseFloat(this.value))) this.value = Math.round(nv('oa'));
+});
+document.querySelectorAll('.stepbtn').forEach(function(b){
+  b.addEventListener('click', function(){
+    var s = $('oa');
+    s.value = Math.max(+s.min, Math.min(+s.max, +s.value + (+b.dataset.step)));
+    render();
+  });
+});
+document.querySelectorAll('.card-expand-btn').forEach(function(b){
+  b.addEventListener('click', function(){ openModal(b.dataset.chart); });
+});
+$('modalClose').addEventListener('click', closeModal);
+$('chartModal').addEventListener('click', function(e){ if(e.target === this) closeModal(); });
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    if(MODAL) closeModal();
+    else document.querySelectorAll('.cinfo.open').forEach(function(x){ x.classList.remove('open'); });
+  }
+});
+window.addEventListener('resize', function(){ render(); });
+
+$('stamp').textContent = new Date().toLocaleDateString('th-TH',
+  { year:'numeric', month:'short', day:'numeric' });
+fillKruger();
+render();
+})();
+
+</script>
+</body>
+</html>
