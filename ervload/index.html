@@ -1874,7 +1874,16 @@ document.addEventListener('keydown', function(e){
 
 $('stamp').textContent = new Date().toLocaleDateString('th-TH',
   { year:'numeric', month:'short', day:'numeric' });
-window.addEventListener('resize', function(){ render(); });   /* render redraws the modal too */
+window.addEventListener('resize', function(){
+  render();   /* render redraws the modal too */
+  /* An open panel keeps the inline position it was given at the old width,
+     so a narrower window would leave it hanging outside the chart. */
+  document.querySelectorAll('.cinfo.open').forEach(function(el){
+    var wrap = el.parentElement;
+    if(wrap.clientWidth < el.offsetWidth + 12) wrap._cinfoPos = null;
+    placeInfo(el, wrap, el._px || 0, el._py || 0);
+  });
+});
 render();
 })();
 

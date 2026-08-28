@@ -502,9 +502,9 @@ table.dtable td.st{white-space:nowrap}
       <div class="kpi-note" id="k3n"></div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-value" id="k4">–<small>RT</small></div>
-      <div class="kpi-label">ขนาดแอร์ที่เล็กลงได้</div>
-      <div class="kpi-note" id="k4n">เงินก้อนครั้งเดียว ไม่ใช่ทุกปี</div>
+      <div class="kpi-value" id="k4">–<small>ปี</small></div>
+      <div class="kpi-label">คืนทุนภายใน</div>
+      <div class="kpi-note" id="k4n">ต้องใส่ราคาลงทุนก่อน</div>
     </div>
   </div>
 
@@ -608,6 +608,18 @@ table.dtable td.st{white-space:nowrap}
       ถ้าเว้นไว้เป็นศูนย์ เครื่องมือจะแสดงเฉพาะจำนวน RT ที่ลดได้</div>
     </div>
     <div class="card">
+      <h3>ราคาลงทุน · ใช้คิดจุดคืนทุน</h3>
+      <div class="field"><label class="flabel">ราคาระบบ ERV พร้อมติดตั้ง · บาท</label>
+        <input type="number" id="cap_erv" value="0" step="10000" min="0"></div>
+      <div class="field"><label class="flabel">ราคาระบบพัดลมธรรมดาพร้อมติดตั้ง · บาท</label>
+        <input type="number" id="cap_fan" value="0" step="5000" min="0"></div>
+      <div class="hint" id="capHint"></div>
+      <div class="srcline"><b>ใส่ราคาที่รวมงานท่อและงานติดตั้งของทั้งสองทางเลือก</b>
+      จุดคืนทุนคิดจากส่วนต่างของสองตัวนี้ ไม่ใช่ราคา ERV ทั้งก้อน
+      เพราะยังไงลูกค้าก็ต้องจ่ายค่าระบบเติมอากาศอยู่แล้ว ·
+      <b>ถ้าเว้นว่างไว้ กราฟคืนทุนจะไม่คำนวณให้</b> เพราะไม่มีตัวเลขที่อ้างอิงได้</div>
+    </div>
+    <div class="card">
       <h3>ตัวเลขที่ต้องระวัง</h3>
       <div class="prose" style="font-size:13px">
         <p style="margin-bottom:8px">ผลลัพธ์ไวต่อสามตัวนี้มากที่สุด เรียงตามความแรง</p>
@@ -664,10 +676,10 @@ table.dtable td.st{white-space:nowrap}
     </div>
     <div class="card">
       <button class="card-expand-btn" data-chart="sens" type="button" title="ขยายเต็มจอ">⤢</button>
-      <div class="card-title-row"><h3>ถ้าประสิทธิภาพแกนต่างไป</h3>
-        <span class="pill src">จุดคุ้มทุนอยู่ตรงไหน</span></div>
+      <div class="card-title-row"><h3>คืนทุนกี่ปี เทียบกับติดพัดลมธรรมดา</h3>
+        <span class="pill" id="pbPill"></span></div>
       <div class="canvas-wrap" style="height:340px"><canvas id="sens"></canvas></div>
-      <div class="zoomhint">เส้นคือประหยัดสุทธิต่อปี · จุดที่ตัดเส้นศูนย์คือ ηt ต่ำสุดที่ยังคุ้ม</div>
+      <div class="zoomhint">เส้นคือเงินสดสะสม เริ่มติดลบเท่ากับส่วนต่างค่าลงทุน แล้วไต่ขึ้นปีละเท่ากับที่ประหยัดได้ · จุดที่ตัดเส้นศูนย์คือปีที่คืนทุน</div>
     </div>
   </div>
 
@@ -1106,7 +1118,20 @@ function model(etOverride){
            bahtCoolSaved:bahtCoolSaved, bahtFanExtra:bahtFanExtra, net:net,
            bahtBase:(kwhCoolBase + kwhFanBase)*rate,
            bahtErv:(kwhCoolErv + kwhFanErv)*rate,
-           capex: rtSaved*nv('baht_rt') };
+           capex: rtSaved*nv('baht_rt'),
+           pay: payback(rtSaved*nv('baht_rt'), net) };
+}
+
+/* Extra investment is the ERV above the plain fan, less whatever a smaller
+   chiller saves - that last part only counts when the AC has not been
+   ordered yet, which is why its price per RT defaults to zero. */
+function payback(acSaving, net){
+  var ce = nv('cap_erv'), cf = nv('cap_fan');
+  var known = ce > 0;
+  var extra = ce - cf - acSaving;
+  var years = (net > 0 && extra > 0) ? extra/net : null;
+  return { known:known, ce:ce, cf:cf, acSaving:acSaving, extra:extra, years:years,
+           immediate: known && extra <= 0, never: known && net <= 0 && extra > 0 };
 }
 
 /* ─────────────── canvas plumbing ─────────────── */
@@ -1311,20 +1336,27 @@ function drawBars(cv){
   g.fillStyle=C.txt;    g.fillText('พัดลม', L+110, ly);
 }
 
-/* ─────────────── net saving against core effectiveness ─────────────── */
+/* ─────────────── cumulative cash flow, and the year it turns ─────────────── */
 function drawSens(cv){
-  var p = prep(cv), g = p.g;
-  var L=68, R=18, T=18, B=34;
-  var pts = [];
-  for(var i=0;i<=60;i++){
-    var e = i/60*0.9;
-    pts.push({ e:e, net:model(e).net });
+  var p = prep(cv), g = p.g, m = model(), pb = m.pay;
+  var L=72, R=18, T=18, B=34;
+
+  if(!pb.known){
+    g.fillStyle=C.txt; g.textAlign='center';
+    g.font='13px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+    g.fillText('ยังคำนวณจุดคืนทุนไม่ได้', p.w/2, p.h/2 - 22);
+    g.font='11.5px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+    g.fillStyle=C.gray;
+    g.fillText('ต้องใส่ราคาระบบ ERV และราคาระบบพัดลมธรรมดาก่อน', p.w/2, p.h/2 + 2);
+    g.fillText('เครื่องมือนี้ไม่เดาราคาให้ เพราะปีคืนทุนที่เดามาแล้วผิดทำให้เสียงานได้', p.w/2, p.h/2 + 20);
+    return;
   }
-  var cur = model();
-  var lo = Math.min(0, Math.min.apply(null, pts.map(function(o){return o.net;})));
-  var hi = Math.max(1, Math.max.apply(null, pts.map(function(o){return o.net;})));
-  var pad = (hi-lo)*0.12; lo -= pad; hi += pad;
-  var px = function(e){ return L + e/0.9*(p.w-L-R); };
+
+  var span = pb.years ? Math.max(6, Math.ceil(pb.years*1.7)) : 12;
+  span = Math.min(span, 30);
+  var lo = Math.min(0, -pb.extra)*1.15, hi = Math.max(1, -pb.extra + m.net*span)*1.08;
+  if(hi <= lo) hi = lo + 1;
+  var px = function(y){ return L + y/span*(p.w-L-R); };
   var py = function(v){ return p.h-B - (v-lo)/(hi-lo)*(p.h-B-T); };
 
   g.strokeStyle=C.grid; g.lineWidth=1; g.fillStyle=C.txt; g.textAlign='right';
@@ -1334,54 +1366,54 @@ function drawSens(cv){
     g.fillText(baht(v), L-6, yy+4);
   }
   g.textAlign='center';
-  for(k=0;k<=3;k++){ var e=k*0.3; g.fillText(Math.round(e*100)+'%', px(e), p.h-B+15); }
-  g.fillText('ประสิทธิภาพเอนทัลปีของแกน ηt', (L+p.w-R)/2, p.h-4);
-  g.textAlign='left'; g.fillText('บาท/ปี', 4, T-4);
+  var stepY = span<=8?1:(span<=15?2:5);
+  for(var y=0;y<=span;y+=stepY) g.fillText(y, px(y), p.h-B+15);
+  g.fillText('ปีที่', (L+p.w-R)/2, p.h-4);
+  g.textAlign='left'; g.fillText('บาทสะสม', 4, T-4);
 
-  /* the zero line is the whole point of this chart */
-  if(lo < 0 && hi > 0){
-    var y0 = py(0);
-    g.beginPath(); g.moveTo(L,y0); g.lineTo(p.w-R,y0);
-    g.strokeStyle=C.red; g.lineWidth=1.5; g.setLineDash([5,4]); g.stroke(); g.setLineDash([]);
-    g.fillStyle=C.red; g.textAlign='left'; g.fillText('เสมอตัว', L+4, y0-5);
+  var y0 = py(0);
+  g.beginPath(); g.moveTo(L,y0); g.lineTo(p.w-R,y0);
+  g.strokeStyle=C.gray; g.lineWidth=1.5; g.setLineDash([5,4]); g.stroke(); g.setLineDash([]);
+
+  /* the line itself, red while under water and green once it is not */
+  function cash(y){ return -pb.extra + m.net*y; }
+  var cross = pb.years;
+  if(cross !== null && cross <= span){
+    g.beginPath(); g.moveTo(px(0), py(cash(0))); g.lineTo(px(cross), py(0));
+    g.strokeStyle=C.red; g.lineWidth=2.8; g.stroke();
+    g.beginPath(); g.moveTo(px(cross), py(0)); g.lineTo(px(span), py(cash(span)));
+    g.strokeStyle=C.green; g.lineWidth=2.8; g.stroke();
+    dot(g, px(cross), y0, C.green);
+    g.fillStyle=C.green; g.textAlign='center';
+    g.font='600 12px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+    g.fillText('คืนทุนปีที่ ' + fmt(cross,1), px(cross), y0 - 12);
+    g.font='11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+    cv._hits.push({ kind:'point', x:px(cross), y:y0, info:{
+      col:C.green, title:'จุดคืนทุน', eq:'จำนวนปี = ส่วนต่างค่าลงทุนสุทธิ ÷ ประหยัดสุทธิต่อปี',
+      syms:[['ราคา ERV','พร้อมติดตั้ง', baht(pb.ce)+' บาท'],
+            ['ราคาพัดลม','พร้อมติดตั้ง', baht(pb.cf)+' บาท'],
+            ['ค่าแอร์ที่ลดได้','หักออกจากเงินลงทุน', baht(pb.acSaving)+' บาท'],
+            ['ส่วนต่างสุทธิ','ที่ต้องคืนทุน', baht(pb.extra)+' บาท'],
+            ['ประหยัดต่อปี','หักค่าไฟพัดลมแล้ว', baht(m.net)+' บาท']],
+      rows:[['คืนทุนภายใน', fmt(cross,1)+' ปี'],
+            ['หรือราว', fmt(cross*12,0)+' เดือน'],
+            ['กำไรสะสมปีที่ 10', baht(cash(10))+' บาท']],
+      mean:'หลังจุดนี้เงินที่ประหยัดได้เป็นกำไรสุทธิทุกปี · <b>เส้นแดงคือช่วงที่ยังไม่คืนทุน '
+         + 'เส้นเขียวคือหลังคืนทุนแล้ว</b>' }});
+  } else {
+    g.beginPath(); g.moveTo(px(0), py(cash(0))); g.lineTo(px(span), py(cash(span)));
+    g.strokeStyle = m.net > 0 ? C.orange : C.red; g.lineWidth=2.8; g.stroke();
   }
 
-  g.beginPath(); pts.forEach(function(o,i){ i?g.lineTo(px(o.e),py(o.net)):g.moveTo(px(o.e),py(o.net)); });
-  g.strokeStyle=C.green; g.lineWidth=2.6; g.stroke();
-
-  /* break-even effectiveness */
-  var be = null;
-  for(i=0;i<pts.length-1;i++){
-    if(pts[i].net <= 0 && pts[i+1].net > 0){
-      var f = -pts[i].net/(pts[i+1].net - pts[i].net);
-      be = pts[i].e + f*(pts[i+1].e - pts[i].e); break;
-    }
-  }
-  if(be !== null){
-    g.beginPath(); g.moveTo(px(be), T); g.lineTo(px(be), p.h-B);
-    g.strokeStyle=C.gray; g.lineWidth=1; g.setLineDash([3,3]); g.globalAlpha=.6;
-    g.stroke(); g.globalAlpha=1; g.setLineDash([]);
-    dot(g, px(be), py(0), C.red);
-    cv._hits.push({ kind:'point', x:px(be), y:py(0), info:{
-      col:C.red, title:'จุดเสมอตัว', eq:null,
-      rows:[['ηt ที่ทำให้เสมอตัว', fmt(be*100,1)+' %'],
-            ['ηt ที่ใช้อยู่', fmt(cur.et*100,0)+' %'],
-            ['เผื่อไว้', fmt((cur.et-be)*100,1)+' จุด']],
-      mean: cur.et > be
-        ? '<b>แกนที่เลือกอยู่เหนือจุดเสมอตัว</b> ถ้าประสิทธิภาพจริงหน้างานต่ำกว่าที่โบรชัวร์บอก '
-          + 'ยังพอมีระยะเผื่อก่อนจะขาดทุนค่าไฟ'
-        : '<b>แกนที่เลือกอยู่ต่ำกว่าจุดเสมอตัว</b> ค่าไฟพัดลมที่เพิ่มมากกว่าความเย็นที่ประหยัดได้ '
-          + 'ต้องลดความดันตกหรือเลือกแกนที่ดีกว่านี้' }});
-  }
-  dot(g, px(cur.et), py(cur.net), C.green);
-  cv._hits.push({ kind:'point', x:px(cur.et), y:py(cur.net), info:{
-    col:C.green, title:'จุดที่ตั้งอยู่ตอนนี้', eq:null,
-    rows:[['ηt', fmt(cur.et*100,0)+' %'],
-          ['ประหยัดสุทธิ', baht(cur.net)+' บาท/ปี'],
-          ['ความเย็นที่ลดได้', baht(cur.bahtCoolSaved)+' บาท/ปี'],
-          ['ค่าไฟพัดลมที่เพิ่ม', baht(cur.bahtFanExtra)+' บาท/ปี']],
-    mean:'ลากช่อง ηt แล้วจุดนี้จะวิ่งตามเส้น · <b>ความชันบอกว่าประสิทธิภาพแกนที่เพิ่มขึ้น 1 จุด '
-       + 'มีค่าเท่าไรต่อปี</b>' }});
+  dot(g, px(0), py(cash(0)), C.red);
+  cv._hits.push({ kind:'point', x:px(0), y:py(cash(0)), info:{
+    col:C.red, title:'เงินลงทุนที่ต้องจ่ายเพิ่ม ณ วันติดตั้ง', eq:null,
+    rows:[['ราคาระบบ ERV', baht(pb.ce)+' บาท'],
+          ['ลบราคาระบบพัดลมธรรมดา', '−'+baht(pb.cf)+' บาท'],
+          ['ลบค่าแอร์ที่ลดขนาดได้', '−'+baht(pb.acSaving)+' บาท'],
+          ['ส่วนต่างสุทธิ', baht(pb.extra)+' บาท']],
+    mean:'จุดเริ่มต้นของเส้น · <b>ไม่ใช่ราคา ERV ทั้งก้อน</b> แต่เป็นส่วนที่แพงกว่าทางเลือกที่ถูกที่สุด '
+       + 'เพราะยังไงลูกค้าก็ต้องจ่ายค่าระบบเติมอากาศอยู่แล้ว' }});
 }
 
 /* ─────────────── Kruger reference table ─────────────── */
@@ -1495,7 +1527,30 @@ function render(){
   $('k2n').textContent = fmt(m.kwhCoolSaved) + ' kWh ต่อปี';
   $('k3').innerHTML = baht(m.bahtFanExtra) + '<small>บาท/ปี</small>';
   $('k3n').textContent = fmt((m.kwhFanErv-m.kwhFanBase)) + ' kWh ต่อปี';
-  $('k4').innerHTML = fmt(m.rtSaved,2) + '<small>RT</small>';
+  var pb = m.pay, k4 = $('k4');
+  if(!pb.known){
+    k4.innerHTML = '–<small>ปี</small>'; k4.className = 'kpi-value';
+    $('k4n').textContent = 'ใส่ราคาลงทุนทั้งสองทางเลือกก่อน';
+  } else if(pb.immediate){
+    k4.innerHTML = '0<small>ปี</small>'; k4.className = 'kpi-value ok';
+    $('k4n').textContent = 'ไม่ต้องคืนทุน · ค่าแอร์ที่ลดได้กลบส่วนต่างหมดแล้ว';
+  } else if(pb.years === null){
+    k4.innerHTML = '—'; k4.className = 'kpi-value bad';
+    $('k4n').textContent = 'ไม่คืนทุนจากค่าไฟ · ประหยัดสุทธิยังไม่เป็นบวก';
+  } else {
+    k4.innerHTML = fmt(pb.years,1) + '<small>ปี</small>';
+    k4.className = 'kpi-value ' + (pb.years <= 5 ? 'ok' : pb.years <= 10 ? 'warn' : 'bad');
+    $('k4n').textContent = 'ส่วนต่างลงทุนสุทธิ ' + baht(pb.extra) + ' บาท · ลดแอร์ได้ '
+      + fmt(m.rtSaved,2) + ' RT';
+  }
+  $('capHint').textContent = pb.known
+    ? 'ส่วนต่าง ' + baht(pb.ce - pb.cf) + ' บาท' + (pb.acSaving > 0
+        ? ' · หักค่าแอร์ที่ลดได้ ' + baht(pb.acSaving) + ' เหลือ ' + baht(pb.extra) : '')
+    : 'ยังไม่ได้ใส่ราคา · กราฟคืนทุนจะยังไม่คำนวณ';
+  $('pbPill').textContent = pb.known
+    ? (pb.years !== null ? 'คืนทุน ' + fmt(pb.years,1) + ' ปี'
+       : pb.immediate ? 'คืนทุนทันที' : 'ยังไม่คืนทุน')
+    : 'ต้องใส่ราคา';
 
   var v = $('verdict'), head, body;
   if(m.Q === 0){
@@ -1527,10 +1582,15 @@ function render(){
       '−'+fmt(m.qSavedAv/1000,2)+' kW'],
     ['พลังงานทำความเย็นต่อปี', fmt(m.kwhCoolBase)+' kWh', fmt(m.kwhCoolErv)+' kWh',
       '−'+fmt(m.kwhCoolSaved)+' kWh'],
+    ['<b>ค่าไฟแอร์ต่อปี</b>', baht(m.kwhCoolBase*m.rate)+' บาท', baht(m.kwhCoolErv*m.rate)+' บาท',
+      '<b>−'+baht(m.bahtCoolSaved)+' บาท</b>'],
     ['กำลังไฟพัดลม', fmt(m.fb.W)+' W', fmt(m.fe.W)+' W',
       (m.fe.W>=m.fb.W?'+':'−')+fmt(Math.abs(m.fe.W-m.fb.W))+' W'],
     ['พลังงานพัดลมต่อปี', fmt(m.kwhFanBase)+' kWh', fmt(m.kwhFanErv)+' kWh',
       (m.kwhFanErv>=m.kwhFanBase?'+':'−')+fmt(Math.abs(m.kwhFanErv-m.kwhFanBase))+' kWh'],
+    ['<b>ค่าไฟระบบระบายอากาศต่อปี</b>', baht(m.kwhFanBase*m.rate)+' บาท',
+      baht(m.kwhFanErv*m.rate)+' บาท',
+      '<b>'+(m.bahtFanExtra>=0?'+':'−')+baht(Math.abs(m.bahtFanExtra))+' บาท</b>'],
     ['<b>ค่าไฟรวมต่อปี</b>', '<b>'+baht(m.bahtBase)+' บาท</b>', '<b>'+baht(m.bahtErv)+' บาท</b>',
       '<b>'+(m.net>=0?'−':'+')+baht(Math.abs(m.net))+' บาท</b>']
   ];
@@ -1659,27 +1719,33 @@ function renderSheet(){
              100, '#2BC4E8', '#D8F4FB',
              area ? fmt(btuBase/area) : '', area ? 'BTU/h ต่อ ตร.ม.' : '',
              area ? 'พื้นที่ปรับอากาศ<br><b>'+fmt(area)+'</b> ตร.ม.' : '')
-    + metric('พลังงานไฟฟ้า<br>ที่ใช้ต่อปี', fmt(kwhBase), 'kWh/ปี', 'rd',
+    + metric('ค่าไฟฟ้า<br>ต่อปี', fmt(kwhBase), 'kWh/ปี', 'rd',
              100, '#F1555A', '#FBDDDE',
              fmt(m.bahtBase), 'บาท/ปี',
-             'เฉลี่ย <b>'+fmt(m.bahtBase/12)+'</b> บาท/เดือน');
+             'แอร์ <b>'+baht(m.kwhCoolBase*m.rate)+'</b><br>'
+           + 'ระบบระบายอากาศ <b>'+baht(m.kwhFanBase*m.rate)+'</b>');
 
   $('slRight').innerHTML =
       metric('ภาระความเย็น<br>จากอากาศภายนอก', fmt(btuErv), 'BTU/h', 'cy',
              pctLoad, '#2BC4E8', '#D8F4FB',
              area ? fmt(btuErv/area) : '', area ? 'BTU/h ต่อ ตร.ม.' : '',
              area ? 'พื้นที่ปรับอากาศ<br><b>'+fmt(area)+'</b> ตร.ม.' : '')
-    + metric('พลังงานไฟฟ้า<br>ที่ใช้ต่อปี', fmt(kwhErv), 'kWh/ปี', 'rd',
+    + metric('ค่าไฟฟ้า<br>ต่อปี', fmt(kwhErv), 'kWh/ปี', 'rd',
              pctEnergy, '#F1555A', '#FBDDDE',
              fmt(m.bahtErv), 'บาท/ปี',
-             'เฉลี่ย <b>'+fmt(m.bahtErv/12)+'</b> บาท/เดือน');
+             'แอร์ <b>'+baht(m.kwhCoolErv*m.rate)+'</b><br>'
+           + 'ระบบระบายอากาศ <b>'+baht(m.kwhFanErv*m.rate)+'</b>');
 
   var netKwh = kwhBase - kwhErv;
   var tco2 = netKwh*GRID_EF/1000;
+  var pbTxt = m.pay.known
+    ? (m.pay.years !== null ? ' · คืนทุนใน <b>' + fmt(m.pay.years,1) + ' ปี</b>'
+       : m.pay.immediate ? ' · <b>คืนทุนทันที</b>' : '')
+    : '';
   $('slSave').innerHTML = m.net > 0
     ? '<div class="l">Saving</div><div class="v">' + baht(m.net) + '</div>'
-      + '<div class="u">บาท/ปี · หักค่าไฟพัดลมที่เพิ่มขึ้นแล้ว · ลดคาร์บอน '
-      + fmt(Math.max(0,tco2),1) + ' tCO₂e ต่อปี</div>'
+      + '<div class="u">บาท/ปี · หักค่าไฟระบบระบายอากาศที่เพิ่มขึ้นแล้ว · ลดคาร์บอน '
+      + fmt(Math.max(0,tco2),1) + ' tCO₂e ต่อปี' + pbTxt + '</div>'
     : '<div class="l" style="color:var(--sl-red)">ยังไม่คุ้มค่าไฟที่เงื่อนไขนี้</div>'
       + '<div class="u">ค่าไฟพัดลมที่เพิ่มขึ้นมากกว่าความเย็นที่ประหยัดได้ '
       + 'ประโยชน์หลักจึงอยู่ที่คุณภาพอากาศ</div>';
@@ -1703,7 +1769,7 @@ function renderSheet(){
 
 /* ─────────────── modal ─────────────── */
 var MODAL = null;
-var MODAL_TITLE = { bars:'ค่าไฟต่อปี · เทียบสองทางเลือก', sens:'ถ้าประสิทธิภาพแกนต่างไป' };
+var MODAL_TITLE = { bars:'ค่าไฟต่อปี · เทียบสองทางเลือก', sens:'คืนทุนกี่ปี เทียบกับติดพัดลมธรรมดา' };
 function drawModal(){
   if(!MODAL) return;
   var cv = $('modalCanvas');
@@ -1746,7 +1812,7 @@ $('basebar').addEventListener('click', function(e){
 });
 ['tpk','rpk','tav','rav','tr','rr','et','hpd','dpy','rate','cop','baht_rt',
  'dp_b','eta_b','nf_b','w_b','dp_e','eta_e','nf_e','w_e','oa',
- 'pjName','pjArea','pjBy'].forEach(function(id){
+ 'cap_erv','cap_fan','pjName','pjArea','pjBy'].forEach(function(id){
   $(id).addEventListener('input', render);
 });
 $('oanum').addEventListener('input', function(){
@@ -1776,7 +1842,16 @@ document.addEventListener('keydown', function(e){
     else document.querySelectorAll('.cinfo.open').forEach(function(x){ x.classList.remove('open'); });
   }
 });
-window.addEventListener('resize', function(){ render(); });
+window.addEventListener('resize', function(){
+  render();
+  /* An open panel keeps the inline position it was given at the old width,
+     so a narrower window would leave it hanging outside the chart. */
+  document.querySelectorAll('.cinfo.open').forEach(function(el){
+    var wrap = el.parentElement;
+    if(wrap.clientWidth < el.offsetWidth + 12) wrap._cinfoPos = null;
+    placeInfo(el, wrap, el._px || 0, el._py || 0);
+  });
+});
 
 $('stamp').textContent = new Date().toLocaleDateString('th-TH',
   { year:'numeric', month:'short', day:'numeric' });
