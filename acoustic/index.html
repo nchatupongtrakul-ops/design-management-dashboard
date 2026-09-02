@@ -62,6 +62,15 @@ body {
 .btn.ghost { background: none; border: 1px solid var(--border); color: var(--text-secondary); }
 .btn.ghost:hover { background: var(--surface); color: var(--text); opacity: 1; }
 
+.hubbar{
+  background:#EDF6FD; border-bottom:1px solid #BBDDF7; padding:9px 32px;
+  font-size:12.5px; color:#1B6FBF; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+}
+.hubbar b{color:#14477F}
+.hubbar a{color:#1B6FBF; font-weight:600}
+.hubbar .sv{margin-left:auto; font-size:11.5px; color:#4A7FB5}
+.hubbar .warn{color:#8A5B12}
+@media (max-width:900px){ .hubbar{padding:9px 16px} }
 .tabs {
   display: flex; gap: 0; background: var(--card-bg);
   border-bottom: 1px solid var(--border); padding: 0 32px; flex-wrap: wrap;
@@ -281,6 +290,8 @@ tfoot td{background:var(--surface); font-weight:600}
     <button class="btn ghost" id="resetBtn">Reset</button>
   </div>
 </div>
+
+<div id="hubBar" class="hubbar" hidden></div>
 
 <div class="tabs" role="tablist">
   <button class="tab active" data-page="calc">Calculator</button>
@@ -954,6 +965,97 @@ function endReflection(d_mm){
 var AREA_MODE = 'direct', SPEC = 'music', roomBand = null, WALL_MODE = 'rw', DUCT_AUTO = true;
 var SIL_AUTO = true, ELB_AUTO = true;
 
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARED PROJECT STORE
+   Owned by the Project Hub on the same origin and path. This tool
+   only writes the ac slot of the one room it was opened on.
+   ═══════════════════════════════════════════════════════════════ */
+var HKEY = 'coral.projects.v1';
+var HUB = null;
+/* lroom is deliberately absent: it is read out of the band spectrum,
+   not into it, so the seven bands are what gets kept */
+var HUB_FIELDS = ['dist','bg','area','cmh','fv','wallA','wallRw','wallMass',
+                  'dw','dh','dl','dt','erd','elbw','elbn','silv','other'];
+
+function hubRead(){
+  try { var d = JSON.parse(localStorage.getItem(HKEY));
+        return (d && Array.isArray(d.projects)) ? d : null; }
+  catch(e){ return null; }
+}
+function hubFind(d, pid, rid){
+  var out = null;
+  d.projects.forEach(function(pr){ if(pr.id !== pid) return;
+    pr.rooms.forEach(function(rm){ if(rm.id === rid) out = { p:pr, r:rm }; }); });
+  return out;
+}
+function nvv(x){ var v = parseFloat(x); return isFinite(v) ? v : 0; }
+function setAreaMode(mode){
+  AREA_MODE = mode;
+  $('areaMode').querySelectorAll('button').forEach(function(x){
+    x.classList.toggle('active', x.dataset.am === mode); });
+  $('areaDirect').hidden = mode !== 'direct';
+  $('areaFlow').hidden   = mode !== 'flow';
+}
+function hubInit(){
+  var qs = new URLSearchParams(location.search);
+  var pid = qs.get('p'), rid = qs.get('r');
+  if(!pid || !rid) return;
+  var d = hubRead(); if(!d) return;
+  var hit = hubFind(d, pid, rid); if(!hit) return;
+  var rm = hit.r, a = rm.ac || null;
+  /* the air this room is given is the air that carries the plant noise in */
+  var flow = (rm.erv && rm.erv.oa) ? nvv(rm.erv.oa)
+           : (rm.vent && rm.vent.q) ? nvv(rm.vent.q) : 0;
+  HUB = { pid:pid, rid:rid, flow:flow };
+
+  if(a){
+    HUB_FIELDS.forEach(function(id){
+      if(a[id] != null && isFinite(a[id]) && $(id)) $(id).value = a[id]; });
+    if(a.areaMode) setAreaMode(a.areaMode);
+    if(a.spec){ SPEC = a.spec;
+      var sb = $('spectrum');
+      if(sb) sb.querySelectorAll('button').forEach(function(x){
+        x.classList.toggle('active', x.dataset.sp === SPEC); }); }
+    if(Array.isArray(a.band) && a.band.length === 7){
+      roomBand = a.band.slice();
+      fillBandRow(); syncRoomSlider();
+    }
+  } else if(flow > 0){
+    /* first visit from the hub: size the opening from the project's own airflow */
+    setAreaMode('flow');
+  }
+  if(flow > 0) $('cmh').value = flow;
+
+  var bar = $('hubBar');
+  bar.hidden = false;
+  bar.innerHTML = 'กำลังทำห้อง <b>' + (rm.name || 'ไม่ได้ตั้งชื่อ') + '</b> '
+    + 'ของโปรเจค <b>' + (hit.p.name || '') + '</b> · '
+    + '<a href="../hub/?p=' + encodeURIComponent(pid) + '">← กลับไปภาพรวมโปรเจค</a>'
+    + (flow > 0
+        ? ' · ลม ' + fmt(flow) + ' CMH ตามที่คำนวณไว้ในโปรเจค'
+        : ' · <span class="warn">ห้องนี้ยังไม่มีปริมาณลม ต้องใส่เองก่อน</span>')
+    + '<span class="sv" id="hubSaved">ผลคำนวณบันทึกกลับอัตโนมัติ</span>';
+}
+
+/* called at the end of every render, so the hub is never stale */
+function hubSave(dba, lim, okA) {
+  if(!HUB) return;
+  var d = hubRead(); if(!d) return;
+  var hit = hubFind(d, HUB.pid, HUB.rid); if(!hit) return;
+  var rec = { dba:dba, lim:lim, ok:okA, areaMode:AREA_MODE, spec:SPEC,
+              band: roomBand ? roomBand.slice() : null,
+              lroom: roomBand ? overallRoom() : null,
+              at:new Date().toISOString() };
+  HUB_FIELDS.forEach(function(id){ if($(id)) rec[id] = nv(id); });
+  hit.r.ac = rec;
+  var el = $('hubSaved');
+  try { localStorage.setItem(HKEY, JSON.stringify(d));
+        if(el) el.textContent = 'บันทึกกลับเข้าโปรเจคแล้ว '
+          + new Date().toLocaleTimeString('th-TH'); }
+  catch(err){ if(el) el.textContent = 'บันทึกกลับไม่ได้ · เบราว์เซอร์ปิดการเก็บข้อมูลอยู่'; }
+}
+
 function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
 function fmt(n,d){ return (isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
 function esum(a){ var s=0; for(var i=0;i<a.length;i++){ s += Math.pow(10, a[i]/10); } return s>0 ? 10*Math.log10(s) : 0; }
@@ -1448,6 +1550,7 @@ function render(skipInputs){
   var worst = -99, wi = 0;
   for(var i=0;i<7;i++){ var d = lp[i]-bg[i]; if(d > worst){ worst = d; wi = i; } }
   var okA = dba <= lim, okBand = worst < 10;
+  hubSave(dba, lim, okA);
   var reqIL = requiredIL(), gotIL = achievedILA();
 
   $('kpis').innerHTML =
@@ -1648,6 +1751,7 @@ buildBandRow();
 buildElements();
 applySpectrum();
 syncRoomSlider();
+hubInit();
 render();
 })();
 
