@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Hub</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F7F5;
+  --surface: #F4F3F0;
+  --card-bg: #FFFFFF;
+  --border: #E3E2DE;
+  --text: #37352F;
+  --text-secondary: #787774;
+  --blue: #2383E2;
+  --red: #D44C47;
+  --purple: #6940A5;
+  --green: #669BBC;
+  --orange: #CB912F;
+  --gray: #9B9A97;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .sub { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.timestamp { font-size: 12px; color: var(--text-secondary); }
+
+.btn {
+  background: var(--blue); color: #fff; border: none;
+  padding: 6px 14px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; font-weight: 500; transition: opacity .15s; font-family: inherit;
+}
+.btn:hover { opacity: .85; }
+.btn:active { opacity: .7; }
+.btn.ghost { background: none; border: 1px solid var(--border); color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--surface); color: var(--text); opacity: 1; }
+
+.tabs {
+  display: flex; gap: 0; background: var(--card-bg);
+  border-bottom: 1px solid var(--border); padding: 0 32px; flex-wrap: wrap;
+  position: sticky; top: 65px; z-index: 99;
+}
+.tab {
+  padding: 10px 20px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+  user-select: none; background: none; border-top: 0; border-left: 0; border-right: 0; font-family: inherit;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.page { display: none; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+.kpi-value { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi-value.ok { color: #2E7D32; } .kpi-value.warn { color: var(--orange); } .kpi-value.bad { color: var(--red); }
+.kpi-value small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 4px; }
+.kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+.kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
+
+.chart-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+.chart-grid.g1 { grid-template-columns: 1fr; }
+.chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) {
+  .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
+  .page { padding: 16px; }
+  .header { padding: 12px 16px; }
+  .tabs { padding: 0 16px; top: 61px; }
+}
+
+.chart-grid > *, .kpi-row > * { min-width: 0; }
+.card > * { max-width: 100%; }
+.card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; position: relative; }
+.card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.card-title-row h3 { margin-bottom: 0; }
+
+.card-expand-btn {
+  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px;
+  border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer;
+  color: #787774; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; z-index: 5; font-family: inherit;
+}
+.card:hover .card-expand-btn { opacity: 1; }
+.card-expand-btn:focus-visible { opacity: 1; }
+.card-expand-btn:hover { background: var(--surface); color: #37352F; }
+
+#chartModal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
+#chartModal.open { display: flex; }
+.chart-modal-box { background: #fff; border-radius: 12px; padding: 20px 26px; width: min(1100px, 94vw); height: min(78vh, 700px); display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.chart-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+.chart-modal-head h3 { font-size: 15px; font-weight: 600; }
+.chart-modal-close { border: none; background: none; font-size: 22px; color: #787774; cursor: pointer; line-height: 1; font-family: inherit; }
+.chart-modal-close:hover { color: #37352F; }
+.chart-modal-body { flex: 1; position: relative; min-height: 0; }
+
+.canvas-wrap { position: relative; width: 100%; height: 300px; }
+.canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.canvas-wrap canvas:active { cursor: grabbing; }
+.chart-modal-body .canvas-wrap { height: 100%; }
+.zoomhint { font-size: 11.5px; color: var(--gray); margin-top: 8px; }
+.refwrap{position:relative; display:inline-block; margin-top:12px}
+.refbtn{
+  display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:12.5px;
+  padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500;
+}
+.refbtn:hover{background:var(--surface); color:var(--text)}
+.refbtn .caret{font-size:9px; opacity:.7; transition:transform .15s}
+.refbtn.open .caret{transform:rotate(180deg)}
+.refmenu{
+  display:none; position:absolute; left:0; top:calc(100% + 6px); z-index:60;
+  background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; min-width:330px;
+  max-height:340px; overflow-y:auto;
+}
+.refmenu.open{display:block}
+.refgroup{
+  font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--gray); padding:8px 10px 3px;
+}
+.refitem{
+  display:flex; align-items:flex-start; gap:9px; width:100%; text-align:left; background:none;
+  border:0; padding:7px 10px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px;
+  color:var(--text); line-height:1.4;
+}
+.refitem:hover{background:var(--surface)}
+.refitem .tick{
+  width:14px; height:14px; border-radius:4px; border:1.5px solid var(--border); flex:none;
+  margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;
+}
+.refitem.on .tick{background:var(--text); border-color:var(--text)}
+.refitem .body{flex:1; min-width:0}
+.refitem .val{font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; margin-left:8px}
+.refitem .note{display:block; font-size:11px; color:var(--gray); margin-top:1px}
+.refitem.na{opacity:.45; cursor:not-allowed}
+.refitem .dash{display:inline-block; width:14px; border-top:2px dashed currentColor; vertical-align:middle; margin-right:5px}
+.refchip{
+  display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:11.5px;
+  padding:4px 10px; border-radius:20px; border:1px solid var(--border); background:var(--card-bg);
+  color:var(--text-secondary); cursor:pointer; font-weight:500; transition:.12s;
+}
+.refchip:hover{border-color:var(--gray); color:var(--text)}
+.refchip .sw{width:14px; height:0; border-top:2px dashed currentColor; opacity:.5; flex:none}
+.refchip.on{color:var(--text); background:var(--surface-2)}
+.refchip.on .sw{opacity:1}
+.refchip.off-scale{opacity:.5}
+
+/* form controls */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.flabel { font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+input[type=number], select {
+  width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: var(--card-bg); color: var(--text);
+}
+input[type=number] { font-variant-numeric: tabular-nums; }
+select { cursor: pointer; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 11.5px; color: var(--gray); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+.segbar { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segbar button {
+  flex: 1; padding: 6px 8px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  background: var(--card-bg); color: var(--text-secondary); border: 0; border-right: 1px solid var(--border); font-weight: 500;
+}
+.segbar button:last-child { border-right: 0; }
+.segbar button.active { background: var(--text); color: #fff; }
+
+/* airflow slider block */
+.flowhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.flowval { font-size: 38px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.flowval small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 5px; }
+.flowmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { font-size: 12px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); font-weight: 500; }
+.chip.rec { border-color: #BBDDF7; background: #EDF6FD; color: #1B6FBF; }
+.stepbtn { width: 30px; height: 28px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; cursor: pointer; color: var(--text-secondary); font-size: 15px; font-family: inherit; line-height: 1; }
+.stepbtn:hover { background: var(--surface); color: var(--text); }
+
+.slider-wrap { position: relative; padding-top: 4px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer; margin: 8px 0 4px; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-moz-range-track { height: 6px; background: var(--surface); border-radius: 3px; border: 1px solid var(--border); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); margin-top: -8px; }
+input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border); }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.recmark { position: absolute; top: 0; width: 2px; height: 22px; background: var(--blue); opacity: .45; pointer-events: none; border-radius: 1px; }
+
+/* tables */
+.tablewrap { overflow-x: auto; }
+table.dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.dtable th { background: var(--surface); font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.dtable td { padding: 7px 10px; border-bottom: 1px solid #f0f0ed; }
+table.dtable tr:hover td { background: #FAFAF8; }
+table.dtable td.num, table.dtable th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.gov td { background: #EDF6FD !important; font-weight: 600; }
+.badge { font-size: 11.5px; padding: 2px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; display: inline-block; }
+.badge.ok { background: #E8F3E9; color: #2E7D32; }
+.badge.bad { background: #FBEAE9; color: var(--red); }
+.badge.na { background: var(--surface); color: var(--gray); }
+
+.eq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.9;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue);
+  border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre;
+  font-variant-numeric: tabular-nums; color: var(--text-secondary); margin-bottom: 14px;
+}
+.eq b { color: var(--text); font-weight: 600; }
+.note { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #F6FAFE; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
+.note.warn { border-left-color: var(--orange); background: #FDF8EF; }
+.note b { color: var(--text); }
+.prose { font-size: 14px; color: var(--text); }
+.prose p { margin-bottom: 12px; max-width: 74ch; }
+.prose h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
+.prose ul, .prose ol { margin: 0 0 14px 20px; max-width: 74ch; }
+.prose li { margin-bottom: 6px; }
+.sectitle { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+/* embedded inside Design Management Dashboard */
+.embed .header { display: none; }
+.embed .tabs { position: static; top: auto; padding: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; background: transparent; }
+.embed .page { padding: 0; max-width: none; }
+.embed body { background: transparent; height: -moz-fit-content; height: fit-content; overflow: hidden; }
+.footer { color: var(--gray); font-size: 12px; padding: 18px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
+
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px}
+.dtable input[type=number]{padding:4px 6px; font-size:12.5px; border:1px solid var(--border); border-radius:4px; background:var(--card-bg); color:var(--text)}
+.dtable input[type=checkbox]{accent-color:var(--blue); width:15px; height:15px}
+.sectitle{font-size:22px; font-weight:700; margin-bottom:20px}
+.ref h3{font-size:15px}
+.warnbox{border:1px solid var(--border); border-left:4px solid #CB912F; background:#FDF8EF; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text-secondary)}
+.warnbox b{color:var(--text)}
+.prose{font-size:14px}
+.prose p{margin-bottom:12px; max-width:74ch}
+.prose ol,.prose ul{margin:0 0 14px 20px; max-width:74ch}
+.prose li{margin-bottom:6px}
+tfoot td{background:var(--surface); font-weight:600}
+.card-title-row .segbar{flex:none}
+.card-title-row .segbar button{padding:4px 10px; font-size:11.5px}
+</style>
+
+<style>
+.tabcount{display:inline-block; margin-left:6px; min-width:18px; padding:1px 6px; border-radius:20px;
+  background:var(--surface); color:var(--text-secondary); font-size:11px; font-weight:600;
+  font-variant-numeric:tabular-nums}
+.tabcount:empty{display:none}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px}
+.sectitle{font-size:22px; font-weight:700; margin-bottom:20px}
+.warnbox{border:1px solid var(--border); border-left:4px solid #CB912F; background:#FDF8EF;
+  border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text-secondary)}
+.warnbox b{color:var(--text)}
+.prose{font-size:14px} .prose p{margin-bottom:12px; max-width:76ch}
+.prose ul,.prose ol{margin:0 0 14px 20px; max-width:76ch} .prose li{margin-bottom:6px}
+.eq{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.8;
+  background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--blue);
+  border-radius:6px; padding:14px 16px; overflow-x:auto; white-space:pre;
+  color:var(--text-secondary); margin-bottom:14px}
+.eq b{color:var(--text); font-weight:600}
+tfoot td{background:var(--surface); font-weight:600}
+tr.gov td{background:#EDF6FD !important}
+
+.p-off td{opacity:.5}
+.p-sw{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border);
+  background:var(--card-bg); border-radius:20px; padding:3px 10px; cursor:pointer;
+  font-family:inherit; font-size:11.5px; font-weight:600; color:var(--text-secondary)}
+.p-sw .d{width:8px; height:8px; border-radius:50%; background:var(--gray)}
+.p-sw.on{border-color:#BBDDF7; background:#EDF6FD; color:#1B6FBF}
+.p-sw.on .d{background:#2E7D32}
+
+/* how complete a project's data is, at a glance */
+.fill{display:inline-flex; gap:3px; align-items:center}
+.fill i{width:16px; height:8px; border-radius:2px; background:var(--border); font-style:normal}
+.fill i.on{background:#2E7D32}
+.fill .t{font-size:11px; color:var(--gray); margin-left:5px; font-variant-numeric:tabular-nums}
+
+.cell-none{color:var(--gray); font-size:12px}
+.cell-has{font-size:12.5px; line-height:1.45}
+.cell-has b{font-variant-numeric:tabular-nums}
+.cell-go{font-size:11px; color:var(--blue); text-decoration:none; white-space:nowrap}
+.cell-go:hover{text-decoration:underline}
+
+.dhead{background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:18px 20px; margin-bottom:20px}
+.dhead h2{font-size:21px; font-weight:700; color:var(--text); margin-bottom:3px}
+.dhead .sub{font-size:13px; color:var(--text-secondary)}
+.dhead .back{font-size:12.5px; color:var(--blue); cursor:pointer; background:none; border:0;
+  font-family:inherit; padding:0; margin-bottom:9px}
+.dhead .back:hover{text-decoration:underline}
+
+.rin{width:100%; padding:4px 7px; border:1px solid var(--border); border-radius:5px;
+  font-size:12.5px; font-family:inherit; background:var(--card-bg); color:var(--text);
+  font-variant-numeric:tabular-nums}
+.dim3{display:flex; gap:4px; align-items:center}
+.dim3 input{width:56px; text-align:right}
+.dim3 span{color:var(--gray); font-size:11px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Project Hub</h1>
+    <div class="sub">ทะเบียนโปรเจคส่วนกลาง · หนึ่งโปรเจคมีได้หลายห้อง และเครื่องมือทุกตัวเขียนผลกลับมาที่นี่</div>
+  </div>
+  <div class="header-right">
+    <span class="timestamp" id="stamp"></span>
+    <button class="btn ghost" onclick="window.print()">พิมพ์</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-p="list">โปรเจคทั้งหมด<span id="cProj" class="tabcount"></span></button>
+  <button class="tab" data-p="detail">ภาพรวมโปรเจค</button>
+  <button class="tab" data-p="how">วิธีใช้และโครงข้อมูล</button>
+</div>
+
+<!-- ══════════════ PROJECT LIST ══════════════ -->
+<div class="page active" id="p-list">
+  <div class="note"><b>นี่คือทะเบียนกลาง</b> เครื่องมือทุกตัวอ่านและเขียนข้อมูลผ่านโปรเจคและห้องในหน้านี้
+  จึงไม่ต้องพิมพ์ขนาดห้องหรือจำนวนคนซ้ำในแต่ละเครื่องมืออีก<br>
+  <b>ปิดโปรเจคแทนการลบ</b> โปรเจคที่ปิดยังอยู่ครบ แค่ไม่ถูกนับในยอดรวมและซ่อนจากรายการหลัก</div>
+
+  <div class="kpi-row" id="listKpis"></div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row">
+        <h3>โปรเจค</h3>
+        <div class="flowmeta">
+          <div class="segbar" id="listFilter" style="width:auto;margin:0">
+            <button type="button" data-f="all" class="active">ทั้งหมด</button>
+            <button type="button" data-f="on">เปิด</button>
+            <button type="button" data-f="off">ปิด</button>
+          </div>
+          <button class="btn" id="pAdd">+ โปรเจคใหม่</button>
+          <button class="btn ghost" id="pExp">Export</button>
+          <button class="btn ghost" id="pImp">Import</button>
+          <input type="file" id="pFile" accept=".csv,text/csv" hidden>
+        </div>
+      </div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr>
+          <th>สถานะ</th><th>โปรเจค</th><th>ลูกค้า</th>
+          <th class="num">ห้อง</th><th class="num">พื้นที่ ตร.ม.</th><th class="num">คน</th>
+          <th class="num">ลมรวม CMH</th><th class="num">ภาระ OA รวม RT</th>
+          <th>ความครบของข้อมูล</th><th></th>
+        </tr></thead>
+        <tbody id="listBody"></tbody>
+        <tfoot id="listFoot"></tfoot>
+      </table></div>
+      <div class="hint" id="listHint"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ PROJECT DETAIL ══════════════ -->
+<div class="page" id="p-detail">
+  <div id="detailHead"></div>
+
+  <div class="kpi-row" id="detKpis"></div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row">
+        <h3>ห้องในโปรเจคนี้</h3>
+        <div class="flowmeta">
+          <button class="btn" id="rAdd">+ เพิ่มห้อง</button>
+          <button class="btn ghost" id="pRen">เปลี่ยนชื่อโปรเจค</button>
+        </div>
+      </div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr>
+          <th>ห้อง</th><th class="num">กว้าง × ยาว × สูง</th><th class="num">พื้นที่</th><th class="num">คน</th>
+          <th>CO₂ และลมที่ต้องเติม</th><th>ภาระที่ตกกับแอร์</th><th>เสียงที่รั่วออก</th><th></th>
+        </tr></thead>
+        <tbody id="roomBody"></tbody>
+        <tfoot id="roomFoot"></tfoot>
+      </table></div>
+      <div class="hint" id="roomHint"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ยอดรวมของโปรเจค</h3>
+      <div class="tablewrap"><table class="dtable">
+        <tbody id="rollBody"></tbody>
+      </table></div>
+      <div class="note warn" style="margin-top:12px;margin-bottom:0"><b>สิ่งที่บวกกันได้ และสิ่งที่บวกไม่ได้</b><br>
+      <b>บวกได้</b> พื้นที่ · จำนวนคน · ปริมาณลม · ภาระความเย็นเป็น RT · ค่าไฟ ·
+      เพราะเป็นปริมาณที่รวมกันได้ตามฟิสิกส์<br>
+      <b>บวกไม่ได้</b> ระดับ CO₂ เป็น ppm · อุณหภูมิ · ระดับเสียง ·
+      ค่าเหล่านี้เป็นของแต่ละห้อง เอามาเฉลี่ยหรือบวกกันไม่มีความหมาย
+      ตารางนี้จึงรายงานเป็น<b>จำนวนห้องที่ผ่านหรือไม่ผ่าน</b>แทน<br><br>
+      และยอดลมรวมเป็นการบวกตรง ๆ ที่ถือว่า<b>ทุกห้องใช้งานพร้อมกัน</b>
+      ถ้าไม่ได้ใช้พร้อมกันจริง การเลือกเครื่องรวมตัวเดียวจากยอดนี้จะได้เครื่องใหญ่เกินไป</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ HOW ══════════════ -->
+<div class="page" id="p-how">
+  <div class="sectitle">วิธีใช้และโครงข้อมูล</div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ทำไมต้องมีชั้นห้อง</h3>
+      <div class="prose"><p>เครื่องมือแต่ละตัวตอบคำถามคนละระดับ ถ้าเก็บทุกอย่างไว้ที่ระดับโปรเจคอย่างเดียว
+      ตัวเลขจะผิดทันทีที่โปรเจคมีมากกว่าหนึ่งห้อง</p></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ข้อมูล</th><th>อยู่ระดับไหน</th><th>เหตุผล</th></tr></thead>
+        <tbody>
+          <tr><td>CO₂ และลมที่ต้องเติม</td><td><b>ห้อง</b></td>
+            <td>ppm ขึ้นกับปริมาตรห้องและจำนวนคนในห้องนั้น ห้องข้าง ๆ ไม่เกี่ยว
+            · เอา ppm ของสองห้องมาบวกหรือเฉลี่ยกันไม่มีความหมาย</td></tr>
+          <tr><td>ภาระที่ตกกับแอร์</td><td><b>ห้อง</b></td>
+            <td>แอร์แต่ละชุดดูแลคนละห้อง กำลังเหลือของแต่ละชุดไม่เท่ากัน
+            · อุณหภูมิที่เปลี่ยนเป็นของห้องนั้นเท่านั้น</td></tr>
+          <tr><td>เสียงที่รั่วออก</td><td><b>ห้อง</b></td>
+            <td>ขึ้นกับช่องเปิดและระยะถึงเพื่อนบ้านของห้องนั้น</td></tr>
+          <tr class="gov"><td>ROI และสไลด์เสนอลูกค้า</td><td><b>โปรเจค</b></td>
+            <td>ลูกค้าตัดสินใจซื้อทั้งโปรเจค ตัวเลขนี้จึงต้อง<b>รวมมาจากทุกห้อง</b>
+            ไม่ใช่คิดจากห้องเดียวแล้วเหมาเอา</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note warn" style="margin-bottom:0"><b>ข้อควรระวังที่สำคัญที่สุด</b>
+      เครื่องมือ ERV Energy Saving ที่ทำไว้ก่อนหน้านี้เก็บโปรเจคเป็นชุดตัวเลขชุดเดียว
+      ซึ่งใช้ได้กับงานห้องเดียวเท่านั้น · <b>ถ้าโปรเจคมีหลายห้อง ต้องรวมลมและภาระจากทุกห้องก่อน
+      แล้วค่อยคิด ROI</b> ยอดรวมในหน้าภาพรวมโปรเจคมีไว้เพื่อการนี้</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>ข้อมูลเก็บอยู่ที่ไหน</h3>
+      <div class="eq">localStorage ของเบราว์เซอร์ · คีย์ <b>coral.projects.v1</b>
+
+เครื่องมือทุกตัวอยู่โดเมนและพาธเดียวกัน จึงอ่านเขียนคีย์เดียวกันได้
+   .../design-management-dashboard/hub/
+   .../design-management-dashboard/ventilation/
+   .../design-management-dashboard/ervload/
+   .../design-management-dashboard/acoustic/
+   .../design-management-dashboard/ervroi/
+
+โครงข้อมูล
+   project { id, name, client, note, off, rooms[], roi{} }
+   room    { id, name, w, l, h, pz, vent{}, erv{}, ac{} }
+
+   vent{}  ผลจาก Ventilation &amp; CO₂
+   erv{}   ผลจาก ERV Load Impact
+   ac{}    ผลจาก Noise Breakout</div>
+      <div class="note" style="margin-bottom:0"><b>เก็บในเครื่องนี้เท่านั้น ไม่ได้ส่งขึ้นเซิร์ฟเวอร์</b>
+      เพื่อนร่วมทีมจะไม่เห็นข้อมูลของคุณ และเปลี่ยนเครื่องแล้วจะไม่ตามไป ·
+      ใช้ปุ่ม Export เพื่อส่งต่อหรือเก็บถาวร</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <h3>สถานะการต่อสายเครื่องมือ</h3>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>เครื่องมือ</th><th>สถานะ</th><th>ที่ต้องทำต่อ</th></tr></thead>
+        <tbody>
+          <tr><td>Project Hub</td><td><span class="badge ok">พร้อมใช้</span></td>
+            <td>ถือทะเบียนโปรเจคและห้อง เป็นเจ้าของโครงข้อมูล</td></tr>
+          <tr><td>Ventilation &amp; CO₂</td><td><span class="badge na">ยังไม่ต่อ</span></td>
+            <td>ต้องอ่าน <span class="mono">?p=</span> และ <span class="mono">?r=</span> จาก URL
+            แล้วเขียนผลกลับเข้า <span class="mono">room.vent</span></td></tr>
+          <tr><td>ERV Load Impact</td><td><span class="badge na">ยังไม่ต่อ</span></td>
+            <td>เขียนกลับเข้า <span class="mono">room.erv</span></td></tr>
+          <tr><td>Noise Breakout</td><td><span class="badge na">ยังไม่ต่อ</span></td>
+            <td>เขียนกลับเข้า <span class="mono">room.ac</span></td></tr>
+          <tr><td>ERV Energy Saving</td><td><span class="badge na">ยังไม่ต่อ</span></td>
+            <td>ต้องเปลี่ยนไปรับลมและภาระที่<b>รวมจากทุกห้อง</b>แทนการกรอกห้องเดียว</td></tr>
+        </tbody>
+      </table></div>
+      <div class="hint">ตารางนี้เขียนตามความจริง ณ ตอนนี้ · หน้าห้องจะขึ้นว่ายังไม่มีข้อมูลจนกว่าเครื่องมือนั้นจะต่อสายเสร็จ</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  ข้อมูลเก็บในเบราว์เซอร์นี้เท่านั้น · ใช้ Export เพื่อเก็บถาวรหรือส่งต่อให้เพื่อนร่วมทีม
+</div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(i){ return document.getElementById(i); };
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE SHARED PROJECT STORE
+   Every tool sits on the same origin and path, so they all read and
+   write this one key. The hub owns the shape; the tools fill in their
+   own slot on a room and never touch each other's.
+
+     project { id, name, client, note, off, rooms[], roi{} }
+     room    { id, name, w, l, h, pz, vent{}, erv{}, ac{} }
+
+   Rooms exist because CO2, cooling load and noise are all properties of
+   a single room. A project with four rooms has four different ppm
+   figures and four different air conditioners, and averaging them
+   would be meaningless. Only quantities that add - area, people,
+   airflow, kW, baht - are rolled up to the project.
+   ═══════════════════════════════════════════════════════════════════ */
+var KEY = 'coral.projects.v1';
+var DB = { version:1, projects:[] };
+
+function uid(){ return String(Date.now()) + String(Math.round(Math.random()*1000)); }
+function loadDB(){
+  try { var d = JSON.parse(localStorage.getItem(KEY)); if(d && Array.isArray(d.projects)) DB = d; }
+  catch(e){}
+  if(!DB.projects.length) DB.projects = [newProject('โปรเจคที่ 1')];
+  DB.projects.forEach(function(p){ if(!Array.isArray(p.rooms)) p.rooms = []; });
+}
+function saveDB(){
+  try { localStorage.setItem(KEY, JSON.stringify(DB)); $('listHint').dataset.err=''; }
+  catch(e){ $('listHint').dataset.err='1'; }
+}
+function newProject(name){
+  return { id:uid(), name:name, client:'', note:'', off:false,
+           rooms:[ newRoom('ห้องที่ 1') ], roi:{} };
+}
+function newRoom(name){
+  return { id:uid(), name:name, w:8, l:10, h:2.8, pz:20, vent:null, erv:null, ac:null };
+}
+
+function nvv(x, d){ var v = parseFloat(x); return isFinite(v) ? v : (d||0); }
+function fmt(n,d){ d=d||0; return (isFinite(n)?n:0).toLocaleString('en-US',
+  {minimumFractionDigits:d, maximumFractionDigits:d}); }
+function baht(n){ return fmt(Math.round(n)); }
+function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+/* ── what a project adds up to ──
+   Only the additive quantities. Anything per-room that cannot be summed
+   is counted as rooms passing or failing instead. */
+function roll(p){
+  var r = { rooms:p.rooms.length, area:0, people:0, cmh:0, rt:0, baht:0,
+            done:{vent:0, erv:0, ac:0}, failCo2:0, failAc:0, noData:0 };
+  p.rooms.forEach(function(rm){
+    r.area += nvv(rm.w)*nvv(rm.l);
+    r.people += nvv(rm.pz);
+    if(rm.vent){ r.done.vent++; r.cmh += nvv(rm.vent.q);
+                 if(rm.vent.ok === false) r.failCo2++; }
+    if(rm.erv){ r.done.erv++; r.rt += nvv(rm.erv.rt); r.baht += nvv(rm.erv.baht);
+                if(rm.erv.ok === false) r.failAc++; }
+    if(rm.ac){ r.done.ac++; }
+    if(!rm.vent && !rm.erv && !rm.ac) r.noData++;
+  });
+  return r;
+}
+function fillBar(r){
+  var slots = [['vent',r.done.vent],['erv',r.done.erv],['ac',r.done.ac]];
+  var total = r.rooms*3, got = r.done.vent + r.done.erv + r.done.ac;
+  return '<span class="fill">'
+    + slots.map(function(s){
+        return '<i class="' + (s[1] >= r.rooms && r.rooms ? 'on' : '') + '"></i>'; }).join('')
+    + '<span class="t">' + got + '/' + total + '</span></span>';
+}
+
+/* deep link so a tool knows which room it is working on */
+function toolLink(tool, pid, rid, label){
+  return '<a class="cell-go" href="../' + tool + '/?p=' + encodeURIComponent(pid)
+    + '&r=' + encodeURIComponent(rid) + '">' + label + '</a>';
+}
+
+/* ─────────────── project list ─────────────── */
+var FILTER = 'all', CUR = null;
+
+function renderList(){
+  var rows = [], tA=0, tP=0, tQ=0, tRt=0, on=0, shown=0;
+  DB.projects.forEach(function(p, i){
+    var r = roll(p);
+    if(!p.off){ on++; tA+=r.area; tP+=r.people; tQ+=r.cmh; tRt+=r.rt; }
+    if(FILTER==='on' && p.off) return;
+    if(FILTER==='off' && !p.off) return;
+    shown++;
+    rows.push('<tr class="' + (p.off?'p-off':'') + '">'
+      + '<td><button class="p-sw' + (p.off?'':' on') + '" data-tog="'+i+'">'
+        + '<span class="d"></span>' + (p.off?'ปิด':'เปิด') + '</button></td>'
+      + '<td><b>' + esc(p.name) + '</b></td>'
+      + '<td style="font-size:12px">' + esc(p.client||'') + '</td>'
+      + '<td class="num">' + r.rooms + '</td>'
+      + '<td class="num">' + fmt(r.area,1) + '</td>'
+      + '<td class="num">' + fmt(r.people) + '</td>'
+      + '<td class="num">' + (r.done.vent ? fmt(r.cmh) : '<span class="cell-none">—</span>') + '</td>'
+      + '<td class="num">' + (r.done.erv ? fmt(r.rt,2) : '<span class="cell-none">—</span>') + '</td>'
+      + '<td>' + fillBar(r) + '</td>'
+      + '<td style="white-space:nowrap">'
+        + '<button class="btn ghost" data-go="'+i+'">เปิดดู</button> '
+        + '<button class="btn ghost" data-cp="'+i+'">คัดลอก</button> '
+        + '<button class="btn ghost" data-rm="'+i+'">ลบ</button></td>'
+      + '</tr>');
+  });
+  $('listBody').innerHTML = rows.length ? rows.join('')
+    : '<tr><td colspan="10" style="text-align:center;color:var(--gray);padding:26px">ไม่มีโปรเจคในตัวกรองนี้</td></tr>';
+  $('listFoot').innerHTML = '<tr><td colspan="3"><b>รวมเฉพาะโปรเจคที่เปิด ' + on + ' โปรเจค</b></td>'
+    + '<td class="num"><b>' + DB.projects.filter(function(p){return !p.off;})
+        .reduce(function(a,p){return a+p.rooms.length;},0) + '</b></td>'
+    + '<td class="num"><b>' + fmt(tA,1) + '</b></td>'
+    + '<td class="num"><b>' + fmt(tP) + '</b></td>'
+    + '<td class="num"><b>' + fmt(tQ) + '</b></td>'
+    + '<td class="num"><b>' + fmt(tRt,2) + '</b></td>'
+    + '<td colspan="2"></td></tr>';
+  $('cProj').textContent = DB.projects.length;
+  $('listKpis').innerHTML =
+      kpi(String(DB.projects.length),'โปรเจค','เก็บไว้ทั้งหมด', on + ' เปิด · ' + (DB.projects.length-on) + ' ปิด')
+    + kpi(String(DB.projects.filter(function(p){return !p.off;})
+          .reduce(function(a,p){return a+p.rooms.length;},0)),'ห้อง','ในโปรเจคที่เปิด','นับทุกห้องรวมกัน')
+    + kpi(fmt(tQ),'CMH','ลมรวมที่ต้องเติม','เฉพาะห้องที่คำนวณ CO₂ แล้ว')
+    + kpi(fmt(tRt,1),'RT','ภาระอากาศนอกรวม','เฉพาะห้องที่คำนวณภาระแล้ว');
+  var err = $('listHint').dataset.err === '1';
+  $('listHint').textContent = err
+    ? 'บันทึกลงเครื่องไม่ได้ · เบราว์เซอร์อาจปิดการเก็บข้อมูล ข้อมูลจะหายเมื่อปิดหน้า'
+    : 'แถบเขียวสามช่องคือ CO₂ · ภาระแอร์ · เสียง ครบทุกห้องหรือยัง · '
+      + 'ยอดรวมนับเฉพาะห้องที่เครื่องมือนั้นคำนวณไว้แล้ว จึงอาจต่ำกว่าความจริงถ้ายังทำไม่ครบ';
+}
+function kpi(v,u,label,note){
+  return '<div class="kpi-card"><div class="kpi-value">'+v+'<small>'+u+'</small></div>'
+    + '<div class="kpi-label">'+label+'</div><div class="kpi-note">'+note+'</div></div>';
+}
+
+/* ─────────────── one project ─────────────── */
+function renderDetail(){
+  var p = DB.projects[CUR];
+  if(!p){ $('detailHead').innerHTML = '<div class="note">ยังไม่ได้เลือกโปรเจค '
+    + 'ไปที่แท็บโปรเจคทั้งหมดแล้วกดเปิดดู</div>';
+    $('roomBody').innerHTML=''; $('roomFoot').innerHTML='';
+    $('detKpis').innerHTML=''; $('rollBody').innerHTML=''; return; }
+  var r = roll(p);
+
+  $('detailHead').innerHTML = '<div class="dhead">'
+    + '<button class="back" id="backList">← กลับไปรายการโปรเจค</button>'
+    + '<h2>' + esc(p.name) + '</h2>'
+    + '<div class="sub">' + (p.client ? 'ลูกค้า ' + esc(p.client) + ' · ' : '')
+    + r.rooms + ' ห้อง · พื้นที่รวม ' + fmt(r.area,1) + ' ตร.ม. · ' + fmt(r.people) + ' คน</div></div>';
+  $('backList').addEventListener('click', function(){
+    document.querySelector('.tab[data-p="list"]').click(); });
+
+  $('detKpis').innerHTML =
+      kpi(String(r.rooms),'ห้อง','ในโปรเจคนี้', r.noData ? r.noData + ' ห้องยังไม่มีข้อมูลเลย' : 'มีข้อมูลอย่างน้อยหนึ่งอย่างทุกห้อง')
+    + kpi(r.done.vent ? fmt(r.cmh) : '–','CMH','ลมรวมที่ต้องเติม', r.done.vent + ' จาก ' + r.rooms + ' ห้องคำนวณแล้ว')
+    + kpi(r.done.erv ? fmt(r.rt,2) : '–','RT','ภาระอากาศนอกรวม', r.done.erv + ' จาก ' + r.rooms + ' ห้องคำนวณแล้ว')
+    + kpi(String(r.failCo2 + r.failAc),'ห้อง','ที่ยังไม่ผ่านเกณฑ์', r.failCo2 + ' เรื่องลม · ' + r.failAc + ' เรื่องแอร์');
+
+  $('roomBody').innerHTML = p.rooms.map(function(rm, j){
+    return '<tr>'
+      + '<td><input class="rin" data-f="name" data-j="'+j+'" value="'+esc(rm.name)+'"></td>'
+      + '<td><div class="dim3">'
+        + '<input class="rin" type="number" step="0.1" data-f="w" data-j="'+j+'" value="'+rm.w+'"><span>×</span>'
+        + '<input class="rin" type="number" step="0.1" data-f="l" data-j="'+j+'" value="'+rm.l+'"><span>×</span>'
+        + '<input class="rin" type="number" step="0.1" data-f="h" data-j="'+j+'" value="'+rm.h+'"></div></td>'
+      + '<td class="num">' + fmt(nvv(rm.w)*nvv(rm.l),1) + '</td>'
+      + '<td><input class="rin" type="number" step="1" data-f="pz" data-j="'+j+'" value="'+rm.pz+'" style="width:64px"></td>'
+      + '<td>' + cell(rm.vent, p.id, rm.id, 'ventilation', function(v){
+          return '<b>' + fmt(nvv(v.q)) + '</b> CMH · CO₂ <b>' + fmt(nvv(v.co2)) + '</b> ppm'
+            + (v.ok === false ? ' <span class="badge bad">ลมไม่พอ</span>'
+               : v.ok === true ? ' <span class="badge ok">ผ่าน</span>' : ''); }) + '</td>'
+      + '<td>' + cell(rm.erv, p.id, rm.id, 'ervload', function(v){
+          return '<b>' + fmt(nvv(v.rt),2) + '</b> RT · อุณหภูมิ ' + fmt(nvv(v.dT),2) + ' °C'
+            + (v.ok === false ? ' <span class="badge bad">แอร์ไม่พอ</span>'
+               : v.ok === true ? ' <span class="badge ok">รับไหว</span>' : ''); }) + '</td>'
+      + '<td>' + cell(rm.ac, p.id, rm.id, 'acoustic', function(v){
+          return '<b>' + fmt(nvv(v.dba),1) + '</b> dB(A) ที่ผู้รับ'; }) + '</td>'
+      + '<td style="white-space:nowrap">'
+        + '<button class="btn ghost" data-rdup="'+j+'">คัดลอก</button> '
+        + '<button class="btn ghost" data-rdel="'+j+'">ลบ</button></td>'
+      + '</tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:22px">'
+      + 'ยังไม่มีห้อง กด เพิ่มห้อง เพื่อเริ่ม</td></tr>';
+  $('roomFoot').innerHTML = p.rooms.length ? '<tr><td colspan="2"><b>รวม ' + r.rooms + ' ห้อง</b></td>'
+    + '<td class="num"><b>' + fmt(r.area,1) + '</b></td>'
+    + '<td class="num"><b>' + fmt(r.people) + '</b></td>'
+    + '<td><b>' + (r.done.vent ? fmt(r.cmh) + ' CMH' : '—') + '</b></td>'
+    + '<td><b>' + (r.done.erv ? fmt(r.rt,2) + ' RT' : '—') + '</b></td>'
+    + '<td colspan="2"></td></tr>' : '';
+  $('roomHint').textContent = 'แก้ชื่อ ขนาด และจำนวนคนได้ที่นี่โดยตรง เครื่องมือทุกตัวจะเห็นค่าเดียวกัน · '
+    + 'กดลิงก์ในช่องขวาเพื่อเปิดเครื่องมือของห้องนั้น';
+
+  $('rollBody').innerHTML =
+      rowr('จำนวนห้อง', r.rooms + ' ห้อง', 'บวกได้')
+    + rowr('พื้นที่รวม', fmt(r.area,1) + ' ตร.ม.', 'บวกได้')
+    + rowr('จำนวนคนรวม', fmt(r.people) + ' คน', 'บวกได้')
+    + rowr('ลมบริสุทธิ์รวม', r.done.vent ? fmt(r.cmh) + ' CMH' : 'ยังไม่ครบ',
+           r.done.vent < r.rooms ? 'คำนวณแล้ว ' + r.done.vent + ' จาก ' + r.rooms + ' ห้อง' : 'ครบทุกห้อง')
+    + rowr('ภาระอากาศภายนอกรวม', r.done.erv ? fmt(r.rt,2) + ' RT' : 'ยังไม่ครบ',
+           r.done.erv < r.rooms ? 'คำนวณแล้ว ' + r.done.erv + ' จาก ' + r.rooms + ' ห้อง' : 'ครบทุกห้อง')
+    + rowr('ห้องที่ลมไม่พอตามเกณฑ์', r.failCo2 + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย')
+    + rowr('ห้องที่แอร์เดิมรับไม่ไหว', r.failAc + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย')
+    + rowr('ระดับ CO₂', 'ดูรายห้อง', '<b>บวกหรือเฉลี่ยไม่ได้</b> เป็นค่าของแต่ละห้อง')
+    + rowr('ระดับเสียงที่ผู้รับ', 'ดูรายห้อง', '<b>บวกไม่ได้</b> ขึ้นกับช่องเปิดและระยะของห้องนั้น');
+}
+function rowr(a,b,c){
+  return '<tr><td>'+a+'</td><td class="num"><b>'+b+'</b></td>'
+    + '<td style="font-size:12px;color:var(--text-secondary)">'+c+'</td></tr>';
+}
+function cell(v, pid, rid, tool, fmtFn){
+  if(!v) return '<span class="cell-none">ยังไม่มีข้อมูล</span><br>'
+    + toolLink(tool, pid, rid, 'เปิดเครื่องมือ →');
+  return '<span class="cell-has">' + fmtFn(v) + '</span><br>'
+    + toolLink(tool, pid, rid, 'แก้ในเครื่องมือ →');
+}
+
+/* ─────────────── events ─────────────── */
+$('listFilter').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  FILTER = b.dataset.f;
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  renderList();
+});
+$('pAdd').addEventListener('click', function(){
+  var nm = window.prompt('ชื่อโปรเจคใหม่', 'โปรเจคที่ ' + (DB.projects.length+1));
+  if(nm === null) return;
+  DB.projects.push(newProject((nm||'').trim() || ('โปรเจคที่ ' + (DB.projects.length+1))));
+  saveDB(); renderList();
+});
+$('listBody').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  var i;
+  if(b.dataset.tog !== undefined){
+    i = +b.dataset.tog; DB.projects[i].off = !DB.projects[i].off;
+    saveDB(); renderList(); return; }
+  if(b.dataset.go !== undefined){
+    CUR = +b.dataset.go;
+    document.querySelector('.tab[data-p="detail"]').click(); return; }
+  if(b.dataset.cp !== undefined){
+    i = +b.dataset.cp;
+    var c = JSON.parse(JSON.stringify(DB.projects[i]));
+    c.id = uid(); c.name = DB.projects[i].name + ' สำเนา'; c.off = false;
+    c.rooms.forEach(function(rm){ rm.id = uid(); });
+    DB.projects.splice(i+1, 0, c);
+    saveDB(); renderList(); return; }
+  if(b.dataset.rm !== undefined){
+    i = +b.dataset.rm;
+    if(DB.projects.length <= 1){ window.alert('เหลือโปรเจคเดียว ลบไม่ได้'); return; }
+    if(!window.confirm('ลบ ' + DB.projects[i].name + ' พร้อมห้องทั้งหมดอย่างถาวร ใช่หรือไม่'
+      + String.fromCharCode(10) + 'ถ้าแค่อยากซ่อน ให้กดปิดแทน')) return;
+    DB.projects.splice(i,1);
+    if(CUR !== null && CUR >= DB.projects.length) CUR = null;
+    saveDB(); renderList(); }
+});
+$('rAdd').addEventListener('click', function(){
+  var p = DB.projects[CUR]; if(!p) return;
+  p.rooms.push(newRoom('ห้องที่ ' + (p.rooms.length+1)));
+  saveDB(); renderDetail(); renderList();
+});
+$('pRen').addEventListener('click', function(){
+  var p = DB.projects[CUR]; if(!p) return;
+  var nm = window.prompt('ชื่อโปรเจค', p.name);
+  if(nm !== null && (nm||'').trim()) p.name = nm.trim();
+  var cl = window.prompt('ชื่อลูกค้า · เว้นว่างได้', p.client || '');
+  if(cl !== null) p.client = cl.trim();
+  saveDB(); renderDetail(); renderList();
+});
+$('roomBody').addEventListener('input', function(e){
+  var el = e.target; if(!el.dataset.f) return;
+  var p = DB.projects[CUR], rm = p.rooms[+el.dataset.j];
+  rm[el.dataset.f] = el.dataset.f === 'name' ? el.value : el.value;
+  saveDB();
+  /* only the derived cells need repainting, not the inputs being typed into */
+  var tr = el.closest('tr'), tds = tr.querySelectorAll('td');
+  tds[2].textContent = fmt(nvv(rm.w)*nvv(rm.l),1);
+  renderList();
+});
+$('roomBody').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  var p = DB.projects[CUR];
+  if(b.dataset.rdup !== undefined){
+    var j = +b.dataset.rdup;
+    var c = JSON.parse(JSON.stringify(p.rooms[j]));
+    c.id = uid(); c.name = p.rooms[j].name + ' สำเนา';
+    p.rooms.splice(j+1, 0, c);
+    saveDB(); renderDetail(); renderList(); return; }
+  if(b.dataset.rdel !== undefined){
+    var k = +b.dataset.rdel;
+    if(!window.confirm('ลบ ' + p.rooms[k].name + ' และผลคำนวณของห้องนี้ ใช่หรือไม่')) return;
+    p.rooms.splice(k,1);
+    saveDB(); renderDetail(); renderList(); }
+});
+
+/* ── spreadsheet round trip, one row per room ── */
+var COLS = ['โปรเจค','ลูกค้า','สถานะ','ห้อง','กว้าง','ยาว','สูง','จำนวนคน',
+            'ลมที่ต้องเติม CMH','CO2 ppm','ผ่านเกณฑ์ลม',
+            'ภาระ RT','อุณหภูมิเปลี่ยน C','แอร์รับไหว','เสียง dBA'];
+function csvCell(s){ s = String(s==null?'':s);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; }
+$('pExp').addEventListener('click', function(){
+  var NL = String.fromCharCode(13) + String.fromCharCode(10);
+  var rows = [COLS.map(csvCell).join(',')];
+  DB.projects.forEach(function(p){
+    p.rooms.forEach(function(rm){
+      rows.push([p.name, p.client||'', p.off?'ปิด':'เปิด', rm.name, rm.w, rm.l, rm.h, rm.pz,
+        rm.vent ? rm.vent.q : '', rm.vent ? Math.round(nvv(rm.vent.co2)) : '',
+        rm.vent ? (rm.vent.ok===false?'ไม่ผ่าน':rm.vent.ok===true?'ผ่าน':'') : '',
+        rm.erv ? nvv(rm.erv.rt).toFixed(2) : '', rm.erv ? nvv(rm.erv.dT).toFixed(2) : '',
+        rm.erv ? (rm.erv.ok===false?'ไม่ไหว':rm.erv.ok===true?'ไหว':'') : '',
+        rm.ac ? nvv(rm.ac.dba).toFixed(1) : ''].map(csvCell).join(','));
+    });
+  });
+  /* U+FEFF by code point, so Windows Excel reads the Thai rather than mojibake */
+  var BOM = String.fromCharCode(0xFEFF);
+  var blob = new Blob([BOM + rows.join(NL)], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Coral-projects-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  $('listHint').textContent = 'บันทึกเป็นไฟล์แล้ว หนึ่งแถวต่อหนึ่งห้อง · เปิดใน Excel ได้เลย';
+});
+$('pImp').addEventListener('click', function(){ $('pFile').click(); });
+$('pFile').addEventListener('change', function(){
+  var f = this.files && this.files[0]; if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){
+    try {
+      var txt = String(rd.result);
+      if(txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1);
+      var L = splitCsv(txt);
+      if(L.length < 2) throw new Error('ไม่มีข้อมูลในไฟล์');
+      var h = L[0], ix = {};
+      COLS.forEach(function(c){ var k = h.indexOf(c); if(k>=0) ix[c]=k; });
+      if(ix['โปรเจค'] === undefined || ix['ห้อง'] === undefined)
+        throw new Error('ไม่พบคอลัมน์ โปรเจค หรือ ห้อง');
+      var byName = {}, order = [];
+      for(var i=1;i<L.length;i++){
+        var c = L[i]; if(!c.length) continue;
+        var pn = (c[ix['โปรเจค']]||'').trim(); if(!pn) continue;
+        if(!byName[pn]){
+          byName[pn] = { id:uid(), name:pn, client:(c[ix['ลูกค้า']]||'').trim(),
+            note:'', off:(c[ix['สถานะ']]||'').trim()==='ปิด', rooms:[], roi:{} };
+          order.push(pn);
+        }
+        byName[pn].rooms.push({ id:uid(), name:(c[ix['ห้อง']]||'').trim() || 'ห้อง',
+          w:nvv(c[ix['กว้าง']],0), l:nvv(c[ix['ยาว']],0), h:nvv(c[ix['สูง']],0),
+          pz:nvv(c[ix['จำนวนคน']],0), vent:null, erv:null, ac:null });
+      }
+      if(!order.length) throw new Error('ไม่พบแถวที่มีชื่อโปรเจค');
+      var got = order.map(function(k){ return byName[k]; });
+      if(window.confirm('พบ ' + got.length + ' โปรเจค ' + got.reduce(function(a,p){return a+p.rooms.length;},0)
+        + ' ห้อง' + String.fromCharCode(10)
+        + 'กด OK เพื่อแทนที่ทั้งหมด · Cancel เพื่อเพิ่มต่อท้าย')){
+        DB.projects = got;
+      } else { DB.projects = DB.projects.concat(got); }
+      CUR = null; saveDB(); renderList(); renderDetail();
+      $('listHint').textContent = 'อ่านไฟล์แล้ว · รวม ' + DB.projects.length + ' โปรเจค'
+        + ' · ผลคำนวณของแต่ละเครื่องมือไม่ได้อ่านกลับ ต้องเปิดเครื่องมือคำนวณใหม่';
+    } catch(err){
+      window.alert('อ่านไฟล์ไม่สำเร็จ · ' + err.message + String.fromCharCode(10)
+        + 'ไฟล์ต้องมีหัวตารางแบบเดียวกับที่ Export ออกไป');
+    }
+  };
+  rd.readAsText(f, 'utf-8');
+  this.value = '';
+});
+function splitCsv(txt){
+  var rows=[], row=[], cell='', q=false;
+  for(var i=0;i<txt.length;i++){
+    var ch = txt[i];
+    if(q){ if(ch === '"'){ if(txt[i+1]==='"'){ cell+='"'; i++; } else q=false; } else cell+=ch; }
+    else if(ch === '"'){ q=true; }
+    else if(ch === ','){ row.push(cell); cell=''; }
+    else if(ch === '\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
+    else if(ch !== '\r'){ cell+=ch; }
+  }
+  if(cell.length || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+document.querySelectorAll('.tab').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    $('p-'+b.dataset.p).classList.add('active');
+    window.scrollTo(0,0);
+    if(b.dataset.p === 'detail') renderDetail();
+    if(b.dataset.p === 'list') renderList();
+  });
+});
+
+$('stamp').textContent = new Date().toLocaleDateString('th-TH',
+  { year:'numeric', month:'short', day:'numeric' });
+loadDB(); saveDB(); renderList(); renderDetail();
+
+/* a tool can hand control straight to a project */
+var qp = new URLSearchParams(location.search).get('p');
+if(qp){
+  DB.projects.forEach(function(p,i){ if(p.id === qp) CUR = i; });
+  if(CUR !== null) document.querySelector('.tab[data-p="detail"]').click();
+}
+})();
+
+</script>
+</body>
+</html>
