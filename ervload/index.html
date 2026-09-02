@@ -84,6 +84,18 @@ body {
 .kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
 .kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
 
+.hubbar{
+  background:#EDF6FD; border-bottom:1px solid #BBDDF7; padding:9px 32px;
+  font-size:12.5px; color:#1B6FBF; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+}
+.hubbar b{color:#14477F}
+.hubbar a{color:#1B6FBF; font-weight:600}
+.hubbar .sv{margin-left:auto; font-size:11.5px; color:#4A7FB5}
+.hubbar .snap{border:1px solid #BBDDF7; background:#fff; color:#1B6FBF; border-radius:5px;
+  padding:2px 9px; font-family:inherit; font-size:11.5px; font-weight:600; cursor:pointer}
+.hubbar .snap:hover{background:#DBEEFC}
+.hubbar .warn{color:#8A5B12}
+@media (max-width:900px){ .hubbar{padding:9px 16px} }
 .chart-grid { display: grid; gap: 16px; margin-bottom: 24px; }
 .chart-grid.g1 { grid-template-columns: 1fr; }
 .chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
@@ -382,6 +394,8 @@ table.dtable td.st{white-space:nowrap}
     <button class="btn ghost" onclick="window.print()">พิมพ์</button>
   </div>
 </div>
+
+<div id="hubBar" class="hubbar" hidden></div>
 
 <div class="tabs">
   <button class="tab active" data-p="calc">คำนวณ</button>
@@ -1050,6 +1064,117 @@ function csOf(rho, W){ return rho*(1005 + 1884*W)/1000; }    /* eq (8)(9) */
 function clOf(rho){ return rho*2500; }                       /* eq (10) */
 
 /* ─────────────── helpers ─────────────── */
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARED PROJECT STORE
+   Owned by the Project Hub on the same origin and path. This tool
+   only writes the erv slot of the one room it was opened on.
+   ═══════════════════════════════════════════════════════════════ */
+var HKEY = 'coral.projects.v1';
+var HUB = null;      /* { pid, rid, ventQ } when opened from the hub */
+
+function hubRead(){
+  try { var d = JSON.parse(localStorage.getItem(HKEY));
+        return (d && Array.isArray(d.projects)) ? d : null; }
+  catch(e){ return null; }
+}
+function hubFind(d, pid, rid){
+  var out = null;
+  d.projects.forEach(function(pr){ if(pr.id !== pid) return;
+    pr.rooms.forEach(function(rm){ if(rm.id === rid) out = { p:pr, r:rm }; }); });
+  return out;
+}
+function setOa(q){
+  var el = $('oa');
+  if(q > parseFloat(el.max)) el.max = Math.ceil(q*1.15/1000)*1000;
+  el.value = q;
+}
+function hubInit(){
+  var qs = new URLSearchParams(location.search);
+  var pid = qs.get('p'), rid = qs.get('r');
+  if(!pid || !rid) return;
+  var d = hubRead(); if(!d) return;
+  var hit = hubFind(d, pid, rid); if(!hit) return;
+  var rm = hit.r, e = rm.erv || null;
+  HUB = { pid:pid, rid:rid, ventQ: (rm.vent && rm.vent.q) ? +rm.vent.q : null };
+
+  /* geometry and the existing plant are the hub's, always.
+     A room may hold several AC units; the hub carries them summed, which is
+     the only form this calculation needs. */
+  if(rm.w && rm.l) $('area').value = +(nvv(rm.w)*nvv(rm.l)).toFixed(1);
+  if(rm.h) $('ht').value = rm.h;
+  if(nvv(rm.cap) > 0) $('cap').value = rm.cap;
+  if(nvv(rm.qac) > 0){
+    $('qac').value = rm.qac;
+    /* the airflow slider's ceiling is derived from the AC flow */
+    $('oa').max = Math.max(12000, Math.ceil(nvv(rm.qac)/1000)*1000);
+  }
+
+  /* airflow: what the CO2 tool decided, unless this tool was given another */
+  var q = (e && e.oa) ? +e.oa : HUB.ventQ;
+  if(q) setOa(q);
+
+  /* everything else is this tool's own, restored as left */
+  if(e){
+    /* cap and qac deliberately absent: the room owns them */
+    [['loadnow','loadnow'],['toa','toa'],['rhoa','rhoa'],
+     ['tr','tr'],['rhr','rhr'],['et','et'],['es','es']].forEach(function(pr){
+      if(e[pr[1]] != null && isFinite(e[pr[1]])) $(pr[0]).value = e[pr[1]];
+    });
+    if(e.mode) setBar('modebar','m', e.mode);
+    if(e.dens) setBar('densbar','d', e.dens);
+  }
+
+  var diff = (HUB.ventQ && q && Math.abs(q - HUB.ventQ) > 0.5);
+  var bar = $('hubBar');
+  bar.hidden = false;
+  bar.innerHTML = 'กำลังทำห้อง <b>' + (rm.name || 'ไม่ได้ตั้งชื่อ') + '</b> '
+    + 'ของโปรเจค <b>' + (hit.p.name || '') + '</b> · '
+    + '<a href="../hub/?p=' + encodeURIComponent(pid) + '">← กลับไปภาพรวมโปรเจค</a>'
+    + (nvv(rm.cap) > 0 ? ''
+        : ' · <span class="warn">ห้องนี้ยังไม่ได้ใส่ขนาดแอร์เดิมที่ Hub กำลังใช้ค่าตัวอย่างอยู่</span>')
+    + (HUB.ventQ
+        ? (diff
+            ? ' · <span class="warn">ลมที่ใช้ที่นี่ ' + fmt(q) + ' CMH ต่างจากที่ CO₂ คำนวณไว้ '
+              + fmt(HUB.ventQ) + ' CMH</span> <button class="snap" id="hubSnap">ใช้ค่าจาก CO₂</button>'
+            : ' · ลม ' + fmt(HUB.ventQ) + ' CMH ตามที่ CO₂ คำนวณไว้')
+        : ' · <span class="warn">ห้องนี้ยังไม่ได้คำนวณ CO₂ ปริมาณลมจึงยังไม่ผูกกับเกณฑ์ใด</span>')
+    + '<span class="sv" id="hubSaved">ผลคำนวณบันทึกกลับอัตโนมัติ</span>';
+  var snap = $('hubSnap');
+  if(snap) snap.addEventListener('click', function(){ setOa(HUB.ventQ); render(); hubInit(); });
+}
+function setBar(barId, key, val){
+  var bar = $(barId); if(!bar) return;
+  bar.querySelectorAll('button').forEach(function(b){
+    b.classList.toggle('active', b.dataset[key] === val);
+    if(b.dataset[key] === val){ if(key === 'm') MODE = val; else DENS = val; }
+  });
+}
+function nvv(x){ var v = parseFloat(x); return isFinite(v) ? v : 0; }
+
+/* called at the end of every render, so the hub is never stale */
+function hubSave(m){
+  if(!HUB) return;
+  var d = hubRead(); if(!d) return;
+  var hit = hubFind(d, HUB.pid, HUB.rid); if(!hit) return;
+  hit.r.h = nv('ht');
+  hit.r.cap = nv('cap'); hit.r.qac = nv('qac');
+  hit.r.erv = {
+    rt: m.qt/RTW, dT: m.dT, dRH: (m.RHr2 - m.RHr)*100,
+    ok: m.covered, deficitRt: m.deficitW/RTW, spareRt: m.spareW/RTW,
+    oa: m.Q, qac: m.Qac, cap: m.cap, loadnow: nv('loadnow'),
+    toa: nv('toa'), rhoa: nv('rhoa'), tr: nv('tr'), rhr: nv('rhr'),
+    et: nv('et'), es: nv('es'), mode: MODE, dens: DENS,
+    tsa: m.Tsa, rhsa: m.RHsa*100,
+    at: new Date().toISOString()
+  };
+  var el = $('hubSaved');
+  try { localStorage.setItem(HKEY, JSON.stringify(d));
+        if(el) el.textContent = 'บันทึกกลับเข้าโปรเจคแล้ว '
+          + new Date().toLocaleTimeString('th-TH'); }
+  catch(err){ if(el) el.textContent = 'บันทึกกลับไม่ได้ · เบราว์เซอร์ปิดการเก็บข้อมูลอยู่'; }
+}
+
 function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
 function fmt(n,d){ d = d||0; return (isFinite(n)?n:0).toLocaleString('en-US',
   {minimumFractionDigits:d, maximumFractionDigits:d}); }
@@ -1792,6 +1917,7 @@ function render(){
   if(MODAL) drawModal();
   $('psyLegend').innerHTML = 'เส้นทึบม่วงคือสิ่งที่แกน ERV ทำกับอากาศภายนอก · '
     + 'เส้นประน้ำเงินคือระยะที่เหลือให้คอยล์ของแอร์จัดการ · ยิ่งเส้นประสั้น ภาระยิ่งน้อย';
+  hubSave(m);
 }
 
 /* ─────────────── wiring ─────────────── */
@@ -1872,6 +1998,7 @@ document.addEventListener('keydown', function(e){
   }
 });
 
+hubInit();
 $('stamp').textContent = new Date().toLocaleDateString('th-TH',
   { year:'numeric', month:'short', day:'numeric' });
 window.addEventListener('resize', function(){

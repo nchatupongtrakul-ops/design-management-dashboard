@@ -321,6 +321,10 @@ tr.gov td{background:#EDF6FD !important}
 .dim3{display:flex; gap:4px; align-items:center}
 .dim3 input{width:56px; text-align:right}
 .dim3 span{color:var(--gray); font-size:11px}
+.thsub{font-weight:400; font-size:10.5px; color:var(--gray)}
+.ac2{display:flex; gap:4px; align-items:center; justify-content:flex-end}
+.ac2 input{width:56px; text-align:right}
+.ac2 span{color:var(--gray); font-size:11px}
 </style>
 </head>
 <body>
@@ -399,6 +403,7 @@ tr.gov td{background:#EDF6FD !important}
       <div class="tablewrap"><table class="dtable">
         <thead><tr>
           <th>ห้อง</th><th class="num">กว้าง × ยาว × สูง</th><th class="num">พื้นที่</th><th class="num">คน</th>
+          <th class="num">แอร์เดิม<div class="thsub">RT · ลมจ่าย CMH</div></th>
           <th>CO₂ และลมที่ต้องเติม</th><th>ภาระที่ตกกับแอร์</th><th>เสียงที่รั่วออก</th><th></th>
         </tr></thead>
         <tbody id="roomBody"></tbody>
@@ -489,7 +494,9 @@ tr.gov td{background:#EDF6FD !important}
 
 โครงข้อมูล
    project { id, name, client, note, off, rooms[], roi{} }
-   room    { id, name, w, l, h, pz, vent{}, erv{}, ac{} }
+   room    { id, name, w, l, h, pz, cap, qac, vent{}, erv{}, ac{} }
+           cap = ขนาดแอร์เดิมรวมทั้งห้อง RT · qac = ลมจ่ายของแอร์รวม CMH
+           ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ใส่เป็นยอดรวมก้อนเดียว
 
    vent{}  ผลจาก Ventilation &amp; CO₂
    erv{}   ผลจาก ERV Load Impact
@@ -540,7 +547,7 @@ var $ = function(i){ return document.getElementById(i); };
    own slot on a room and never touch each other's.
 
      project { id, name, client, note, off, rooms[], roi{} }
-     room    { id, name, w, l, h, pz, vent{}, erv{}, ac{} }
+     room    { id, name, w, l, h, pz, cap, qac, vent{}, erv{}, ac{} }
 
    Rooms exist because CO2, cooling load and noise are all properties of
    a single room. A project with four rooms has four different ppm
@@ -567,7 +574,8 @@ function newProject(name){
            rooms:[ newRoom('ห้องที่ 1') ], roi:{} };
 }
 function newRoom(name){
-  return { id:uid(), name:name, w:8, l:10, h:2.8, pz:20, vent:null, erv:null, ac:null };
+  return { id:uid(), name:name, w:8, l:10, h:2.8, pz:20,
+         cap:0, qac:0, vent:null, erv:null, ac:null };
 }
 
 function nvv(x, d){ var v = parseFloat(x); return isFinite(v) ? v : (d||0); }
@@ -581,14 +589,16 @@ function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
    Only the additive quantities. Anything per-room that cannot be summed
    is counted as rooms passing or failing instead. */
 function roll(p){
-  var r = { rooms:p.rooms.length, area:0, people:0, cmh:0, rt:0, baht:0,
+  var r = { rooms:p.rooms.length, area:0, people:0, cmh:0, rt:0, capRt:0, noCap:0,
             done:{vent:0, erv:0, ac:0}, failCo2:0, failAc:0, noData:0 };
   p.rooms.forEach(function(rm){
     r.area += nvv(rm.w)*nvv(rm.l);
     r.people += nvv(rm.pz);
+    r.capRt += nvv(rm.cap);
+    if(nvv(rm.cap) <= 0) r.noCap++;
     if(rm.vent){ r.done.vent++; r.cmh += nvv(rm.vent.q);
                  if(rm.vent.ok === false) r.failCo2++; }
-    if(rm.erv){ r.done.erv++; r.rt += nvv(rm.erv.rt); r.baht += nvv(rm.erv.baht);
+    if(rm.erv){ r.done.erv++; r.rt += nvv(rm.erv.rt);
                 if(rm.erv.ok === false) r.failAc++; }
     if(rm.ac){ r.done.ac++; }
     if(!rm.vent && !rm.erv && !rm.ac) r.noData++;
@@ -698,6 +708,11 @@ function renderDetail(){
         + '<input class="rin" type="number" step="0.1" data-f="h" data-j="'+j+'" value="'+rm.h+'"></div></td>'
       + '<td class="num">' + fmt(nvv(rm.w)*nvv(rm.l),1) + '</td>'
       + '<td><input class="rin" type="number" step="1" data-f="pz" data-j="'+j+'" value="'+rm.pz+'" style="width:64px"></td>'
+      + '<td><div class="ac2">'
+        + '<input class="rin" type="number" step="0.5" min="0" data-f="cap" data-j="'+j+'" value="'+nvv(rm.cap)+'">'
+        + '<span>·</span>'
+        + '<input class="rin" type="number" step="100" min="0" data-f="qac" data-j="'+j+'" value="'+nvv(rm.qac)+'">'
+        + '</div></td>'
       + '<td>' + cell(rm.vent, p.id, rm.id, 'ventilation', function(v){
           return '<b>' + fmt(nvv(v.q)) + '</b> CMH · CO₂ <b>' + fmt(nvv(v.co2)) + '</b> ppm'
             + (v.ok === false ? ' <span class="badge bad">ลมไม่พอ</span>'
@@ -712,16 +727,19 @@ function renderDetail(){
         + '<button class="btn ghost" data-rdup="'+j+'">คัดลอก</button> '
         + '<button class="btn ghost" data-rdel="'+j+'">ลบ</button></td>'
       + '</tr>';
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:22px">'
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--gray);padding:22px">'
       + 'ยังไม่มีห้อง กด เพิ่มห้อง เพื่อเริ่ม</td></tr>';
   $('roomFoot').innerHTML = p.rooms.length ? '<tr><td colspan="2"><b>รวม ' + r.rooms + ' ห้อง</b></td>'
     + '<td class="num"><b>' + fmt(r.area,1) + '</b></td>'
     + '<td class="num"><b>' + fmt(r.people) + '</b></td>'
+    + '<td class="num"><b>' + (r.capRt > 0 ? fmt(r.capRt,1) + ' RT' : '—') + '</b></td>'
     + '<td><b>' + (r.done.vent ? fmt(r.cmh) + ' CMH' : '—') + '</b></td>'
     + '<td><b>' + (r.done.erv ? fmt(r.rt,2) + ' RT' : '—') + '</b></td>'
     + '<td colspan="2"></td></tr>' : '';
-  $('roomHint').textContent = 'แก้ชื่อ ขนาด และจำนวนคนได้ที่นี่โดยตรง เครื่องมือทุกตัวจะเห็นค่าเดียวกัน · '
-    + 'กดลิงก์ในช่องขวาเพื่อเปิดเครื่องมือของห้องนั้น';
+  $('roomHint').innerHTML = 'แก้ชื่อ ขนาด จำนวนคน และแอร์เดิมได้ที่นี่โดยตรง เครื่องมือทุกตัวจะเห็นค่าเดียวกัน · '
+    + 'กดลิงก์ในช่องขวาเพื่อเปิดเครื่องมือของห้องนั้น<br>'
+    + '<b>ช่องแอร์เดิม</b> ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ให้รวม RT และลมจ่ายเป็นก้อนเดียว '
+    + 'เครื่องมือ ภาระที่ตกกับแอร์ ใช้สองค่านี้ตัดสินว่าแอร์เดิมรับลมนอกไหวหรือไม่';
 
   $('rollBody').innerHTML =
       rowr('จำนวนห้อง', r.rooms + ' ห้อง', 'บวกได้')
@@ -729,6 +747,8 @@ function renderDetail(){
     + rowr('จำนวนคนรวม', fmt(r.people) + ' คน', 'บวกได้')
     + rowr('ลมบริสุทธิ์รวม', r.done.vent ? fmt(r.cmh) + ' CMH' : 'ยังไม่ครบ',
            r.done.vent < r.rooms ? 'คำนวณแล้ว ' + r.done.vent + ' จาก ' + r.rooms + ' ห้อง' : 'ครบทุกห้อง')
+    + rowr('ขนาดแอร์เดิมรวม', r.capRt > 0 ? fmt(r.capRt,1) + ' RT' : 'ยังไม่ใส่',
+           r.noCap ? 'ยังไม่ใส่ ' + r.noCap + ' จาก ' + r.rooms + ' ห้อง' : 'ใส่ครบทุกห้อง · หลายชุดรวมเป็นก้อนเดียว')
     + rowr('ภาระอากาศภายนอกรวม', r.done.erv ? fmt(r.rt,2) + ' RT' : 'ยังไม่ครบ',
            r.done.erv < r.rooms ? 'คำนวณแล้ว ' + r.done.erv + ' จาก ' + r.rooms + ' ห้อง' : 'ครบทุกห้อง')
     + rowr('ห้องที่ลมไม่พอตามเกณฑ์', r.failCo2 + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย')
@@ -825,7 +845,7 @@ $('roomBody').addEventListener('click', function(e){
 });
 
 /* ── spreadsheet round trip, one row per room ── */
-var COLS = ['โปรเจค','ลูกค้า','สถานะ','ห้อง','กว้าง','ยาว','สูง','จำนวนคน',
+var COLS = ['โปรเจค','ลูกค้า','สถานะ','ห้อง','กว้าง','ยาว','สูง','จำนวนคน','แอร์เดิม RT','ลมแอร์ CMH',
             'ลมที่ต้องเติม CMH','CO2 ppm','ผ่านเกณฑ์ลม',
             'ภาระ RT','อุณหภูมิเปลี่ยน C','แอร์รับไหว','เสียง dBA'];
 function csvCell(s){ s = String(s==null?'':s);
@@ -836,6 +856,7 @@ $('pExp').addEventListener('click', function(){
   DB.projects.forEach(function(p){
     p.rooms.forEach(function(rm){
       rows.push([p.name, p.client||'', p.off?'ปิด':'เปิด', rm.name, rm.w, rm.l, rm.h, rm.pz,
+        nvv(rm.cap), nvv(rm.qac),
         rm.vent ? rm.vent.q : '', rm.vent ? Math.round(nvv(rm.vent.co2)) : '',
         rm.vent ? (rm.vent.ok===false?'ไม่ผ่าน':rm.vent.ok===true?'ผ่าน':'') : '',
         rm.erv ? nvv(rm.erv.rt).toFixed(2) : '', rm.erv ? nvv(rm.erv.dT).toFixed(2) : '',
@@ -878,7 +899,9 @@ $('pFile').addEventListener('change', function(){
         }
         byName[pn].rooms.push({ id:uid(), name:(c[ix['ห้อง']]||'').trim() || 'ห้อง',
           w:nvv(c[ix['กว้าง']],0), l:nvv(c[ix['ยาว']],0), h:nvv(c[ix['สูง']],0),
-          pz:nvv(c[ix['จำนวนคน']],0), vent:null, erv:null, ac:null });
+          pz:nvv(c[ix['จำนวนคน']],0),
+          cap:nvv(c[ix['แอร์เดิม RT']],0), qac:nvv(c[ix['ลมแอร์ CMH']],0),
+          vent:null, erv:null, ac:null });
       }
       if(!order.length) throw new Error('ไม่พบแถวที่มีชื่อโปรเจค');
       var got = order.map(function(k){ return byName[k]; });

@@ -219,6 +219,14 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
              background:var(--surface); color:var(--text-secondary); font-size:11px; font-weight:600;
              font-variant-numeric:tabular-nums; }
 .tabcount:empty { display:none; }
+.hubbar{
+  background:#EDF6FD; border-bottom:1px solid #BBDDF7; padding:9px 32px;
+  font-size:12.5px; color:#1B6FBF; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.hubbar b{color:#14477F}
+.hubbar a{color:#1B6FBF; font-weight:600}
+.hubbar .sv{margin-left:auto; font-size:11.5px; color:#4A7FB5}
+@media (max-width:900px){ .hubbar{padding:9px 16px} }
 .numbox { width: 104px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px;
           font-size: 14px; font-family: inherit; font-variant-numeric: tabular-nums;
           font-weight: 600; text-align: right; background: var(--card-bg); color: var(--text); }
@@ -278,6 +286,8 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
     <button class="btn ghost" id="resetBtn">Reset</button>
   </div>
 </div>
+
+<div id="hubBar" class="hubbar" hidden></div>
 
 <div class="tabs" role="tablist">
   <button class="tab active" data-page="calc">Calculator</button>
@@ -439,6 +449,12 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
       <div class="prose" style="font-size:13.5px"><p style="margin-bottom:12px;max-width:74ch">
       ใช้ตอนคิดทั้งบ้านหรือทั้งชั้นที่มีหลายห้อง กดเก็บทีละห้องแล้วไปดูยอดรวมได้ที่แท็บ
       <b>รายการห้อง</b> · เก็บไว้ในเครื่องของคุณเอง ไม่ได้ส่งออกไปไหน</p></div>
+      <div class="note" style="margin-bottom:12px"><b>รายการห้องในหน้านี้ กับโปรเจคใน Project Hub ต่างกัน</b><br>
+      <b>รายการห้องที่นี่</b> เห็นเฉพาะเครื่องมือนี้ ใช้คิด CO₂ หลายห้องเร็ว ๆ จบในตัว<br>
+      <b>Project Hub</b> เป็นทะเบียนกลางที่เครื่องมือทุกตัวใช้ร่วมกัน ห้องหนึ่งจะมีทั้งผล CO₂
+      ภาระที่ตกกับแอร์ และเสียง อยู่ด้วยกัน · <b>งานจริงที่ต้องส่งลูกค้าให้เริ่มจาก Hub</b>
+      แล้วกดลิงก์เข้ามาที่เครื่องมือนี้ ผลจะถูกบันทึกกลับเข้าโปรเจคให้เอง<br>
+      <a href="../hub/">เปิด Project Hub →</a></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div style="flex:1;min-width:220px">
           <label class="flabel" for="roomName">ชื่อห้อง</label>
@@ -798,6 +814,89 @@ var LAW_NA=[["ห้องน้ำ ห้องส้วมของที่�
 var $ = function(i){ return document.getElementById(i); };
 var C = { blue:'#2383E2', red:'#D44C47', orange:'#CB912F', grid:'#E3E2DE', txt:'#787774', ink:'#37352F', soft:'#F4F3F0' };
 var AC = 1, qTouched = false, view = null, lastDur = null, refMenuOpen = false;
+
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARED PROJECT STORE
+   Owned by the Project Hub, which sits on the same origin and path,
+   so the same localStorage key is visible here. This tool only ever
+   touches the room it was opened on, and only that room's vent slot.
+   ═══════════════════════════════════════════════════════════════ */
+var HKEY = 'coral.projects.v1';
+var HUB = null;          /* { pid, rid } when opened from the hub */
+var HUB_ROOM = null;     /* the room object being worked on */
+
+function hubRead(){
+  try { var d = JSON.parse(localStorage.getItem(HKEY));
+        return (d && Array.isArray(d.projects)) ? d : null; }
+  catch(e){ return null; }
+}
+function hubWrite(d){
+  try { localStorage.setItem(HKEY, JSON.stringify(d)); return true; }
+  catch(e){ return false; }
+}
+function hubFind(d, pid, rid){
+  var out = null;
+  d.projects.forEach(function(pr){
+    if(pr.id !== pid) return;
+    pr.rooms.forEach(function(rm){ if(rm.id === rid) out = { p:pr, r:rm }; });
+  });
+  return out;
+}
+function hubInit(){
+  var qs = new URLSearchParams(location.search);
+  var pid = qs.get('p'), rid = qs.get('r');
+  if(!pid || !rid) return;
+  var d = hubRead(); if(!d) return;
+  var hit = hubFind(d, pid, rid); if(!hit) return;
+  HUB = { pid:pid, rid:rid };
+  HUB_ROOM = hit.r;
+
+  /* the hub is the source of truth for geometry and occupancy */
+  if(hit.r.w) $('w').value = hit.r.w;
+  if(hit.r.l) $('l').value = hit.r.l;
+  if(hit.r.h) $('h').value = hit.r.h;
+  if(hit.r.pz){
+    var pz = Math.max(1, +hit.r.pz);
+    if(pz > (parseFloat($('pz').max)||0)) $('pz').max = Math.ceil(pz*1.2/50)*50;
+    $('pz').value = pz;
+  }
+  /* an airflow already chosen for this room is a deliberate choice, not a default */
+  if(hit.r.vent && hit.r.vent.q){
+    var q = +hit.r.vent.q;
+    if(q > (parseFloat($('q').max)||0)) $('q').max = Math.ceil(q*1.15/1000)*1000;
+    $('q').value = q; qTouched = true;
+  }
+  var bar = $('hubBar');
+  bar.hidden = false;
+  bar.innerHTML = 'กำลังทำห้อง <b>' + (hit.r.name || 'ไม่ได้ตั้งชื่อ') + '</b> '
+    + 'ของโปรเจค <b>' + (hit.p.name || '') + '</b> · '
+    + '<a href="../hub/?p=' + encodeURIComponent(pid) + '">← กลับไปภาพรวมโปรเจค</a>'
+    + '<span class="sv" id="hubSaved">ขนาดห้องและจำนวนคนดึงมาจากโปรเจค · ผลคำนวณบันทึกกลับอัตโนมัติ</span>';
+}
+
+/* called at the end of every render, so the hub is never stale */
+function hubSave(s, rec, endCo2){
+  if(!HUB) return;
+  var d = hubRead(); if(!d) return;
+  var hit = hubFind(d, HUB.pid, HUB.rid); if(!hit) return;
+  /* geometry edited here flows back, so the two never disagree */
+  hit.r.w = nv('w'); hit.r.l = nv('l'); hit.r.h = nv('h'); hit.r.pz = s.Pz;
+  hit.r.vent = {
+    q: Math.round(s.Q),
+    rec: isFinite(rec) ? Math.round(rec) : null,
+    co2: isFinite(endCo2) ? Math.round(endCo2) : null,
+    ok: isFinite(rec) ? (s.Q + 0.5 >= rec) : null,
+    cat: s.cat ? s.cat[1] : '',
+    dur: s.dur,
+    at: new Date().toISOString()
+  };
+  var okSave = hubWrite(d);
+  var el = $('hubSaved');
+  if(el) el.textContent = okSave
+    ? 'บันทึกกลับเข้าโปรเจคแล้ว ' + new Date().toLocaleTimeString('th-TH')
+    : 'บันทึกกลับไม่ได้ · เบราว์เซอร์ปิดการเก็บข้อมูลอยู่';
+}
 
 function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
 function fmt(n,d){ return (isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:d||0, maximumFractionDigits:d||0}); }
@@ -1264,6 +1363,7 @@ function render(){
     : 'ใส่ 0 ถ้าห้องยังไม่มีระบบระบายอากาศ · เส้นเทียบจะเป็นกรณีไม่มีระบบเลย';
 
   var end = at(s, s.dur, s.Q), ss = steady(s, s.Q);
+  hubSave(s, rec, end);
   var ceil = s.cat[5]!=null ? s.Co + s.cat[5] : 1900;
   var cls = end < 1000 ? 'ok' : end < ceil ? 'warn' : 'bad';
   var tau = (s.Q + s.inf*s.V) > 0 ? s.V/(s.Q + s.inf*s.V)*60 : null;
@@ -1620,6 +1720,7 @@ $('exportRooms').addEventListener('click', function(){
   } else { done(false); }
 });
 
+hubInit();
 loadRooms(); renderRooms();
 
 $('catSearch').addEventListener('input', function(){ buildTables(this.value); });
