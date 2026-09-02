@@ -437,6 +437,16 @@ table.dtable td.st{white-space:nowrap}
 .sl-notes{position:relative; font-size:8.5px; color:var(--sl-red); line-height:1.55; margin-top:9px; flex:none}
 .sl-by{position:relative; font-size:8.5px; color:var(--gray); margin-top:3px; flex:none}
 
+.idx-off td{opacity:.5}
+.idx-cur td{background:#EDF6FD}
+.idx-sw{
+  display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border);
+  background:var(--card-bg); border-radius:20px; padding:3px 10px; cursor:pointer;
+  font-family:inherit; font-size:11.5px; font-weight:600; color:var(--text-secondary);
+}
+.idx-sw .d{width:8px; height:8px; border-radius:50%; background:var(--gray)}
+.idx-sw.on{border-color:#BBDDF7; background:#EDF6FD; color:#1B6FBF}
+.idx-sw.on .d{background:#2E7D32}
 .projbar{
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
   background:var(--card-bg); border-bottom:1px solid var(--border);
@@ -518,9 +528,49 @@ table.dtable td.st{white-space:nowrap}
 
 <div class="tabs">
   <button class="tab active" data-p="calc">คำนวณ</button>
+  <button class="tab" data-p="index">รายการโปรเจค<span id="idxCount" class="tabcount"></span></button>
   <button class="tab" data-p="eq">สมการและที่มา</button>
   <button class="tab" data-p="present">ใบเสนอลูกค้า</button>
   <button class="tab" data-p="fan">ข้อมูลพัดลมอ้างอิง</button>
+</div>
+
+<!-- ══════════════════ PROJECT INDEX ══════════════════ -->
+<div class="page" id="p-index">
+  <div class="sectitle">รายการโปรเจคทั้งหมด</div>
+
+  <div class="note"><b>ปิดโปรเจคแทนการลบ</b> โปรเจคที่ปิดจะหายจากแถบด้านบนเพื่อไม่ให้รก
+  แต่ค่าทุกตัวยังอยู่ครบและกดเปิดกลับมาได้ตลอด · การลบเท่านั้นที่ทำให้ข้อมูลหายจริง<br>
+  ทุกโปรเจคในตารางนี้ถูกคำนวณใหม่จากค่าที่กรอกไว้ ไม่ได้ดึงตัวเลขที่บันทึกค้างไว้</div>
+
+  <div class="kpi-row" id="idxKpis"></div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row">
+        <h3>โปรเจคทั้งหมด</h3>
+        <div class="flowmeta">
+          <div class="segbar" id="idxFilter" style="width:auto;margin:0">
+            <button type="button" data-f="all" class="active">ทั้งหมด</button>
+            <button type="button" data-f="on">เฉพาะที่เปิด</button>
+            <button type="button" data-f="off">เฉพาะที่ปิด</button>
+          </div>
+          <button class="btn ghost" id="idxOpenAll">เปิดทั้งหมด</button>
+        </div>
+      </div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr>
+          <th>สถานะ</th><th>ชื่อโปรเจค</th><th>โครงการ</th>
+          <th class="num">ลม CMH</th><th class="num">ηt %</th>
+          <th class="num">ค่าไฟเดิม</th><th class="num">ค่าไฟ ERV</th>
+          <th class="num">ประหยัด บาท/ปี</th><th class="num">คืนทุน ปี</th>
+          <th class="num">ลดแอร์ RT</th><th></th>
+        </tr></thead>
+        <tbody id="idxBody"></tbody>
+        <tfoot id="idxFoot"></tfoot>
+      </table></div>
+      <div class="hint" id="idxHint"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════ CALC ══════════════════ -->
@@ -1656,7 +1706,7 @@ function render(){
     + '<td class="num"><b>' + (nv('baht_rt') > 0 ? baht(m.capex)+' บาท'
         : 'ใส่ราคาต่อ RT เพื่อคิดเป็นเงิน') + '</b></td></tr>';
 
-  stash(); saveProjects(); renderProjTabs();
+  stash(); saveProjects(); renderProjTabs(); renderIndex();
   renderSheet();
   drawBars($('bars')); drawSens($('sens'));
   attachChart($('bars')); attachChart($('sens'));
@@ -1886,9 +1936,11 @@ function loadProjects(){
   try { PROJECTS = JSON.parse(localStorage.getItem(PKEY)) || []; }
   catch(e){ PROJECTS = []; }
   if(!Array.isArray(PROJECTS) || !PROJECTS.length){
-    PROJECTS = [{ id:pid(), name:'โปรเจคที่ 1', v:snapshot() }];
+    PROJECTS = [{ id:pid(), name:'โปรเจคที่ 1', v:snapshot(), off:false }];
   }
+  if(!PROJECTS.some(function(p){ return !p.off; })) PROJECTS[0].off = false;
   CUR = 0;
+  for(var i=0;i<PROJECTS.length;i++){ if(!PROJECTS[i].off){ CUR = i; break; } }
 }
 function saveProjects(){
   try { localStorage.setItem(PKEY, JSON.stringify(PROJECTS)); $('projHint').dataset.err=''; }
@@ -1898,17 +1950,21 @@ function pid(){ return String(Date.now()) + String(Math.round(Math.random()*1000
 function stash(){ if(PROJECTS[CUR] && !LOADING) PROJECTS[CUR].v = snapshot(); }
 
 function renderProjTabs(){
+  /* closed projects drop off the bar but keep their real index on the button */
   $('projTabs').innerHTML = PROJECTS.map(function(p,i){
+    if(p.off) return '';
     var m = null;
     try { m = summaryOf(p); } catch(e){}
     return '<button class="ptab' + (i===CUR?' active':'') + '" data-i="'+i+'">'
       + esc(p.name) + (m ? '<span class="n">' + baht(m.net) + '</span>' : '') + '</button>';
   }).join('');
   var err = $('projHint').dataset.err === '1';
+  var off = PROJECTS.length - openCount();
   $('projHint').textContent = err
     ? 'บันทึกลงเครื่องไม่ได้ · เบราว์เซอร์อาจปิดการเก็บข้อมูล โปรเจคจะหายเมื่อปิดหน้า'
-    : PROJECTS.length + ' โปรเจคในเครื่องนี้ · ตัวเลขบนแท็บคือประหยัดสุทธิต่อปี · '
-      + 'แก้ค่าที่ไหนก็ได้ ระบบบันทึกให้เอง';
+    : openCount() + ' โปรเจคเปิดอยู่'
+      + (off ? ' · อีก ' + off + ' ปิดไว้ ดูได้ที่แท็บรายการโปรเจค' : '')
+      + ' · ตัวเลขบนแท็บคือประหยัดสุทธิต่อปี · แก้ค่าที่ไหนก็ได้ ระบบบันทึกให้เอง';
 }
 /* compute another project's headline without disturbing the open one */
 function summaryOf(p){
@@ -1928,14 +1984,14 @@ $('projTabs').addEventListener('click', function(e){
 });
 $('pAdd').addEventListener('click', function(){
   stash();
-  PROJECTS.push({ id:pid(), name:'โปรเจคที่ ' + (PROJECTS.length+1), v:snapshot() });
+  PROJECTS.push({ id:pid(), name:'โปรเจคที่ ' + (PROJECTS.length+1), v:snapshot(), off:false });
   CUR = PROJECTS.length - 1;
   saveProjects(); renderProjTabs(); render();
 });
 $('pDup').addEventListener('click', function(){
   stash();
   var c = JSON.parse(JSON.stringify(PROJECTS[CUR]));
-  c.id = pid(); c.name = PROJECTS[CUR].name + ' สำเนา';
+  c.id = pid(); c.name = PROJECTS[CUR].name + ' สำเนา'; c.off = false;
   PROJECTS.splice(CUR+1, 0, c); CUR = CUR + 1;
   saveProjects(); renderProjTabs(); render();
 });
@@ -1962,13 +2018,13 @@ function csvCell(s){
 $('pExp').addEventListener('click', function(){
   stash(); saveProjects();
   var NL = String.fromCharCode(13) + String.fromCharCode(10);
-  var head = ['ชื่อโปรเจค','ฐานที่เทียบ'].concat(FIELDS.map(function(f){ return FIELD_TH[f]; }))
+  var head = ['ชื่อโปรเจค','สถานะ','ฐานที่เทียบ'].concat(FIELDS.map(function(f){ return FIELD_TH[f]; }))
     .concat(['ประหยัดสุทธิ บาทต่อปี','ค่าไฟแอร์เดิม','ค่าไฟแอร์ ERV',
              'ค่าไฟระบายอากาศเดิม','ค่าไฟระบายอากาศ ERV','คืนทุน ปี','ลดขนาดแอร์ RT']);
   var rows = [head.map(csvCell).join(',')];
   PROJECTS.forEach(function(p){
     var m = summaryOf(p);
-    var r = [p.name, (p.v.base==='sup'?'พัดลมจ่าย+ดูด':'พัดลมดูดอย่างเดียว')]
+    var r = [p.name, (p.off?'ปิด':'เปิด'), (p.v.base==='sup'?'พัดลมจ่าย+ดูด':'พัดลมดูดอย่างเดียว')]
       .concat(FIELDS.map(function(f){ return p.v[f]; }))
       .concat([Math.round(m.net), Math.round(m.kwhCoolBase*m.rate), Math.round(m.kwhCoolErv*m.rate),
                Math.round(m.kwhFanBase*m.rate), Math.round(m.kwhFanErv*m.rate),
@@ -2010,7 +2066,9 @@ $('pFile').addEventListener('change', function(){
         var v = {};
         FIELDS.forEach(function(fd){ if(idx[fd] !== undefined) v[fd] = (c[idx[fd]]||'').trim(); });
         v.base = (iBase >= 0 && (c[iBase]||'').indexOf('จ่าย') >= 0) ? 'sup' : 'ex';
-        got.push({ id:pid(), name:c[iName].trim(), v:v });
+        var iSt = head.indexOf('สถานะ');
+        got.push({ id:pid(), name:c[iName].trim(), v:v,
+                   off: iSt >= 0 && (c[iSt]||'').trim() === 'ปิด' });
       }
       if(!got.length) throw new Error('ไม่พบแถวที่มีชื่อโปรเจค');
       if(!window.confirm('พบ ' + got.length + ' โปรเจคในไฟล์' + String.fromCharCode(10)
@@ -2047,6 +2105,124 @@ function splitCsv(txt){
   if(cell.length || row.length){ row.push(cell); rows.push(row); }
   return rows;
 }
+
+
+/* ── the index: every project, open or closed ── */
+var IDX_FILTER = 'all';
+
+function openCount(){ return PROJECTS.filter(function(p){ return !p.off; }).length; }
+
+function renderIndex(){
+  var body = $('idxBody'), rows = [];
+  var tOn = 0, tSave = 0, tRt = 0, shown = 0;
+  PROJECTS.forEach(function(p, i){
+    var m = null;
+    try { m = summaryOf(p); } catch(e){ return; }
+    if(!p.off){ tOn++; tSave += m.net; tRt += m.rtSaved; }
+    if(IDX_FILTER === 'on' && p.off) return;
+    if(IDX_FILTER === 'off' && !p.off) return;
+    shown++;
+    rows.push('<tr class="' + (p.off ? 'idx-off' : '') + (i===CUR ? ' idx-cur' : '') + '">'
+      + '<td><button class="idx-sw' + (p.off ? '' : ' on') + '" data-tog="' + i + '">'
+        + '<span class="d"></span>' + (p.off ? 'ปิด' : 'เปิด') + '</button></td>'
+      + '<td><b>' + esc(p.name) + '</b></td>'
+      + '<td style="font-size:12px">' + esc(p.v.pjName || '') + '</td>'
+      + '<td class="num">' + fmt(m.Q) + '</td>'
+      + '<td class="num">' + fmt(m.et*100,0) + '</td>'
+      + '<td class="num">' + baht(m.bahtBase) + '</td>'
+      + '<td class="num">' + baht(m.bahtErv) + '</td>'
+      + '<td class="num"><b>' + baht(m.net) + '</b></td>'
+      + '<td class="num">' + (m.pay.known
+          ? (m.pay.years !== null ? fmt(m.pay.years,1) : m.pay.immediate ? 'ทันที' : '—')
+          : '<span style="color:var(--gray)">ไม่ได้ใส่ราคา</span>') + '</td>'
+      + '<td class="num">' + fmt(m.rtSaved,2) + '</td>'
+      + '<td style="white-space:nowrap">'
+        + '<button class="btn ghost" data-go="' + i + '">เปิดดู</button> '
+        + '<button class="btn ghost" data-cp="' + i + '">คัดลอก</button> '
+        + '<button class="btn ghost" data-rm="' + i + '">ลบ</button></td>'
+      + '</tr>');
+  });
+  body.innerHTML = rows.length ? rows.join('')
+    : '<tr><td colspan="11" style="text-align:center;color:var(--gray);padding:26px">'
+      + 'ไม่มีโปรเจคในตัวกรองนี้</td></tr>';
+  $('idxFoot').innerHTML = '<tr><td colspan="7"><b>รวมเฉพาะโปรเจคที่เปิดอยู่ ' + tOn + ' โปรเจค</b></td>'
+    + '<td class="num"><b>' + baht(tSave) + '</b></td><td></td>'
+    + '<td class="num"><b>' + fmt(tRt,2) + '</b></td><td></td></tr>';
+  $('idxCount').textContent = PROJECTS.length;
+  $('idxKpis').innerHTML =
+      ikpi(String(PROJECTS.length), 'โปรเจค', 'เก็บไว้ทั้งหมด', tOn + ' เปิด · ' + (PROJECTS.length-tOn) + ' ปิด')
+    + ikpi(baht(tSave), 'บาท/ปี', 'ประหยัดรวม', 'นับเฉพาะโปรเจคที่เปิดอยู่')
+    + ikpi(fmt(tRt,1), 'RT', 'ลดขนาดแอร์รวม', 'เงินก้อนครั้งเดียว ไม่ใช่ทุกปี')
+    + ikpi(String(shown), 'แถว', 'ที่แสดงอยู่', 'ตามตัวกรองที่เลือก');
+  $('idxHint').textContent = 'แถวสีฟ้าคือโปรเจคที่เปิดอยู่ในแถบด้านบนตอนนี้ · '
+    + 'ยอดรวมไม่ได้นับโปรเจคที่ปิด และเป็นการบวกตรง ๆ ที่ถือว่าทุกงานเดินพร้อมกัน';
+}
+function ikpi(v,u,label,note){
+  return '<div class="kpi-card"><div class="kpi-value">' + v + '<small>' + u + '</small></div>'
+    + '<div class="kpi-label">' + label + '</div><div class="kpi-note">' + note + '</div></div>';
+}
+
+$('idxFilter').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  IDX_FILTER = b.dataset.f;
+  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===b); });
+  renderIndex();
+});
+$('idxOpenAll').addEventListener('click', function(){
+  PROJECTS.forEach(function(p){ p.off = false; });
+  saveProjects(); renderProjTabs(); renderIndex();
+});
+$('idxBody').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  var i;
+  if(b.dataset.tog !== undefined){
+    i = +b.dataset.tog;
+    /* never close the last one standing, or the tab bar has nothing to show */
+    if(!PROJECTS[i].off && openCount() <= 1){
+      window.alert('เหลือโปรเจคที่เปิดอยู่รายการเดียว ปิดไม่ได้');
+      return;
+    }
+    PROJECTS[i].off = !PROJECTS[i].off;
+    if(PROJECTS[i].off && i === CUR){
+      stash();
+      for(var k=0;k<PROJECTS.length;k++){ if(!PROJECTS[k].off){ CUR = k; break; } }
+      applySnapshot(PROJECTS[CUR].v);
+    }
+    saveProjects(); renderProjTabs(); renderIndex(); render();
+    return;
+  }
+  if(b.dataset.go !== undefined){
+    i = +b.dataset.go;
+    stash(); saveProjects();
+    PROJECTS[i].off = false;      /* looking at it counts as opening it */
+    CUR = i;
+    applySnapshot(PROJECTS[CUR].v);
+    renderProjTabs(); render();
+    document.querySelector('.tab[data-p="calc"]').click();
+    return;
+  }
+  if(b.dataset.cp !== undefined){
+    i = +b.dataset.cp;
+    var c = JSON.parse(JSON.stringify(PROJECTS[i]));
+    c.id = pid(); c.name = PROJECTS[i].name + ' สำเนา'; c.off = false;
+    PROJECTS.splice(i+1, 0, c);
+    if(CUR > i) CUR++;
+    saveProjects(); renderProjTabs(); renderIndex();
+    return;
+  }
+  if(b.dataset.rm !== undefined){
+    i = +b.dataset.rm;
+    if(PROJECTS.length <= 1){ window.alert('เหลือโปรเจคเดียว ลบไม่ได้'); return; }
+    if(!window.confirm('ลบ ' + PROJECTS[i].name + ' อย่างถาวร ใช่หรือไม่' + String.fromCharCode(10)
+      + 'ถ้าแค่อยากซ่อนจากแถบด้านบน ให้กดปิดแทน')) return;
+    PROJECTS.splice(i,1);
+    if(CUR >= PROJECTS.length) CUR = PROJECTS.length - 1;
+    if(CUR > i) CUR--;
+    if(PROJECTS[CUR].off){ PROJECTS[CUR].off = false; }
+    applySnapshot(PROJECTS[CUR].v);
+    saveProjects(); renderProjTabs(); renderIndex(); render();
+  }
+});
 
 /* ─────────────── wiring ─────────────── */
 document.querySelectorAll('.tab').forEach(function(b){
