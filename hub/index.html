@@ -375,6 +375,7 @@ tr.gov td{background:#EDF6FD !important}
           <th>สถานะ</th><th>โปรเจค</th><th>ลูกค้า</th>
           <th class="num">ห้อง</th><th class="num">พื้นที่ ตร.ม.</th><th class="num">คน</th>
           <th class="num">ลมรวม CMH</th><th class="num">ภาระ OA รวม RT</th>
+          <th class="num">ประหยัด บาท/ปี</th><th class="num">คืนทุน</th>
           <th>ความครบของข้อมูล</th><th></th>
         </tr></thead>
         <tbody id="listBody"></tbody>
@@ -500,6 +501,7 @@ tr.gov td{background:#EDF6FD !important}
 
    vent{}  ผลจาก Ventilation &amp; CO₂
    erv{}   ผลจาก ERV Load Impact
+   roi{}   ผลจาก ERV Energy Saving · ต่อโปรเจค ไม่ใช่ต่อห้อง · roi._out คือยอดที่หน้านี้อ่าน
    ac{}    ผลจาก Noise Breakout</div>
       <div class="note" style="margin-bottom:0"><b>เก็บในเครื่องนี้เท่านั้น ไม่ได้ส่งขึ้นเซิร์ฟเวอร์</b>
       เพื่อนร่วมทีมจะไม่เห็นข้อมูลของคุณ และเปลี่ยนเครื่องแล้วจะไม่ตามไป ·
@@ -588,6 +590,18 @@ function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
 /* ── what a project adds up to ──
    Only the additive quantities. Anything per-room that cannot be summed
    is counted as rooms passing or failing instead. */
+/* what ERV Energy Saving published for this project, if it has been opened */
+function roiOf(p){
+  var o = p && p.roi && p.roi._out;
+  return (o && isFinite(o.net)) ? o : null;
+}
+function payText(o){
+  if(!o) return '<span class="cell-none">—</span>';
+  if(!o.capexKnown) return '<span class="cell-none">ยังไม่ใส่ราคา</span>';
+  if(o.immediate) return '<span class="badge ok">คืนทุนทันที</span>';
+  if(o.never || o.years === null) return '<span class="badge bad">ไม่คืนทุน</span>';
+  return '<b>' + fmt(o.years,1) + '</b> ปี';
+}
 function roll(p){
   var r = { rooms:p.rooms.length, area:0, people:0, cmh:0, rt:0, capRt:0, noCap:0,
             done:{vent:0, erv:0, ac:0}, failCo2:0, failAc:0, noData:0 };
@@ -603,6 +617,7 @@ function roll(p){
     if(rm.ac){ r.done.ac++; }
     if(!rm.vent && !rm.erv && !rm.ac) r.noData++;
   });
+  r.roi = roiOf(p);
   return r;
 }
 function fillBar(r){
@@ -624,10 +639,11 @@ function toolLink(tool, pid, rid, label){
 var FILTER = 'all', CUR = null;
 
 function renderList(){
-  var rows = [], tA=0, tP=0, tQ=0, tRt=0, on=0, shown=0;
+  var rows = [], tA=0, tP=0, tQ=0, tRt=0, on=0, shown=0, tRoi=0, tRoiN=0;
   DB.projects.forEach(function(p, i){
     var r = roll(p);
-    if(!p.off){ on++; tA+=r.area; tP+=r.people; tQ+=r.cmh; tRt+=r.rt; }
+    if(!p.off){ on++; tA+=r.area; tP+=r.people; tQ+=r.cmh; tRt+=r.rt;
+                if(r.roi){ tRoi += r.roi.net; tRoiN++; } }
     if(FILTER==='on' && p.off) return;
     if(FILTER==='off' && !p.off) return;
     shown++;
@@ -641,6 +657,9 @@ function renderList(){
       + '<td class="num">' + fmt(r.people) + '</td>'
       + '<td class="num">' + (r.done.vent ? fmt(r.cmh) : '<span class="cell-none">—</span>') + '</td>'
       + '<td class="num">' + (r.done.erv ? fmt(r.rt,2) : '<span class="cell-none">—</span>') + '</td>'
+      + '<td class="num">' + (r.roi ? '<b>' + baht(r.roi.net) + '</b>'
+                                    : '<span class="cell-none">—</span>') + '</td>'
+      + '<td class="num">' + payText(r.roi) + '</td>'
       + '<td>' + fillBar(r) + '</td>'
       + '<td style="white-space:nowrap">'
         + '<button class="btn ghost" data-go="'+i+'">เปิดดู</button> '
@@ -649,7 +668,7 @@ function renderList(){
       + '</tr>');
   });
   $('listBody').innerHTML = rows.length ? rows.join('')
-    : '<tr><td colspan="10" style="text-align:center;color:var(--gray);padding:26px">ไม่มีโปรเจคในตัวกรองนี้</td></tr>';
+    : '<tr><td colspan="12" style="text-align:center;color:var(--gray);padding:26px">ไม่มีโปรเจคในตัวกรองนี้</td></tr>';
   $('listFoot').innerHTML = '<tr><td colspan="3"><b>รวมเฉพาะโปรเจคที่เปิด ' + on + ' โปรเจค</b></td>'
     + '<td class="num"><b>' + DB.projects.filter(function(p){return !p.off;})
         .reduce(function(a,p){return a+p.rooms.length;},0) + '</b></td>'
@@ -657,19 +676,23 @@ function renderList(){
     + '<td class="num"><b>' + fmt(tP) + '</b></td>'
     + '<td class="num"><b>' + fmt(tQ) + '</b></td>'
     + '<td class="num"><b>' + fmt(tRt,2) + '</b></td>'
-    + '<td colspan="2"></td></tr>';
+    + '<td class="num"><b>' + (tRoiN ? baht(tRoi) : '—') + '</b></td>'
+    + '<td colspan="3"></td></tr>';
   $('cProj').textContent = DB.projects.length;
   $('listKpis').innerHTML =
       kpi(String(DB.projects.length),'โปรเจค','เก็บไว้ทั้งหมด', on + ' เปิด · ' + (DB.projects.length-on) + ' ปิด')
     + kpi(String(DB.projects.filter(function(p){return !p.off;})
           .reduce(function(a,p){return a+p.rooms.length;},0)),'ห้อง','ในโปรเจคที่เปิด','นับทุกห้องรวมกัน')
     + kpi(fmt(tQ),'CMH','ลมรวมที่ต้องเติม','เฉพาะห้องที่คำนวณ CO₂ แล้ว')
-    + kpi(fmt(tRt,1),'RT','ภาระอากาศนอกรวม','เฉพาะห้องที่คำนวณภาระแล้ว');
+    + kpi(tRoiN ? baht(tRoi) : '–','บาท/ปี','ประหยัดรวมทุกโปรเจค',
+          tRoiN ? 'คิด ROI แล้ว ' + tRoiN + ' จาก ' + on + ' โปรเจคที่เปิด'
+                : 'ยังไม่มีโปรเจคใดคิด ROI');
   var err = $('listHint').dataset.err === '1';
   $('listHint').textContent = err
     ? 'บันทึกลงเครื่องไม่ได้ · เบราว์เซอร์อาจปิดการเก็บข้อมูล ข้อมูลจะหายเมื่อปิดหน้า'
     : 'แถบเขียวสามช่องคือ CO₂ · ภาระแอร์ · เสียง ครบทุกห้องหรือยัง · '
-      + 'ยอดรวมนับเฉพาะห้องที่เครื่องมือนั้นคำนวณไว้แล้ว จึงอาจต่ำกว่าความจริงถ้ายังทำไม่ครบ';
+      + 'ยอดรวมนับเฉพาะห้องที่เครื่องมือนั้นคำนวณไว้แล้ว จึงอาจต่ำกว่าความจริงถ้ายังทำไม่ครบ · '
+      + 'ประหยัดและคืนทุนเป็นของทั้งโปรเจค มาจากเครื่องมือ ERV Energy Saving';
 }
 function kpi(v,u,label,note){
   return '<div class="kpi-card"><div class="kpi-value">'+v+'<small>'+u+'</small></div>'
@@ -754,7 +777,17 @@ function renderDetail(){
     + rowr('ห้องที่ลมไม่พอตามเกณฑ์', r.failCo2 + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย')
     + rowr('ห้องที่แอร์เดิมรับไม่ไหว', r.failAc + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย')
     + rowr('ระดับ CO₂', 'ดูรายห้อง', '<b>บวกหรือเฉลี่ยไม่ได้</b> เป็นค่าของแต่ละห้อง')
-    + rowr('ระดับเสียงที่ผู้รับ', 'ดูรายห้อง', '<b>บวกไม่ได้</b> ขึ้นกับช่องเปิดและระยะของห้องนั้น');
+    + rowr('ระดับเสียงที่ผู้รับ', 'ดูรายห้อง', '<b>บวกไม่ได้</b> ขึ้นกับช่องเปิดและระยะของห้องนั้น')
+    + (r.roi
+        ? rowr('ประหยัดสุทธิต่อปี', baht(r.roi.net) + ' บาท',
+               'ของทั้งโปรเจค คิดจากลม ' + fmt(r.roi.q) + ' CMH')
+          + rowr('ระยะคืนทุน', payText(r.roi).replace(/<[^>]+>/g,'') || '—',
+                 r.roi.capexKnown ? 'เทียบกับพัดลมระบายอากาศธรรมดา'
+                                  : 'ต้องใส่ราคา ERV ที่ติดตั้งก่อนจึงจะคิดได้')
+          + rowr('ลดขนาดแอร์ได้', fmt(r.roi.rtSaved,2) + ' RT',
+                 'ที่สภาวะออกแบบ · ใช้ได้เมื่อยังไม่ได้สั่งเครื่อง')
+        : rowr('ROI ของโปรเจค', 'ยังไม่ได้คิด',
+               '<a href="../ervroi/">เปิด ERV Energy Saving →</a>'));
 }
 function rowr(a,b,c){
   return '<tr><td>'+a+'</td><td class="num"><b>'+b+'</b></td>'

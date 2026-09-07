@@ -197,6 +197,22 @@ select { cursor: pointer; }
 
 /* airflow slider block */
 .flowhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.roompanel{margin-top:14px; border-top:1px solid var(--border); padding-top:12px; font-size:12.5px}
+.roompanel .rp-head{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px}
+.roompanel .rp-head b{font-size:13px}
+.roompanel .rp-head a{color:var(--blue); text-decoration:none; font-size:12px}
+.roompanel .rp-head a:hover{text-decoration:underline}
+.roompanel table{width:100%; border-collapse:collapse}
+.roompanel th,.roompanel td{padding:4px 8px; border-bottom:1px solid var(--border);
+  text-align:left; font-variant-numeric:tabular-nums}
+.roompanel th{font-weight:600; color:var(--text-secondary); font-size:11.5px}
+.roompanel td.num,.roompanel th.num{text-align:right}
+.roompanel tfoot td{font-weight:700; border-bottom:0}
+.roompanel .rp-none{color:var(--gray)}
+.roompanel .rp-warn{color:#8A5B12}
+.roompanel .rp-snap{border:1px solid #BBDDF7; background:#EDF6FD; color:#1B6FBF;
+  border-radius:5px; padding:2px 9px; font-family:inherit; font-size:11.5px;
+  font-weight:600; cursor:pointer}
 .flowval { font-size: 38px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .flowval small { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 5px; }
 .flowmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -619,7 +635,8 @@ table.dtable td.st{white-space:nowrap}
         <input type="range" id="oa" min="0" max="20000" step="1" value="3000">
         <div class="ticks"><span>0</span><span id="tk1"></span><span id="tk2"></span><span id="tk3"></span><span id="tkm"></span></div>
       </div>
-      <div class="hint">ตัวเลขนี้มาจากเครื่องมือ Ventilation &amp; CO₂ · ทั้งสองทางเลือกเติมลมเท่ากัน ต่างกันที่วิธี</div>
+      <div class="hint">ทั้งสองทางเลือกเติมลมเท่ากัน ต่างกันที่วิธี</div>
+      <div id="roomPanel" class="roompanel"></div>
     </div>
   </div>
 
@@ -1708,6 +1725,7 @@ function render(){
 
   stash(); saveProjects(); renderProjTabs(); renderIndex();
   renderSheet();
+  renderRoomPanel();
   drawBars($('bars')); drawSens($('sens'));
   attachChart($('bars')); attachChart($('sens'));
   if(MODAL) drawModal();
@@ -1896,7 +1914,8 @@ function closeModal(){
    hand, and an import that quietly corrupts a project would be worse
    than having none. Excel opens this directly and it returns cleanly.
    ═══════════════════════════════════════════════════════════════ */
-var PKEY = 'coral.ervroi.projects.v1';
+var PKEY = 'coral.projects.v1';   /* the hub's registry, shared by every tool */
+var DB = null;                    /* the whole registry, rooms and all */
 var FIELDS = ['pjName','pjArea','pjBy','oa','et','tpk','rpk','tav','rav','tr','rr',
               'hpd','dpy','rate','cop','baht_rt','dp_b','eta_b','nf_b','w_b',
               'dp_e','eta_e','nf_e','w_e','cap_erv','cap_fan'];
@@ -1932,19 +1951,162 @@ function applySnapshot(v){
   $('oa').value = v.oa;
   LOADING = false;
 }
+function newHubProject(name){
+  /* no rooms invented: an empty list is honest, and the hub says so plainly */
+  return { id:pid(), name:name, client:'', note:'', off:false, rooms:[], roi:{} };
+}
 function loadProjects(){
-  try { PROJECTS = JSON.parse(localStorage.getItem(PKEY)) || []; }
-  catch(e){ PROJECTS = []; }
-  if(!Array.isArray(PROJECTS) || !PROJECTS.length){
-    PROJECTS = [{ id:pid(), name:'โปรเจคที่ 1', v:snapshot(), off:false }];
+  try { DB = JSON.parse(localStorage.getItem(PKEY)); } catch(e){ DB = null; }
+  if(!DB || !Array.isArray(DB.projects)) DB = { projects:[] };
+  if(!DB.projects.length) DB.projects.push(newHubProject('โปรเจคที่ 1'));
+
+  /* one-time lift of anything left in this tool's old private list */
+  try {
+    var old = JSON.parse(localStorage.getItem('coral.ervroi.projects.v1'));
+    if(Array.isArray(old) && old.length){
+      old.forEach(function(o){
+        var hit = null;
+        DB.projects.forEach(function(q){ if(q.name === o.name) hit = q; });
+        if(hit){ if(!hit.roi || !Object.keys(hit.roi).length) hit.roi = o.v || {}; }
+        else { var np = newHubProject(o.name || 'โปรเจค'); np.off = !!o.off;
+               np.roi = o.v || {}; DB.projects.push(np); }
+      });
+      localStorage.removeItem('coral.ervroi.projects.v1');
+    }
+  } catch(e){}
+
+  var blank = snapshot();
+  PROJECTS = DB.projects.map(function(q){
+    var v = {};
+    Object.keys(blank).forEach(function(k){ v[k] = blank[k]; });
+    if(q.roi) Object.keys(q.roi).forEach(function(k){ v[k] = q.roi[k]; });
+    /* seed from the rooms the first time, so nothing is typed twice */
+    var rs = roomSum(q);
+    if(!q.roi || q.roi.oa === undefined){ if(rs.cmh > 0) v.oa = rs.cmh; }
+    if(!q.roi || q.roi.pjArea === undefined){ if(rs.area > 0) v.pjArea = Math.round(rs.area); }
+    if(!q.roi || q.roi.pjName === undefined){ v.pjName = q.name; }
+    return { id:q.id, name:q.name, off:!!q.off, v:v };
+  });
+  if(!PROJECTS.some(function(q){ return !q.off; })){
+    PROJECTS[0].off = false; DB.projects[0].off = false;
   }
-  if(!PROJECTS.some(function(p){ return !p.off; })) PROJECTS[0].off = false;
   CUR = 0;
   for(var i=0;i<PROJECTS.length;i++){ if(!PROJECTS[i].off){ CUR = i; break; } }
 }
+/* what the rooms of one project add up to */
+function roomSum(q){
+  var out = { rooms:0, area:0, cmh:0, rt:0, done:0, cap:0 };
+  (q.rooms || []).forEach(function(rm){
+    out.rooms++;
+    out.area += nvx(rm.w)*nvx(rm.l);
+    out.cap  += nvx(rm.cap);
+    var f = (rm.erv && rm.erv.oa) ? nvx(rm.erv.oa)
+          : (rm.vent && rm.vent.q) ? nvx(rm.vent.q) : 0;
+    if(f > 0){ out.cmh += f; out.done++; }
+    if(rm.erv) out.rt += nvx(rm.erv.rt);
+  });
+  return out;
+}
+function nvx(x){ var v = parseFloat(x); return isFinite(v) ? v : 0; }
 function saveProjects(){
-  try { localStorage.setItem(PKEY, JSON.stringify(PROJECTS)); $('projHint').dataset.err=''; }
+  /* mirror the tab list back into the registry without touching the rooms */
+  var byId = {};
+  DB.projects.forEach(function(q){ byId[q.id] = q; });
+  var kept = [];
+  PROJECTS.forEach(function(pr){
+    var q = byId[pr.id];
+    if(!q){ q = newHubProject(pr.name); q.id = pr.id; }
+    q.name = pr.name; q.off = !!pr.off; q.roi = pr.v;
+    kept.push(q);
+  });
+  DB.projects = kept;
+  /* The hub reads projects without opening this page, so the headline has to
+     be stored rather than recomputed there. Only the project on screen is
+     recomputed here: this runs on every keystroke, and summaryOf writes to
+     the inputs and back, which is not something to do to a field being typed
+     into. The rest keep the figure from when they were last on screen, and
+     refreshAllOut brings them up to date after a load or an import. */
+  var curId = PROJECTS[CUR] && PROJECTS[CUR].id;
+  kept.forEach(function(q){
+    if(q.id !== curId) return;
+    try { q.roi._out = outOf(model()); } catch(e){ }
+  });
+  try { localStorage.setItem(PKEY, JSON.stringify(DB)); $('projHint').dataset.err=''; }
   catch(e){ $('projHint').dataset.err='1'; }
+}
+/* The ROI is one figure for the whole project, but a project has many rooms.
+   This makes the sum visible and says plainly when the slider has drifted
+   away from what the rooms were actually given. */
+function renderRoomPanel(){
+  var el = $('roomPanel'); if(!el) return;
+  var q = curRooms();
+  var pidq = q ? ('?p=' + encodeURIComponent(q.id)) : '';
+  if(!q || !(q.rooms||[]).length){
+    el.innerHTML = '<div class="rp-head"><b>ห้องในโปรเจคนี้</b>'
+      + '<a href="../hub/' + pidq + '">เปิด Project Hub →</a></div>'
+      + '<div class="rp-none">โปรเจคนี้ยังไม่มีห้อง · ตัวเลขลมด้านบนจึงเป็นค่าที่ใส่เอง '
+      + 'ไม่ได้ผูกกับห้องใด</div>';
+    return;
+  }
+  var rs = roomSum(q), typed = nv('oa');
+  var drift = rs.cmh > 0 && Math.abs(typed - rs.cmh) > 0.5;
+  el.innerHTML = '<div class="rp-head"><b>ห้องในโปรเจคนี้</b>'
+    + '<span style="color:var(--text-secondary)">' + rs.rooms + ' ห้อง · '
+    + 'มีปริมาณลมแล้ว ' + rs.done + ' ห้อง</span>'
+    + '<a href="../hub/' + pidq + '">เปิด Project Hub →</a></div>'
+    + '<div style="overflow-x:auto"><table><thead><tr><th>ห้อง</th>'
+    + '<th class="num">พื้นที่ ตร.ม.</th><th class="num">ลม CMH</th>'
+    + '<th class="num">ภาระ RT</th></tr></thead><tbody>'
+    + q.rooms.map(function(rm){
+        var f = (rm.erv && rm.erv.oa) ? nvx(rm.erv.oa)
+              : (rm.vent && rm.vent.q) ? nvx(rm.vent.q) : 0;
+        return '<tr><td>' + esc(rm.name || 'ไม่ได้ตั้งชื่อ') + '</td>'
+          + '<td class="num">' + fmt(nvx(rm.w)*nvx(rm.l),1) + '</td>'
+          + '<td class="num">' + (f > 0 ? fmt(f) : '<span class="rp-none">ยังไม่คำนวณ</span>') + '</td>'
+          + '<td class="num">' + (rm.erv ? fmt(nvx(rm.erv.rt),2)
+                                         : '<span class="rp-none">—</span>') + '</td></tr>';
+      }).join('')
+    + '</tbody><tfoot><tr><td>รวม</td><td class="num">' + fmt(rs.area,1) + '</td>'
+    + '<td class="num">' + fmt(rs.cmh) + '</td>'
+    + '<td class="num">' + (rs.rt > 0 ? fmt(rs.rt,2) : '—') + '</td></tr></tfoot></table></div>'
+    + (drift
+        ? '<div style="margin-top:8px"><span class="rp-warn">ลมที่ใช้คิด ROI ' + fmt(typed)
+          + ' CMH ต่างจากยอดรวมของห้อง ' + fmt(rs.cmh) + ' CMH</span> '
+          + '<button class="rp-snap" id="rpSnap" type="button">ใช้ยอดรวมของห้อง</button></div>'
+        : (rs.done < rs.rooms
+            ? '<div style="margin-top:8px" class="rp-warn">ยังมี ' + (rs.rooms - rs.done)
+              + ' ห้องที่ไม่มีปริมาณลม ยอดรวมจึงยังไม่ครบทั้งโปรเจค</div>'
+            : '<div style="margin-top:8px" class="rp-none">ลมที่ใช้คิด ROI ตรงกับยอดรวมของทุกห้อง</div>'));
+  var b = $('rpSnap');
+  if(b) b.addEventListener('click', function(){
+    var el2 = $('oa');
+    if(rs.cmh > parseFloat(el2.max)) el2.max = Math.ceil(rs.cmh*1.15/1000)*1000;
+    el2.value = rs.cmh; stash(); saveProjects(); render();
+  });
+}
+function outOf(m){
+  return { net:m.net, years:(m.pay.years === null ? null : m.pay.years),
+           immediate:!!m.pay.immediate, never:!!m.pay.never,
+           capexKnown:!!m.pay.known, rtSaved:m.rtSaved, q:m.Q,
+           bahtBase:m.bahtBase, bahtErv:m.bahtErv,
+           at:new Date().toISOString() };
+}
+/* bring every project's stored headline up to date - safe only when nothing
+   is being typed into, because summaryOf borrows the inputs */
+function refreshAllOut(){
+  PROJECTS.forEach(function(pr){
+    var q = null;
+    DB.projects.forEach(function(x){ if(x.id === pr.id) q = x; });
+    if(!q) return;
+    if(!q.roi) q.roi = {};
+    try { q.roi._out = outOf(summaryOf(pr)); } catch(e){ }
+  });
+  try { localStorage.setItem(PKEY, JSON.stringify(DB)); } catch(e){ }
+}
+function curRooms(){
+  var q = null, id = PROJECTS[CUR] && PROJECTS[CUR].id;
+  DB.projects.forEach(function(x){ if(x.id === id) q = x; });
+  return q;
 }
 function pid(){ return String(Date.now()) + String(Math.round(Math.random()*1000)); }
 function stash(){ if(PROJECTS[CUR] && !LOADING) PROJECTS[CUR].v = snapshot(); }
@@ -1984,14 +2146,24 @@ $('projTabs').addEventListener('click', function(e){
 });
 $('pAdd').addEventListener('click', function(){
   stash();
-  PROJECTS.push({ id:pid(), name:'โปรเจคที่ ' + (PROJECTS.length+1), v:snapshot(), off:false });
+  var nm = 'โปรเจคที่ ' + (PROJECTS.length+1);
+  var np = newHubProject(nm);
+  DB.projects.push(np);
+  PROJECTS.push({ id:np.id, name:nm, v:snapshot(), off:false });
   CUR = PROJECTS.length - 1;
   saveProjects(); renderProjTabs(); render();
+  $('projHint').textContent = 'สร้าง ' + nm + ' แล้ว · ยังไม่มีห้อง ไปเพิ่มห้องได้ที่ Project Hub';
 });
 $('pDup').addEventListener('click', function(){
   stash();
+  var src = curRooms();
   var c = JSON.parse(JSON.stringify(PROJECTS[CUR]));
   c.id = pid(); c.name = PROJECTS[CUR].name + ' สำเนา'; c.off = false;
+  /* the rooms come along, with fresh ids so the two copies stay separate */
+  var nq = newHubProject(c.name); nq.id = c.id; nq.roi = c.v;
+  if(src) nq.rooms = (src.rooms||[]).map(function(rm){
+    var r2 = JSON.parse(JSON.stringify(rm)); r2.id = pid() + 'r'; return r2; });
+  DB.projects.splice(CUR+1, 0, nq);
   PROJECTS.splice(CUR+1, 0, c); CUR = CUR + 1;
   saveProjects(); renderProjTabs(); render();
 });
@@ -2003,7 +2175,14 @@ $('pRen').addEventListener('click', function(){
 });
 $('pDel').addEventListener('click', function(){
   if(PROJECTS.length <= 1){ window.alert('เหลือโปรเจคเดียว ลบไม่ได้'); return; }
-  if(!window.confirm('ลบ ' + PROJECTS[CUR].name + ' ใช่หรือไม่')) return;
+  /* this is now the shared registry: the rooms and their CO2, load and noise
+     results go with it, so say how many before asking */
+  var q = curRooms(), nr = q ? (q.rooms||[]).length : 0;
+  if(!window.confirm('ลบ ' + PROJECTS[CUR].name + ' ใช่หรือไม่'
+      + String.fromCharCode(10)
+      + (nr ? 'จะลบห้องทั้ง ' + nr + ' ห้องพร้อมผล CO₂ ภาระแอร์ และเสียงไปด้วย'
+            : 'โปรเจคนี้ยังไม่มีห้อง')
+      + String.fromCharCode(10) + 'ถ้าแค่ไม่อยากเห็น ให้กดปิดที่แท็บรายการโปรเจคแทน')) return;
   PROJECTS.splice(CUR,1);
   CUR = Math.max(0, CUR-1);
   applySnapshot(PROJECTS[CUR].v);
@@ -2071,15 +2250,26 @@ $('pFile').addEventListener('change', function(){
                    off: iSt >= 0 && (c[iSt]||'').trim() === 'ปิด' });
       }
       if(!got.length) throw new Error('ไม่พบแถวที่มีชื่อโปรเจค');
-      if(!window.confirm('พบ ' + got.length + ' โปรเจคในไฟล์' + String.fromCharCode(10)
-        + 'กด OK เพื่อแทนที่รายการเดิมทั้งหมด · กด Cancel เพื่อเพิ่มต่อท้าย')){
-        PROJECTS = PROJECTS.concat(got);
-      } else {
-        PROJECTS = got;
-      }
+      /* the registry holds the rooms too, so a file of ROI figures updates
+         what it matches by name and adds what it does not - it never replaces
+         the list, which would take every room's CO2, load and noise with it */
+      var upd = 0, add = 0;
+      got.forEach(function(g){
+        var hit = null;
+        PROJECTS.forEach(function(pr){ if(pr.name === g.name) hit = pr; });
+        if(hit){ hit.v = g.v; hit.off = g.off; upd++; }
+        else {
+          var np = newHubProject(g.name); np.off = g.off; np.roi = g.v;
+          DB.projects.push(np);
+          PROJECTS.push({ id:np.id, name:g.name, off:g.off, v:g.v });
+          add++;
+        }
+      });
       CUR = 0; applySnapshot(PROJECTS[0].v);
-      saveProjects(); renderProjTabs(); render();
-      $('projHint').textContent = 'อ่านไฟล์แล้ว · รวม ' + PROJECTS.length + ' โปรเจค';
+      saveProjects(); refreshAllOut(); renderProjTabs(); renderIndex(); render();
+      $('projHint').textContent = 'อ่านไฟล์แล้ว · แก้ค่าให้ ' + upd + ' โปรเจคที่ชื่อตรงกัน'
+        + (add ? ' · เพิ่มใหม่ ' + add + ' โปรเจคที่ยังไม่มีห้อง' : '')
+        + ' · ห้องเดิมทั้งหมดยังอยู่ครบ';
     } catch(err){
       window.alert('อ่านไฟล์ไม่สำเร็จ · ' + err.message
         + String.fromCharCode(10) + String.fromCharCode(10)
@@ -2292,6 +2482,7 @@ $('stamp').textContent = new Date().toLocaleDateString('th-TH',
 fillKruger(); fillPana(); fillErvPick(); fillZeh();
 loadProjects();
 applySnapshot(PROJECTS[CUR].v);
+refreshAllOut();
 render();
 })();
 
