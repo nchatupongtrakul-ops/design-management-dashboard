@@ -1530,9 +1530,17 @@ function hubInit(){
   if(hit.r.law != null && $('law').options[hit.r.law]) $('law').value = hit.r.law;
   if(hit.r.act != null && ACTS[hit.r.act]) $('act').value = hit.r.act;
 
+  /* everything the last answer was computed under, restored before the
+     first render so nothing is recomputed against a default */
+  var vt = hit.r.vent;
+  if(vt){
+    ['co','c0','dur','inf','base'].forEach(function(k){
+      if(vt[k] != null && isFinite(vt[k])) $(k).value = vt[k];
+    });
+  }
   /* an airflow already chosen for this room is a deliberate choice, not a default */
-  if(hit.r.vent && hit.r.vent.q){
-    var q = csNum(hit.r.vent.q);
+  if(vt && vt.q){
+    var q = csNum(vt.q);
     if(q > (parseFloat($('q').max)||0)) $('q').max = Math.ceil(q*1.15/1000)*1000;
     $('q').value = q; qTouched = true;
   }
@@ -1556,7 +1564,10 @@ function hubSave(s, rec, endCo2){
     co2: isFinite(endCo2) ? Math.round(endCo2) : null,
     ok: isFinite(rec) ? (s.Q + 0.5 >= rec) : null,
     cat: s.cat ? s.cat[1] : '',
-    dur: s.dur,
+    /* the conditions the answer was reached under. Without these a later
+       visit recomputes from the page defaults and quietly replaces a real
+       result with a different one. */
+    dur: s.dur, co: nv('co'), c0: nv('c0'), inf: nv('inf'), base: nv('base'),
     at: new Date().toISOString()
   };
   csTouch(hit.p);
