@@ -84,6 +84,11 @@ body {
 .kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
 .kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
 
+.hubbar .qn{font-size:11px;color:#4A7FB5}
+.hubbar .cond{flex-basis:100%; display:flex; gap:8px; align-items:center}
+.hubbar .cond:empty{display:none}
+.hubbar .ovr{color:#8A5B12; background:#FDF8EF; border:1px solid #EBD9B4;
+  border-radius:4px; padding:1px 7px; font-size:11.5px}
 .hubbar{
   background:#EDF6FD; border-bottom:1px solid #BBDDF7; padding:9px 32px;
   font-size:12.5px; color:#1B6FBF; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
@@ -1065,83 +1070,274 @@ function clOf(rho){ return rho*2500; }                       /* eq (10) */
 
 /* ─────────────── helpers ─────────────── */
 
-/* ═══════════════════════════════════════════════════════════════
-   SHARED PROJECT STORE
-   Owned by the Project Hub on the same origin and path. This tool
-   only writes the erv slot of the one room it was opened on.
-   ═══════════════════════════════════════════════════════════════ */
-var HKEY = 'coral.projects.v1';
-var HUB = null;      /* { pid, rid, ventQ } when opened from the hub */
+/* ═══════════════════════════════════════════════════════════════════════
+   CORAL PROJECT STORE v2
+   Shared by every tool. Identical text in all five pages - edit the copy in
+   the scratchpad and run sync_store.py, never one page by hand.
 
-function hubRead(){
-  try { var d = JSON.parse(localStorage.getItem(HKEY));
-        return (d && Array.isArray(d.projects)) ? d : null; }
-  catch(e){ return null; }
+   project  → scenario → room
+   A project is a building. A scenario is one set of design conditions for
+   that building; a project can hold several, so "with ERV" and "with plain
+   fans", or two efficiencies, live side by side over the same rooms rather
+   than as two disconnected copies of the job.
+
+   Conditions live on the scenario. A room may override one, and when it
+   does the tools say so and offer to put it back, because a room quietly
+   carrying a different outdoor temperature from its own project is the
+   kind of error nobody finds by reading the summary.
+   ═══════════════════════════════════════════════════════════════════════ */
+var CS_K1 = 'coral.projects.v1';   /* the old shape - kept, never written to again */
+var CS_K2 = 'coral.projects.v2';
+
+function csUid(){
+  return String(Date.now()) + String(Math.round(Math.random()*100000));
 }
-function hubFind(d, pid, rid){
-  var out = null;
-  d.projects.forEach(function(pr){ if(pr.id !== pid) return;
-    pr.rooms.forEach(function(rm){ if(rm.id === rid) out = { p:pr, r:rm }; }); });
+function csNum(x, d){
+  var v = parseFloat(x);
+  return isFinite(v) ? v : (d === undefined ? 0 : d);
+}
+
+/* The conditions a scenario carries. Outdoor design drives equipment size,
+   outdoor average drives the electricity bill; using one for the other is a
+   standing mistake, so they are separate fields with separate labels. */
+function csNewScenario(name){
+  return {
+    id: csUid(), name: name || 'ทางเลือกที่ 1', note: '', off: false,
+    city: '',
+    oaPk: { t:35, rh:60 },     /* design · sizing */
+    oaAv: { t:31, rh:70 },     /* annual average · energy */
+    room: { t:25, rh:50 },     /* indoor */
+    erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
+    bill: { rate:4.15, hpd:10, dpy:300, cop:3.2 },
+    roi:  {},                  /* the rest of ERV Energy Saving's own inputs */
+    rooms: [ csNewRoom('ห้องที่ 1') ]
+  };
+}
+function csNewRoom(name){
+  return {
+    id: csUid(), name: name || 'ห้อง', tag: '',
+    level: '', system: '', zone: '',
+    w: 8, l: 10, h: 2.8, pz: 20,
+    qty: 1,                    /* how many identical rooms this row stands for */
+    cat: 'AC',                 /* 'AC' air conditioned · 'MV' ventilation only */
+    cap: 0, qac: 0,            /* existing plant, several units summed */
+    vent: null, erv: null, ac: null
+  };
+}
+function csNewProject(name){
+  return {
+    id: csUid(), name: name || 'โปรเจคใหม่', client: '', note: '',
+    off: false, status: '',
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    scenarios: [ csNewScenario('ทางเลือกที่ 1') ]
+  };
+}
+
+/* ── the conditions a room actually runs at ──
+   A room field wins over the scenario only when the room carries one, so a
+   room that was never touched follows its project for ever after. */
+function csCond(scn, rm){
+  var c = {
+    oaPkT: csNum(scn.oaPk.t,35), oaPkRh: csNum(scn.oaPk.rh,60),
+    oaAvT: csNum(scn.oaAv.t,31), oaAvRh: csNum(scn.oaAv.rh,70),
+    rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
+    et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
+    over: []
+  };
+  var o = rm && rm.cond;
+  if(o){
+    ['oaPkT','oaPkRh','rT','rRh','et','es'].forEach(function(k){
+      if(o[k] != null && isFinite(o[k]) && Math.abs(o[k] - c[k]) > 1e-9){
+        c[k] = +o[k]; c.over.push(k);
+      }
+    });
+  }
+  return c;
+}
+var CS_COND_TH = { oaPkT:'อุณหภูมิภายนอก', oaPkRh:'ความชื้นภายนอก',
+                   rT:'อุณหภูมิห้อง', rRh:'ความชื้นห้อง',
+                   et:'ประสิทธิภาพรวม ηt', es:'ประสิทธิภาพสัมผัส ηs' };
+
+/* ── migration ──
+   v1 is left exactly where it is. If v2 ever has to be thrown away the old
+   registry is still there to read. */
+function csMigrate(old){
+  var out = { v:2, projects:[] };
+  (old.projects || []).forEach(function(p){
+    var np = csNewProject(p.name);
+    np.id = p.id; np.client = p.client || ''; np.note = p.note || '';
+    np.off = !!p.off;
+    var sc = csNewScenario('ทางเลือกที่ 1');
+    /* conditions the ROI page had been carrying for the whole project */
+    var r = p.roi || {};
+    if(isFinite(csNum(r.tpk, NaN))) sc.oaPk.t  = csNum(r.tpk);
+    if(isFinite(csNum(r.rpk, NaN))) sc.oaPk.rh = csNum(r.rpk);
+    if(isFinite(csNum(r.tav, NaN))) sc.oaAv.t  = csNum(r.tav);
+    if(isFinite(csNum(r.rav, NaN))) sc.oaAv.rh = csNum(r.rav);
+    if(isFinite(csNum(r.tr,  NaN))) sc.room.t  = csNum(r.tr);
+    if(isFinite(csNum(r.rr,  NaN))) sc.room.rh = csNum(r.rr);
+    if(isFinite(csNum(r.et,  NaN))) sc.erv.et  = csNum(r.et);
+    ['rate','hpd','dpy','cop'].forEach(function(k){
+      if(isFinite(csNum(r[k], NaN))) sc.bill[k] = csNum(r[k]);
+    });
+    sc.roi = r;
+    sc.rooms = (p.rooms || []).map(function(rm){
+      var nr = csNewRoom(rm.name);
+      nr.id = rm.id;
+      ['w','l','h','pz','cap','qac'].forEach(function(k){ nr[k] = csNum(rm[k]); });
+      nr.vent = rm.vent || null; nr.erv = rm.erv || null; nr.ac = rm.ac || null;
+      /* the load tool used to keep a full copy of the conditions on every
+         room; those become overrides so nothing silently changes value */
+      if(rm.erv){
+        nr.cond = {};
+        if(isFinite(csNum(rm.erv.toa,  NaN))) nr.cond.oaPkT  = csNum(rm.erv.toa);
+        if(isFinite(csNum(rm.erv.rhoa, NaN))) nr.cond.oaPkRh = csNum(rm.erv.rhoa);
+        if(isFinite(csNum(rm.erv.tr,   NaN))) nr.cond.rT     = csNum(rm.erv.tr);
+        if(isFinite(csNum(rm.erv.rhr,  NaN))) nr.cond.rRh    = csNum(rm.erv.rhr);
+        if(isFinite(csNum(rm.erv.et,   NaN))) nr.cond.et     = csNum(rm.erv.et);
+        if(isFinite(csNum(rm.erv.es,   NaN))) nr.cond.es     = csNum(rm.erv.es);
+      }
+      return nr;
+    });
+    if(!sc.rooms.length) sc.rooms = [ csNewRoom('ห้องที่ 1') ];
+    np.scenarios = [ sc ];
+    out.projects.push(np);
+  });
   return out;
 }
+
+function csRead(){
+  var db = null;
+  try { db = JSON.parse(localStorage.getItem(CS_K2)); } catch(e){ db = null; }
+  if(db && Array.isArray(db.projects)) return csHeal(db);
+  var old = null;
+  try { old = JSON.parse(localStorage.getItem(CS_K1)); } catch(e){ old = null; }
+  if(old && Array.isArray(old.projects) && old.projects.length){
+    var mig = csMigrate(old);
+    csWrite(mig);
+    return mig;
+  }
+  return { v:2, projects:[] };
+}
+/* fill in anything a hand-edited or older v2 file is missing, so no page has
+   to guard every field it reads */
+function csHeal(db){
+  db.projects.forEach(function(p){
+    if(!Array.isArray(p.scenarios) || !p.scenarios.length)
+      p.scenarios = [ csNewScenario('ทางเลือกที่ 1') ];
+    if(!p.createdAt) p.createdAt = new Date().toISOString();
+    if(!p.updatedAt) p.updatedAt = p.createdAt;
+    if(p.status == null) p.status = '';
+    p.scenarios.forEach(function(s){
+      var d = csNewScenario('x');
+      ['oaPk','oaAv','room','erv','bill'].forEach(function(g){
+        if(!s[g]) s[g] = d[g];
+        else Object.keys(d[g]).forEach(function(k){
+          if(s[g][k] == null) s[g][k] = d[g][k]; });
+      });
+      if(!s.roi) s.roi = {};
+      if(!Array.isArray(s.rooms)) s.rooms = [];
+      s.rooms.forEach(function(r){
+        if(r.qty == null || !(csNum(r.qty) >= 1)) r.qty = 1;
+        if(!r.cat) r.cat = 'AC';
+        if(r.tag == null) r.tag = '';
+        ['level','system','zone'].forEach(function(k){ if(r[k] == null) r[k] = ''; });
+        if(r.cap == null) r.cap = 0;
+        if(r.qac == null) r.qac = 0;
+      });
+    });
+  });
+  return db;
+}
+function csWrite(db){
+  try { localStorage.setItem(CS_K2, JSON.stringify(db)); return true; }
+  catch(e){ return false; }
+}
+function csTouch(p){ if(p) p.updatedAt = new Date().toISOString(); }
+
+/* Locate one room. The scenario id is optional so a link written before
+   scenarios existed still lands somewhere sensible. */
+function csFind(db, pid, sid, rid){
+  var hit = null;
+  db.projects.forEach(function(p){
+    if(p.id !== pid) return;
+    p.scenarios.forEach(function(s){
+      if(sid && s.id !== sid) return;
+      s.rooms.forEach(function(r){ if(r.id === rid && !hit) hit = { p:p, s:s, r:r }; });
+    });
+  });
+  if(!hit && sid){                       /* the room moved, or the link is old */
+    db.projects.forEach(function(p){
+      if(p.id !== pid) return;
+      p.scenarios.forEach(function(s){
+        s.rooms.forEach(function(r){ if(r.id === rid && !hit) hit = { p:p, s:s, r:r }; });
+      });
+    });
+  }
+  return hit;
+}
+function csFindScenario(db, pid, sid){
+  var hit = null;
+  db.projects.forEach(function(p){
+    if(p.id !== pid) return;
+    p.scenarios.forEach(function(s){
+      if(!hit && (!sid || s.id === sid)) hit = { p:p, s:s };
+    });
+  });
+  return hit;
+}
+
+/* ── what a scenario's rooms add up to ──
+   Q'ty multiplies everything physical. It never multiplies CO2 or dB(A):
+   twenty identical rooms are not louder than one, they are twenty rooms
+   each at that level. */
+function csRoll(scn){
+  var r = { rows:0, rooms:0, area:0, people:0, cmh:0, rt:0, cap:0, acRows:0,
+            done:{vent:0, erv:0, ac:0}, failCo2:0, failAc:0, noData:0,
+            noCap:0, mv:0, worstCo2:null, worstDba:null };
+  (scn.rooms || []).forEach(function(rm){
+    var q = Math.max(1, csNum(rm.qty, 1));
+    r.rows++; r.rooms += q;
+    r.area   += csNum(rm.w)*csNum(rm.l)*q;
+    r.people += csNum(rm.pz)*q;
+    /* a ventilation-only room has no air conditioning, so neither its plant
+       nor any load left on a previous pass belongs in these totals */
+    var mv = rm.cat === 'MV';
+    if(mv) r.mv++;
+    else {
+      r.acRows++;
+      r.cap += csNum(rm.cap)*q;
+      if(csNum(rm.cap) <= 0) r.noCap++;
+    }
+    if(rm.vent){
+      r.done.vent++; r.cmh += csNum(rm.vent.q)*q;
+      if(rm.vent.ok === false) r.failCo2 += q;
+      var c = csNum(rm.vent.co2, NaN);
+      if(isFinite(c) && (r.worstCo2 === null || c > r.worstCo2)) r.worstCo2 = c;
+    }
+    if(rm.erv && !mv){
+      r.done.erv++; r.rt += csNum(rm.erv.rt)*q;
+      if(rm.erv.ok === false) r.failAc += q;
+    }
+    if(rm.ac){
+      r.done.ac++;
+      var d = csNum(rm.ac.dba, NaN);
+      if(isFinite(d) && (r.worstDba === null || d > r.worstDba)) r.worstDba = d;
+    }
+    if(!rm.vent && !rm.erv && !rm.ac) r.noData++;
+  });
+  return r;
+}
+/* ═══ end CORAL PROJECT STORE v2 ═══ */
+/* ── this page's link to one room ── */
+var HUB = null;              /* { pid, sid, rid } when opened from the hub */
+
+function esc0(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function setOa(q){
   var el = $('oa');
   if(q > parseFloat(el.max)) el.max = Math.ceil(q*1.15/1000)*1000;
   el.value = q;
-}
-function hubInit(){
-  var qs = new URLSearchParams(location.search);
-  var pid = qs.get('p'), rid = qs.get('r');
-  if(!pid || !rid) return;
-  var d = hubRead(); if(!d) return;
-  var hit = hubFind(d, pid, rid); if(!hit) return;
-  var rm = hit.r, e = rm.erv || null;
-  HUB = { pid:pid, rid:rid, ventQ: (rm.vent && rm.vent.q) ? +rm.vent.q : null };
-
-  /* geometry and the existing plant are the hub's, always.
-     A room may hold several AC units; the hub carries them summed, which is
-     the only form this calculation needs. */
-  if(rm.w && rm.l) $('area').value = +(nvv(rm.w)*nvv(rm.l)).toFixed(1);
-  if(rm.h) $('ht').value = rm.h;
-  if(nvv(rm.cap) > 0) $('cap').value = rm.cap;
-  if(nvv(rm.qac) > 0){
-    $('qac').value = rm.qac;
-    /* the airflow slider's ceiling is derived from the AC flow */
-    $('oa').max = Math.max(12000, Math.ceil(nvv(rm.qac)/1000)*1000);
-  }
-
-  /* airflow: what the CO2 tool decided, unless this tool was given another */
-  var q = (e && e.oa) ? +e.oa : HUB.ventQ;
-  if(q) setOa(q);
-
-  /* everything else is this tool's own, restored as left */
-  if(e){
-    /* cap and qac deliberately absent: the room owns them */
-    [['loadnow','loadnow'],['toa','toa'],['rhoa','rhoa'],
-     ['tr','tr'],['rhr','rhr'],['et','et'],['es','es']].forEach(function(pr){
-      if(e[pr[1]] != null && isFinite(e[pr[1]])) $(pr[0]).value = e[pr[1]];
-    });
-    if(e.mode) setBar('modebar','m', e.mode);
-    if(e.dens) setBar('densbar','d', e.dens);
-  }
-
-  var diff = (HUB.ventQ && q && Math.abs(q - HUB.ventQ) > 0.5);
-  var bar = $('hubBar');
-  bar.hidden = false;
-  bar.innerHTML = 'กำลังทำห้อง <b>' + (rm.name || 'ไม่ได้ตั้งชื่อ') + '</b> '
-    + 'ของโปรเจค <b>' + (hit.p.name || '') + '</b> · '
-    + '<a href="../hub/?p=' + encodeURIComponent(pid) + '">← กลับไปภาพรวมโปรเจค</a>'
-    + (nvv(rm.cap) > 0 ? ''
-        : ' · <span class="warn">ห้องนี้ยังไม่ได้ใส่ขนาดแอร์เดิมที่ Hub กำลังใช้ค่าตัวอย่างอยู่</span>')
-    + (HUB.ventQ
-        ? (diff
-            ? ' · <span class="warn">ลมที่ใช้ที่นี่ ' + fmt(q) + ' CMH ต่างจากที่ CO₂ คำนวณไว้ '
-              + fmt(HUB.ventQ) + ' CMH</span> <button class="snap" id="hubSnap">ใช้ค่าจาก CO₂</button>'
-            : ' · ลม ' + fmt(HUB.ventQ) + ' CMH ตามที่ CO₂ คำนวณไว้')
-        : ' · <span class="warn">ห้องนี้ยังไม่ได้คำนวณ CO₂ ปริมาณลมจึงยังไม่ผูกกับเกณฑ์ใด</span>')
-    + '<span class="sv" id="hubSaved">ผลคำนวณบันทึกกลับอัตโนมัติ</span>';
-  var snap = $('hubSnap');
-  if(snap) snap.addEventListener('click', function(){ setOa(HUB.ventQ); render(); hubInit(); });
 }
 function setBar(barId, key, val){
   var bar = $(barId); if(!bar) return;
@@ -1150,15 +1346,96 @@ function setBar(barId, key, val){
     if(b.dataset[key] === val){ if(key === 'm') MODE = val; else DENS = val; }
   });
 }
-function nvv(x){ var v = parseFloat(x); return isFinite(v) ? v : 0; }
+/* the six condition inputs, and which scenario field each one mirrors */
+var COND_FLD = [['toa','oaPkT'], ['rhoa','oaPkRh'], ['tr','rT'], ['rhr','rRh'],
+                ['et','et'], ['es','es']];
+
+function hubInit(){
+  var qs = new URLSearchParams(location.search);
+  var pid = qs.get('p'), sid = qs.get('s'), rid = qs.get('r');
+  if(!pid || !rid) return;
+  var db = csRead();
+  var hit = csFind(db, pid, sid, rid); if(!hit) return;
+  var rm = hit.r, e = rm.erv || null;
+  HUB = { pid:pid, sid:hit.s.id, rid:rid,
+          ventQ: (rm.vent && rm.vent.q) ? csNum(rm.vent.q) : null };
+
+  /* geometry and the existing plant belong to the room */
+  if(rm.w && rm.l) $('area').value = +(csNum(rm.w)*csNum(rm.l)).toFixed(1);
+  if(rm.h) $('ht').value = rm.h;
+  if(csNum(rm.cap) > 0) $('cap').value = rm.cap;
+  if(csNum(rm.qac) > 0){
+    $('qac').value = rm.qac;
+    $('oa').max = Math.max(12000, Math.ceil(csNum(rm.qac)/1000)*1000);
+  }
+  /* the conditions belong to the scenario, unless this room says otherwise */
+  var cnd = csCond(hit.s, rm);
+  COND_FLD.forEach(function(f){ $(f[0]).value = cnd[f[1]]; });
+
+  /* airflow: what the CO2 tool decided, unless this tool was given another */
+  var q = (e && e.oa) ? csNum(e.oa) : HUB.ventQ;
+  if(q) setOa(q);
+  if(e){
+    if(e.loadnow != null && isFinite(e.loadnow)) $('loadnow').value = e.loadnow;
+    if(e.mode) setBar('modebar','m', e.mode);
+    if(e.dens) setBar('densbar','d', e.dens);
+  }
+
+  var diff = (HUB.ventQ && q && Math.abs(q - HUB.ventQ) > 0.5);
+  var bar = $('hubBar');
+  bar.hidden = false;
+  bar.innerHTML = 'กำลังทำห้อง <b>' + esc0(rm.name || 'ไม่ได้ตั้งชื่อ') + '</b>'
+    + (csNum(rm.qty,1) > 1 ? ' <span class="qn">×' + csNum(rm.qty,1) + ' ห้องเหมือนกัน</span>' : '')
+    + ' · ทางเลือก <b>' + esc0(hit.s.name) + '</b>'
+    + ' ของ <b>' + esc0(hit.p.name || '') + '</b> · '
+    + '<a href="../hub/?p=' + encodeURIComponent(hit.p.id)
+    + '&s=' + encodeURIComponent(hit.s.id) + '">← กลับไปภาพรวมโปรเจค</a>'
+    + (rm.cat === 'MV'
+        ? ' · <span class="warn">ห้องนี้ตั้งไว้เป็นห้องระบายอากาศ ไม่มีแอร์ ผลหน้านี้จึงไม่ถูกนับในยอดรวม</span>'
+        : csNum(rm.cap) > 0 ? ''
+        : ' · <span class="warn">ห้องนี้ยังไม่ได้ใส่ขนาดแอร์เดิมที่ Hub กำลังใช้ค่าตัวอย่างอยู่</span>')
+    + (HUB.ventQ
+        ? (diff
+            ? ' · <span class="warn">ลมที่ใช้ที่นี่ ' + fmt(q) + ' CMH ต่างจากที่ CO₂ คำนวณไว้ '
+              + fmt(HUB.ventQ) + ' CMH</span> <button class="snap" id="hubSnap">ใช้ค่าจาก CO₂</button>'
+            : ' · ลม ' + fmt(HUB.ventQ) + ' CMH ตามที่ CO₂ คำนวณไว้')
+        : ' · <span class="warn">ห้องนี้ยังไม่ได้คำนวณ CO₂ ปริมาณลมจึงยังไม่ผูกกับเกณฑ์ใด</span>')
+    + '<span class="sv" id="hubSaved">ผลคำนวณบันทึกกลับอัตโนมัติ</span>'
+    + '<span class="cond" id="hubCond"></span>';
+  var snap = $('hubSnap');
+  if(snap) snap.addEventListener('click', function(){ setOa(HUB.ventQ); render(); });
+}
+
+/* Anything typed over a scenario condition is kept as a room override and
+   said out loud, because a room quietly running at a different outdoor
+   temperature from its own project is not something a summary would show. */
+function hubCondSync(hit){
+  var base = csCond(hit.s, null), over = {}, names = [];
+  COND_FLD.forEach(function(f){
+    var v = nv(f[0]);
+    if(Math.abs(v - base[f[1]]) > 1e-9){ over[f[1]] = v; names.push(CS_COND_TH[f[1]]); }
+  });
+  if(names.length) hit.r.cond = over; else delete hit.r.cond;
+  var el = $('hubCond');
+  if(!el) return;
+  if(!names.length){ el.innerHTML = ''; return; }
+  el.innerHTML = '<span class="ovr">ห้องนี้ตั้งค่าเองต่างจากทางเลือก · ' + names.join(' · ')
+    + '</span> <button class="snap" id="hubCondRst">ใช้ค่าของทางเลือก</button>';
+  $('hubCondRst').addEventListener('click', function(){
+    var b = csCond(hit.s, null);
+    COND_FLD.forEach(function(f){ $(f[0]).value = b[f[1]]; });
+    render();
+  });
+}
 
 /* called at the end of every render, so the hub is never stale */
 function hubSave(m){
   if(!HUB) return;
-  var d = hubRead(); if(!d) return;
-  var hit = hubFind(d, HUB.pid, HUB.rid); if(!hit) return;
+  var db = csRead();
+  var hit = csFind(db, HUB.pid, HUB.sid, HUB.rid); if(!hit) return;
   hit.r.h = nv('ht');
   hit.r.cap = nv('cap'); hit.r.qac = nv('qac');
+  hubCondSync(hit);
   hit.r.erv = {
     rt: m.qt/RTW, dT: m.dT, dRH: (m.RHr2 - m.RHr)*100,
     ok: m.covered, deficitRt: m.deficitW/RTW, spareRt: m.spareW/RTW,
@@ -1168,11 +1445,11 @@ function hubSave(m){
     tsa: m.Tsa, rhsa: m.RHsa*100,
     at: new Date().toISOString()
   };
+  csTouch(hit.p);
   var el = $('hubSaved');
-  try { localStorage.setItem(HKEY, JSON.stringify(d));
-        if(el) el.textContent = 'บันทึกกลับเข้าโปรเจคแล้ว '
-          + new Date().toLocaleTimeString('th-TH'); }
-  catch(err){ if(el) el.textContent = 'บันทึกกลับไม่ได้ · เบราว์เซอร์ปิดการเก็บข้อมูลอยู่'; }
+  if(csWrite(db)){ if(el) el.textContent = 'บันทึกกลับเข้าโปรเจคแล้ว '
+      + new Date().toLocaleTimeString('th-TH'); }
+  else if(el) el.textContent = 'บันทึกกลับไม่ได้ · เบราว์เซอร์ปิดการเก็บข้อมูลอยู่';
 }
 
 function nv(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
