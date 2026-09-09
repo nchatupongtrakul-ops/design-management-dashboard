@@ -265,6 +265,18 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
 tfoot td{background:var(--surface); font-weight:600}
 .card-title-row .segbar{flex:none}
 .card-title-row .segbar button{padding:4px 10px; font-size:11.5px}
+/* room-table row selection + batch bar */
+.dtable th.rsel,.dtable td.rsel{width:34px; text-align:center; color:var(--gray); cursor:pointer; user-select:none; font-variant-numeric:tabular-nums; padding-left:6px; padding-right:6px}
+.dtable td.rsel:hover{background:#EEF5FD; color:var(--blue)}
+.dtable tr.selrow>td{background:#EAF3FD}
+.dtable tr.selrow:hover td{background:#E1EEFC}
+.dtable tr.selrow>td.rsel{background:var(--blue); color:#fff; font-weight:600}
+#batchBar{display:none; align-items:center; flex-wrap:wrap; gap:8px; margin:0 0 12px; padding:9px 12px; background:#EAF3FD; border:1px solid #CFE3F8; border-radius:8px; font-size:13px}
+#batchBar .bcount{font-weight:700; color:var(--blue)}
+#batchBar label{color:var(--text-secondary)}
+#batchBar select,#batchBar input{padding:4px 6px; font-size:12.5px; border:1px solid var(--border); border-radius:4px; background:var(--card-bg); color:var(--text)}
+#batchBar .sep{flex:1}
+#batchBar .bhint{flex-basis:100%; color:var(--text-secondary); font-size:12px; margin-top:2px}
 </style>
 
 <style>
@@ -503,6 +515,17 @@ tr.gov td{background:#EDF6FD !important}
           <button class="btn" id="rAdd">+ เพิ่มห้อง</button>
           <button class="btn ghost" id="pRen">แก้ชื่อโปรเจค/ลูกค้า</button>
         </div>
+      </div>
+      <div id="batchBar">
+        <span class="bcount" id="baCount"></span>
+        <label>ตั้งค่า <select id="baField"></select></label>
+        <span id="baValWrap"></span>
+        <button class="btn" id="baApply">ใช้กับที่เลือก</button>
+        <button class="btn ghost" id="baDup">คัดลอกแถว</button>
+        <button class="btn ghost" id="baDel">ลบแถว</button>
+        <span class="sep"></span>
+        <button class="btn ghost" id="baClear">ยกเลิกเลือก</button>
+        <div class="bhint">คลิกเลขแถวเพื่อเลือก · Shift-คลิกเลือกช่วง · Ctrl-คลิกเลือกเพิ่ม · Ctrl+C คัดลอกแถวที่เลือก แล้ว Ctrl+V วางในตารางหรือ Excel (ช่องว่างไม่ทับของเดิม)</div>
       </div>
       <div class="tablewrap"><table class="dtable">
         <thead id="roomHead"></thead>
@@ -1403,6 +1426,7 @@ function cell(v, pid, sid, rid, tool, fmtFn){
 var FILTER = 'all', CUR = null, CURS = null;
 
 function renderList(){
+  SEL.clear(); SELANCHOR = null;
   var rows = [], tA=0, tP=0, tQ=0, tRt=0, on=0, tRoi=0, tRoiN=0, tRooms=0;
   DB.projects.forEach(function(p, i){
     if(FILTER==='on' && p.off) return;
@@ -1484,6 +1508,7 @@ function curP(){ return DB.projects[CUR] || null; }
 function curS(){ var p = curP(); return p ? (p.scenarios[CURS] || p.scenarios[0]) : null; }
 
 function renderDetail(){
+  SEL.clear(); SELANCHOR = null;
   var p = curP(), s = curS();
   if(!p || !s){
     $('detailHead').innerHTML = '<div class="dhead"><div class="sub">'
@@ -1641,7 +1666,7 @@ function funcCell(rm, j, cnd){
   var suggest = (f.density > 0 && csNum(rm.w)*csNum(rm.l) > 0)
     ? Math.max(1, Math.round(f.density/100*csNum(rm.w)*csNum(rm.l))) : 0;
   return '<div class="fnwrap">'
-    + '<select class="rin fnsel" data-f="func" data-j="'+j+'">'
+    + '<select class="rin fnsel" data-f="func" data-col="'+pcol('func')+'" data-j="'+j+'">'
       + catOptions(csNum(rm.func, defFunc())) + '</select>'
     + '<select class="rin fnsel" data-f="law" data-j="'+j+'" '
       + 'title="หมวดตามกฎกระทรวงฉบับที่ 39">'
@@ -1660,9 +1685,55 @@ function funcCell(rm, j, cnd){
 
 /* ── the room table ── */
 function catSel(rm, j){
-  return '<select class="rin" data-f="cat" data-j="'+j+'">'
+  return '<select class="rin" data-f="cat" data-col="'+pcol('cat')+'" data-j="'+j+'">'
     + '<option value="AC"' + (rm.cat!=='MV'?' selected':'') + '>ปรับอากาศ</option>'
     + '<option value="MV"' + (rm.cat==='MV'?' selected':'') + '>ระบายอากาศ</option></select>';
+}
+
+/* ── batch edit + Excel-style copy/paste on the room table ──
+   Rows are picked from the number gutter (click · Shift-range · Ctrl-toggle),
+   like a spreadsheet row header, so it never fights the inline inputs.
+   The paste grid maps clipboard columns onto the editable fields in the same
+   left-to-right order they appear, which is what pasteCols() lists. */
+var SEL = new Set(), SELANCHOR = null;
+function pasteCols(){
+  var c = ['name','func'];
+  if(SHOWTAG) c = c.concat(['tag','level','system','zone']);
+  return c.concat(['w','l','h','pz','qty','cat','cap','qac']);
+}
+function pcol(k){ return pasteCols().indexOf(k); }
+/* write one field on a room from a raw string · returns whether it stuck */
+function setField(rm, key, val){
+  if(key === 'func'){
+    var i = parseInt(val, 10);
+    if(!(isFinite(i) && i >= 0 && i < CATS.length)){
+      var t = String(val).trim().toLowerCase(); i = -1;
+      for(var k=0;k<CATS.length;k++){ if(CATS[k][1].toLowerCase() === t){ i = k; break; } }
+      if(i < 0) return false;
+    }
+    rm.func = i; return true;
+  }
+  if(key === 'cat'){
+    var nc = /ระบาย|mv/i.test(String(val)) ? 'MV' : 'AC';
+    if(rm.cat !== nc){ rm.cat = nc; rm.law = 0; }
+    return true;
+  }
+  if(key === 'qty'){ rm.qty = Math.max(1, Math.round(csNum(val, 1))); return true; }
+  if(key === 'name' || key === 'tag' || key === 'level' || key === 'system' || key === 'zone'){
+    rm[key] = String(val).trim(); return true;
+  }
+  if(key === 'w' || key === 'l' || key === 'h' || key === 'pz' || key === 'cap' || key === 'qac'){
+    rm[key] = csNum(val); return true;
+  }
+  return false;
+}
+/* the text a field copies out as · func and cat go out as their labels so the
+   block round-trips through Excel and back */
+function copyVal(rm, k){
+  if(k === 'func'){ var c = CATS[csNum(rm.func, defFunc())]; return c ? c[1] : ''; }
+  if(k === 'cat') return rm.cat === 'MV' ? 'ระบายอากาศ' : 'ปรับอากาศ';
+  if(k === 'name' || k === 'tag' || k === 'level' || k === 'system' || k === 'zone') return rm[k] || '';
+  return String(csNum(rm[k]));
 }
 function groupKey(rm){
   if(GROUPBY === 'level')  return rm.level  || 'ไม่ได้ระบุชั้น';
@@ -1675,6 +1746,7 @@ function renderRooms(p, s, r){
   var cols = 10 + (SHOWTAG ? 4 : 0);
   NCOL = cols;
   $('roomHead').innerHTML = '<tr>'
+    + '<th class="rsel">#</th>'
     + '<th>ห้อง</th>'
     + '<th>ฟังก์ชันห้อง<div class="thsub">ตัดสินอัตราลมและเพดาน CO₂</div></th>'
     + (SHOWTAG ? '<th>รหัส</th><th>ชั้น</th><th>ระบบ</th><th>โซน</th>' : '')
@@ -1689,7 +1761,7 @@ function renderRooms(p, s, r){
     var g = groupKey(rm);
     if(g !== null && g !== last){
       var sub = csRoll({ rooms: s.rooms.filter(function(x){ return groupKey(x) === g; }) });
-      out.push('<tr class="g-row"><td colspan="' + (cols-4) + '"><b>' + esc(g) + '</b>'
+      out.push('<tr class="g-row"><td class="rsel"></td><td colspan="' + (cols-4) + '"><b>' + esc(g) + '</b>'
         + ' <span class="qn">' + sub.rows + ' แถว · ' + sub.rooms + ' ห้อง · '
         + fmt(sub.area,1) + ' ตร.ม.</span></td>'
         + '<td>' + (sub.done.vent ? '<b>' + fmt(sub.cmh) + '</b> CMH' : '') + '</td>'
@@ -1699,32 +1771,33 @@ function renderRooms(p, s, r){
     }
     var isMv = rm.cat === 'MV', q = Math.max(1, csNum(rm.qty,1));
     var cnd = csCond(s, rm);
-    out.push('<tr>'
-      + '<td><input class="rin" data-f="name" data-j="'+j+'" value="'+esc(rm.name)+'">'
+    out.push('<tr'+(SEL.has(j)?' class="selrow"':'')+'>'
+      + '<td class="rsel" data-sel="'+j+'">'+(j+1)+'</td>'
+      + '<td><input class="rin" data-f="name" data-col="'+pcol('name')+'" data-j="'+j+'" value="'+esc(rm.name)+'">'
         + (cnd.over.length ? '<div class="ovr" data-rst="'+j+'" title="กดเพื่อกลับไปใช้ค่าของทางเลือก">'
             + 'ตั้งค่าเอง ' + cnd.over.length + ' ค่า ↺</div>' : '') + '</td>'
       + '<td>' + funcCell(rm, j, cnd) + '</td>'
       + (SHOWTAG
-          ? '<td><input class="rin" data-f="tag" data-j="'+j+'" value="'+esc(rm.tag)+'" style="width:78px"></td>'
-          + '<td><input class="rin" data-f="level" data-j="'+j+'" value="'+esc(rm.level)+'" style="width:64px"></td>'
-          + '<td><input class="rin" data-f="system" data-j="'+j+'" value="'+esc(rm.system)+'" style="width:78px"></td>'
-          + '<td><input class="rin" data-f="zone" data-j="'+j+'" value="'+esc(rm.zone)+'" style="width:70px"></td>'
+          ? '<td><input class="rin" data-f="tag" data-col="'+pcol('tag')+'" data-j="'+j+'" value="'+esc(rm.tag)+'" style="width:78px"></td>'
+          + '<td><input class="rin" data-f="level" data-col="'+pcol('level')+'" data-j="'+j+'" value="'+esc(rm.level)+'" style="width:64px"></td>'
+          + '<td><input class="rin" data-f="system" data-col="'+pcol('system')+'" data-j="'+j+'" value="'+esc(rm.system)+'" style="width:78px"></td>'
+          + '<td><input class="rin" data-f="zone" data-col="'+pcol('zone')+'" data-j="'+j+'" value="'+esc(rm.zone)+'" style="width:70px"></td>'
           : '')
       + '<td><div class="dim3">'
-        + '<input class="rin" type="number" step="0.1" data-f="w" data-j="'+j+'" value="'+rm.w+'"><span>×</span>'
-        + '<input class="rin" type="number" step="0.1" data-f="l" data-j="'+j+'" value="'+rm.l+'"><span>×</span>'
-        + '<input class="rin" type="number" step="0.1" data-f="h" data-j="'+j+'" value="'+rm.h+'"></div></td>'
+        + '<input class="rin" type="number" step="0.1" data-f="w" data-col="'+pcol('w')+'" data-j="'+j+'" value="'+rm.w+'"><span>×</span>'
+        + '<input class="rin" type="number" step="0.1" data-f="l" data-col="'+pcol('l')+'" data-j="'+j+'" value="'+rm.l+'"><span>×</span>'
+        + '<input class="rin" type="number" step="0.1" data-f="h" data-col="'+pcol('h')+'" data-j="'+j+'" value="'+rm.h+'"></div></td>'
       + '<td class="num">' + fmt(csNum(rm.w)*csNum(rm.l),1)
         + (q > 1 ? '<div class="qn">รวม ' + fmt(csNum(rm.w)*csNum(rm.l)*q,1) + '</div>' : '') + '</td>'
-      + '<td><input class="rin" type="number" step="1" data-f="pz" data-j="'+j+'" value="'+rm.pz+'" style="width:58px"></td>'
-      + '<td><input class="rin" type="number" step="1" min="1" data-f="qty" data-j="'+j+'" value="'+q+'" style="width:54px"></td>'
+      + '<td><input class="rin" type="number" step="1" data-f="pz" data-col="'+pcol('pz')+'" data-j="'+j+'" value="'+rm.pz+'" style="width:58px"></td>'
+      + '<td><input class="rin" type="number" step="1" min="1" data-f="qty" data-col="'+pcol('qty')+'" data-j="'+j+'" value="'+q+'" style="width:54px"></td>'
       + '<td>' + catSel(rm, j) + '</td>'
       + '<td><div class="ac2">'
         + (isMv
             ? '<span class="cell-none">ไม่มีแอร์</span>'
-            : '<input class="rin" type="number" step="0.5" min="0" data-f="cap" data-j="'+j+'" value="'+csNum(rm.cap)+'">'
+            : '<input class="rin" type="number" step="0.5" min="0" data-f="cap" data-col="'+pcol('cap')+'" data-j="'+j+'" value="'+csNum(rm.cap)+'">'
               + '<span>·</span>'
-              + '<input class="rin" type="number" step="100" min="0" data-f="qac" data-j="'+j+'" value="'+csNum(rm.qac)+'">')
+              + '<input class="rin" type="number" step="100" min="0" data-f="qac" data-col="'+pcol('qac')+'" data-j="'+j+'" value="'+csNum(rm.qac)+'">')
         + '</div></td>'
       + '<td>' + cell(rm.vent, p.id, s.id, rm.id, 'ventilation', function(v){
           return '<b>' + fmt(csNum(v.q)) + '</b> CMH · CO₂ <b>' + fmt(csNum(v.co2)) + '</b> ppm'
@@ -1743,11 +1816,11 @@ function renderRooms(p, s, r){
         + '<button class="btn ghost" data-rdel="'+j+'">ลบ</button></td>'
       + '</tr>');
   });
-  $('roomBody').innerHTML = out.join('') || '<tr><td colspan="'+cols+'" '
+  $('roomBody').innerHTML = out.join('') || '<tr><td colspan="'+(cols+1)+'" '
       + 'style="text-align:center;color:var(--gray);padding:22px">ยังไม่มีห้อง กด เพิ่มห้อง เพื่อเริ่ม</td></tr>';
 
   $('roomFoot').innerHTML = s.rooms.length
-    ? '<tr><td colspan="' + (SHOWTAG ? 7 : 3) + '"><b>รวม ' + r.rows + ' แถว · ' + r.rooms + ' ห้อง</b></td>'
+    ? '<tr><td class="rsel"></td><td colspan="' + (SHOWTAG ? 7 : 3) + '"><b>รวม ' + r.rows + ' แถว · ' + r.rooms + ' ห้อง</b></td>'
       + '<td class="num"><b>' + fmt(r.area,1) + '</b></td>'
       + '<td class="num"><b>' + fmt(r.people) + '</b></td>'
       + '<td></td><td></td>'
@@ -1764,6 +1837,7 @@ function renderRooms(p, s, r){
     + 'ผลคำนวณเก็บเป็นของห้องเดียว แล้วคูณตอนรวมยอด · '
     + '<b>ประเภท</b> ห้องระบายอากาศไม่มีแอร์ จึงไม่คิดภาระที่ตกกับแอร์<br>'
     + '<b>ช่องแอร์เดิม</b> ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ให้รวม RT และลมจ่ายเป็นก้อนเดียว';
+  syncBatchBar();
 }
 function renderRoomsOnly(){
   var p = curP(), s = curS(); if(!p || !s) return;
@@ -1958,8 +2032,24 @@ $('roomBody').addEventListener('change', function(e){
   renderRoomsOnly();
 });
 $('roomBody').addEventListener('click', function(e){
-  var rst = e.target.closest('[data-rst]');
   var s = curS(); if(!s) return;
+  var gsel = e.target.closest('[data-sel]');
+  if(gsel){
+    var j = +gsel.dataset.sel;
+    if(e.shiftKey && SELANCHOR !== null){
+      var a = Math.min(SELANCHOR, j), b = Math.max(SELANCHOR, j);
+      SEL.clear(); for(var k=a;k<=b;k++) SEL.add(k);
+    } else if(e.ctrlKey || e.metaKey){
+      if(SEL.has(j)) SEL.delete(j); else SEL.add(j);
+      SELANCHOR = j;
+    } else {
+      if(SEL.size === 1 && SEL.has(j)){ SEL.clear(); SELANCHOR = null; }
+      else { SEL.clear(); SEL.add(j); SELANCHOR = j; }
+    }
+    renderRoomsOnly();
+    return;
+  }
+  var rst = e.target.closest('[data-rst]');
   if(rst){
     var rr = s.rooms[+rst.dataset.rst];
     if(!window.confirm('ให้ห้อง ' + (rr.name||'นี้') + ' กลับไปใช้เงื่อนไขของทางเลือกทั้งหมดใช่หรือไม่')) return;
@@ -1982,6 +2072,129 @@ $('roomBody').addEventListener('click', function(e){
     s.rooms.splice(+b.dataset.rdel,1);
     csTouch(curP()); saveDB(); renderDetail();
   }
+});
+
+/* ═══════════ batch bar ═══════════ */
+function batchValWrap(){
+  var f = $('baField') ? $('baField').value : 'func', h;
+  if(f === 'func') h = '<select id="baVal">' + catOptions(defFunc()) + '</select>';
+  else if(f === 'cat') h = '<select id="baVal"><option value="AC">ปรับอากาศ</option>'
+    + '<option value="MV">ระบายอากาศ</option></select>';
+  else if(f === 'h') h = '<input id="baVal" type="number" step="0.1" value="2.8" style="width:80px">';
+  else if(f === 'pz') h = '<input id="baVal" type="number" step="1" min="0" value="20" style="width:80px">';
+  else if(f === 'qty') h = '<input id="baVal" type="number" step="1" min="1" value="1" style="width:80px">';
+  else h = '<input id="baVal" type="text" value="" style="width:120px" placeholder="ค่าใหม่">';
+  $('baValWrap').innerHTML = h;
+}
+function refreshBatchFields(){
+  var bf = $('baField'); if(!bf) return;
+  var want = SHOWTAG ? '1' : '0';
+  if(bf.dataset.tag === want && bf.options.length) return;
+  var cur = bf.value;
+  var o = [['func','ฟังก์ชันห้อง'],['cat','ประเภท'],['h','สูง (ม.)'],['pz','จำนวนคน'],['qty','จำนวนห้อง']];
+  if(SHOWTAG) o = o.concat([['level','ชั้น'],['system','ระบบ'],['zone','โซน'],['tag','รหัส']]);
+  bf.innerHTML = o.map(function(x){ return '<option value="' + x[0] + '">' + x[1] + '</option>'; }).join('');
+  bf.dataset.tag = want;
+  if(cur && o.some(function(x){ return x[0] === cur; })) bf.value = cur;
+  batchValWrap();
+}
+function syncBatchBar(){
+  var bb = $('batchBar'); if(!bb) return;
+  refreshBatchFields();
+  var n = SEL.size;
+  bb.style.display = n ? 'flex' : 'none';
+  if(n){
+    var s = curS(), rooms = 0;
+    if(s) SEL.forEach(function(j){ if(s.rooms[j]) rooms += Math.max(1, csNum(s.rooms[j].qty, 1)); });
+    $('baCount').textContent = 'เลือก ' + n + ' แถว' + (rooms !== n ? ' (' + rooms + ' ห้อง)' : '');
+  }
+}
+$('baField').addEventListener('change', batchValWrap);
+$('baApply').addEventListener('click', function(){
+  var s = curS(); if(!s || !SEL.size) return;
+  var f = $('baField').value, vEl = $('baVal'), v = vEl ? vEl.value : '';
+  SEL.forEach(function(j){ if(s.rooms[j]) setField(s.rooms[j], f, v); });
+  csTouch(curP()); saveDB(); renderRoomsOnly();
+});
+$('baClear').addEventListener('click', function(){ SEL.clear(); SELANCHOR = null; renderRoomsOnly(); });
+$('baDup').addEventListener('click', function(){
+  var s = curS(); if(!s || !SEL.size) return;
+  var idx = Array.from(SEL).sort(function(a,b){ return a - b; });
+  var clones = idx.map(function(j){
+    var c = JSON.parse(JSON.stringify(s.rooms[j]));
+    c.id = csUid(); c.name = c.name + ' สำเนา'; c.tag = ''; return c;
+  });
+  var at = idx[idx.length-1] + 1;
+  for(var k=0;k<clones.length;k++) s.rooms.splice(at+k, 0, clones[k]);
+  csTouch(curP()); saveDB(); renderDetail();
+});
+$('baDel').addEventListener('click', function(){
+  var s = curS(); if(!s || !SEL.size) return;
+  var rooms = 0; SEL.forEach(function(j){ if(s.rooms[j]) rooms += Math.max(1, csNum(s.rooms[j].qty, 1)); });
+  if(!window.confirm('ลบ ' + SEL.size + ' แถว (' + rooms + ' ห้อง) พร้อมผลคำนวณ ใช่หรือไม่')) return;
+  Array.from(SEL).sort(function(a,b){ return b - a; }).forEach(function(j){ s.rooms.splice(j, 1); });
+  csTouch(curP()); saveDB(); renderDetail();
+});
+
+/* ═══════════ Excel-style copy / paste ═══════════ */
+document.addEventListener('copy', function(e){
+  if(!SEL.size) return;
+  var ae = document.activeElement;
+  if(ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) return;   /* editing a field */
+  var tsel = window.getSelection && window.getSelection();
+  if(tsel && !tsel.isCollapsed) return;                            /* real text selection */
+  var s = curS(); if(!s) return;
+  var PC = pasteCols();
+  var idx = Array.from(SEL).sort(function(a,b){ return a - b; });
+  var lines = idx.map(function(j){
+    var rm = s.rooms[j]; if(!rm) return '';
+    return PC.map(function(k){ return copyVal(rm, k); }).join('\t');
+  });
+  (e.clipboardData || window.clipboardData).setData('text/plain', lines.join('\r\n'));
+  e.preventDefault();
+});
+document.addEventListener('paste', function(e){
+  var s = curS(); if(!s) return;
+  var cd = e.clipboardData || window.clipboardData; if(!cd) return;
+  var txt = cd.getData('text'); if(txt == null || txt === '') return;
+  txt = txt.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  var grid = txt.split('\n');
+  while(grid.length && grid[grid.length-1] === '') grid.pop();
+  if(!grid.length) return;
+  var cells = grid.map(function(r){ return r.split('\t'); });
+  var single = cells.length === 1 && cells[0].length === 1;
+  var ae = document.activeElement;
+  var inCell = ae && ae.classList && ae.classList.contains('rin')
+    && ae.dataset.col !== undefined && ae.dataset.j !== undefined;
+  if(single && inCell) return;              /* one value into one field · let the browser do it */
+  var startRow, startCol;
+  if(inCell){ startRow = +ae.dataset.j; startCol = +ae.dataset.col; }
+  else if(SEL.size){ startRow = Math.min.apply(null, Array.from(SEL)); startCol = 0; }
+  else return;                              /* nowhere to anchor */
+  if(single && !inCell) return;             /* a lone value with no cell anchor · ignore */
+  e.preventDefault();
+  var PC = pasteCols(), n = 0;
+  for(var r=0;r<cells.length;r++){
+    var j = startRow + r;
+    if(j >= s.rooms.length) s.rooms.push(csNewRoom('ห้องที่ ' + (s.rooms.length+1)));
+    var rm = s.rooms[j];
+    for(var c=0;c<cells[r].length;c++){
+      var key = PC[startCol + c]; if(!key) continue;
+      var val = cells[r][c];
+      if(val === '') continue;              /* blank cell keeps the old value */
+      if(setField(rm, key, val)) n++;
+    }
+  }
+  csTouch(curP()); saveDB(); renderDetail();
+  if($('roomHint')) $('roomHint').innerHTML = '<b>วางแล้ว</b> เขียนค่า ' + n + ' ช่อง '
+    + 'จาก ' + cells.length + ' แถวที่วาง · ช่องว่างไม่ทับของเดิม · เปิดเครื่องมือแต่ละตัวเพื่อคำนวณผลใหม่';
+});
+document.addEventListener('keydown', function(e){
+  if(!SEL.size) return;
+  var ae = document.activeElement;
+  var editing = ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
+  if(e.key === 'Escape'){ SEL.clear(); SELANCHOR = null; renderRoomsOnly(); return; }
+  if(e.key === 'Delete' && !editing){ e.preventDefault(); $('baDel').click(); }
 });
 
 /* ═══════════ files ═══════════ */
