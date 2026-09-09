@@ -177,9 +177,12 @@ function csHeal(db){
   });
   return db;
 }
-function csWrite(db){
-  try { localStorage.setItem(CS_K2, JSON.stringify(db)); return true; }
-  catch(e){ return false; }
+function csWrite(db, flushNow){
+  var ok = true;
+  try { localStorage.setItem(CS_K2, JSON.stringify(db)); }
+  catch(e){ ok = false; }
+  csFileSync(db, !!flushNow);
+  return ok;
 }
 function csTouch(p){ if(p) p.updatedAt = new Date().toISOString(); }
 
@@ -255,5 +258,188 @@ function csRoll(scn){
     if(!rm.vent && !rm.erv && !rm.ac) r.noData++;
   });
   return r;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE LINKED FILE
+   The registry lives in this browser. That is one machine, one browser,
+   one profile, and it goes when site data is cleared - which is not a
+   place to keep a job. Linking a file puts a copy somewhere that syncs
+   and gets backed up: pick a file inside the company OneDrive folder and
+   every save is written there too.
+
+   This is a mirror, not a database. Two people editing the same file at
+   once still ends with the later save winning; what it buys is that the
+   work survives the machine, and that a colleague can open it.
+
+   Chrome and Edge only - Firefox and Safari have no way to hold on to a
+   file. Everywhere else the buttons say so and Export JSON still works.
+   ═══════════════════════════════════════════════════════════════════════ */
+var CS_DBN = 'coral-file', CS_STORE = 'handles', CS_HKEY = 'registry';
+var csFileHandle = null;      /* resolved once per page */
+var csFileName = '';
+var csFileState = 'none';     /* none | linked | needsPermission | unsupported */
+var csFileAt = null;          /* when the file was last written from here */
+var csFileWatchers = [];
+
+function csFileSupported(){
+  return typeof window !== 'undefined' && 'showSaveFilePicker' in window;
+}
+function csFileInfo(){
+  return { state:csFileState, name:csFileName, at:csFileAt,
+           supported:csFileSupported() };
+}
+function csFileOn(fn){ csFileWatchers.push(fn); fn(csFileInfo()); }
+function csFileTell(){
+  var i = csFileInfo();
+  csFileWatchers.forEach(function(fn){ try { fn(i); } catch(e){} });
+}
+
+/* a one-table IndexedDB, only because a file handle cannot go in localStorage */
+function csIdb(){
+  return new Promise(function(res, rej){
+    var rq = indexedDB.open(CS_DBN, 1);
+    rq.onupgradeneeded = function(){ rq.result.createObjectStore(CS_STORE); };
+    rq.onsuccess = function(){ res(rq.result); };
+    rq.onerror = function(){ rej(rq.error); };
+  });
+}
+function csIdbGet(k){
+  return csIdb().then(function(db){
+    return new Promise(function(res, rej){
+      var t = db.transaction(CS_STORE, 'readonly').objectStore(CS_STORE).get(k);
+      t.onsuccess = function(){ res(t.result || null); };
+      t.onerror = function(){ rej(t.error); };
+    });
+  }).catch(function(){ return null; });
+}
+function csIdbPut(k, v){
+  return csIdb().then(function(db){
+    return new Promise(function(res, rej){
+      var st = db.transaction(CS_STORE, 'readwrite').objectStore(CS_STORE);
+      var t = (v === null) ? st.delete(k) : st.put(v, k);
+      t.onsuccess = function(){ res(true); };
+      t.onerror = function(){ rej(t.error); };
+    });
+  }).catch(function(){ return false; });
+}
+
+/* Permission survives a reload only sometimes; when it does not, the user
+   has to click once. Never ask without a click behind it - the browser
+   refuses, and a refusal looks like a bug. */
+function csFilePerm(handle, ask){
+  if(!handle || !handle.queryPermission) return Promise.resolve('denied');
+  var opt = { mode:'readwrite' };
+  return handle.queryPermission(opt).then(function(p){
+    if(p === 'granted') return 'granted';
+    if(!ask) return p;
+    return handle.requestPermission(opt);
+  }).catch(function(){ return 'denied'; });
+}
+
+/* called once as a page starts */
+function csFileInit(){
+  if(!csFileSupported()){ csFileState = 'unsupported'; csFileTell(); return Promise.resolve(); }
+  return csIdbGet(CS_HKEY).then(function(h){
+    if(!h){ csFileState = 'none'; csFileTell(); return; }
+    csFileHandle = h; csFileName = h.name || 'ไฟล์ที่เชื่อมไว้';
+    try { csFileAt = localStorage.getItem('coral.file.at') || null; } catch(e){}
+    return csFilePerm(h, false).then(function(p){
+      csFileState = (p === 'granted') ? 'linked' : 'needsPermission';
+      csFileTell();
+    });
+  });
+}
+
+/* Linking. Both paths need a click behind them. */
+function csFileLinkNew(){
+  return window.showSaveFilePicker({
+    suggestedName: 'Coral-projects.json',
+    types: [{ description:'Coral projects', accept:{ 'application/json':['.json'] } }]
+  }).then(function(h){
+    return csIdbPut(CS_HKEY, h).then(function(){
+      csFileHandle = h; csFileName = h.name; csFileState = 'linked';
+      csFileTell();
+      return true;
+    });
+  });
+}
+function csFileLinkExisting(){
+  return window.showOpenFilePicker({
+    multiple: false,
+    types: [{ description:'Coral projects', accept:{ 'application/json':['.json'] } }]
+  }).then(function(list){
+    var h = list[0];
+    return csFilePerm(h, true).then(function(p){
+      if(p !== 'granted') throw new Error('ไม่ได้รับสิทธิ์เขียนไฟล์');
+      return csIdbPut(CS_HKEY, h).then(function(){
+        csFileHandle = h; csFileName = h.name; csFileState = 'linked';
+        csFileTell();
+        return true;
+      });
+    });
+  });
+}
+function csFileUnlink(){
+  return csIdbPut(CS_HKEY, null).then(function(){
+    csFileHandle = null; csFileName = ''; csFileState = 'none'; csFileAt = null;
+    try { localStorage.removeItem('coral.file.at'); } catch(e){}
+    csFileTell();
+  });
+}
+function csFileGrant(){
+  if(!csFileHandle) return Promise.resolve(false);
+  return csFilePerm(csFileHandle, true).then(function(p){
+    csFileState = (p === 'granted') ? 'linked' : 'needsPermission';
+    csFileTell();
+    return p === 'granted';
+  });
+}
+
+function csFileRead(){
+  if(!csFileHandle) return Promise.resolve(null);
+  return csFileHandle.getFile()
+    .then(function(f){ return f.text(); })
+    .then(function(t){
+      if(!t || !t.trim()) return null;
+      var d = JSON.parse(t);
+      var got = Array.isArray(d) ? d : (d && d.projects);
+      if(!Array.isArray(got)) return null;
+      return { projects: got, savedAt: (d && d.savedAt) ? d.savedAt : null };
+    })
+    .catch(function(){ return null; });
+}
+
+/* Writes are collapsed: typing saves on every keystroke, and one file
+   write per keystroke would be both slow and pointless. */
+var csFileTimer = null, csFilePending = null;
+function csFileSync(db, now){
+  if(csFileState !== 'linked' || !csFileHandle) return;
+  csFilePending = db;
+  if(csFileTimer){ clearTimeout(csFileTimer); csFileTimer = null; }
+  if(now) return csFileFlush();
+  csFileTimer = setTimeout(csFileFlush, 1200);
+}
+function csFileFlush(){
+  csFileTimer = null;
+  var db = csFilePending;
+  if(!db || !csFileHandle) return Promise.resolve(false);
+  var payload = { format:'coral.projects', v:2,
+                  savedAt:new Date().toISOString(), projects:db.projects };
+  return csFileHandle.createWritable()
+    .then(function(w){
+      return w.write(JSON.stringify(payload, null, 1)).then(function(){ return w.close(); });
+    })
+    .then(function(){
+      csFileAt = payload.savedAt;
+      try { localStorage.setItem('coral.file.at', csFileAt); } catch(e){}
+      csFileState = 'linked'; csFileTell();
+      return true;
+    })
+    .catch(function(){
+      /* the usual cause is the permission lapsing after a browser restart */
+      csFileState = 'needsPermission'; csFileTell();
+      return false;
+    });
 }
 /* ═══ end CORAL PROJECT STORE v2 ═══ */
