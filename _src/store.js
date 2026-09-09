@@ -656,4 +656,93 @@ function csDirFlush(){
       return false;
     });
 }
+/* ═══════════════════════════════════════════════════════════════════════
+   KEEP LISTS — one declaration, both directions
+
+   Every tool saves back to its room on every render. That is what makes
+   the work impossible to lose, and it is also what makes an incomplete
+   restore dangerous: merely OPENING a room then recomputes it from
+   whatever the page defaulted to and writes that over the real answer.
+   Nobody touches anything and a number changes. That happened.
+
+   The cure is to stop maintaining two lists. A tool declares once what it
+   keeps; csKeepGet reads those out of the page and csKeepSet puts them
+   back. There is no second place to forget.
+
+   An entry is either an element id, or { k, get, set } for state that does
+   not live in an input — a segmented button, a mode flag, an array.
+
+   csKeepAudit is the other half: it walks every input and select on the
+   page and reports anything in neither the keep list nor the explicit skip
+   list. A field added later cannot quietly go missing; it has to be named
+   in one list or the other. Open any tool with ?audit=1 to see the result
+   on the page rather than only in the console. */
+function csKeepGet(list){
+  var o = {};
+  list.forEach(function(f){
+    if(typeof f === 'string'){
+      var el = document.getElementById(f);
+      if(el) o[f] = el.value;
+    } else if(f && f.k){
+      try { o[f.k] = f.get(); } catch(e){}
+    }
+  });
+  return o;
+}
+function csKeepSet(list, o){
+  if(!o) return;
+  list.forEach(function(f){
+    if(typeof f === 'string'){
+      if(o[f] === undefined || o[f] === null) return;
+      var el = document.getElementById(f);
+      if(!el) return;
+      /* widen a range before writing, or a large value is clamped away */
+      if(el.type === 'range'){
+        var v = parseFloat(o[f]);
+        if(isFinite(v) && v > parseFloat(el.max)) el.max = v;
+      }
+      el.value = o[f];
+    } else if(f && f.k){
+      if(o[f.k] === undefined) return;
+      try { f.set(o[f.k]); } catch(e){}
+    }
+  });
+}
+function csKeepNames(list){
+  return list.map(function(f){ return (typeof f === 'string') ? f : f.k; });
+}
+function csKeepAudit(list, skip, label, barId){
+  var covered = {};
+  csKeepNames(list).forEach(function(k){ covered[k] = 1; });
+  /* a custom entry may read several elements, or one whose id differs from
+     the key it is stored under; ids says which so the audit can see them */
+  list.forEach(function(f){
+    if(f && f.ids) f.ids.forEach(function(k){ covered[k] = 1; }); });
+  (skip || []).forEach(function(k){ covered[k] = 1; });
+  var missing = [];
+  document.querySelectorAll('input, select').forEach(function(el){
+    if(!el.id || el.type === 'file') return;
+    if(!covered[el.id]) missing.push(el.id);
+  });
+  if(missing.length){
+    try { console.warn('[' + label + '] ช่องที่ไม่ได้เก็บและไม่ได้ประกาศว่าไม่เก็บ: '
+                       + missing.join(', ')); } catch(e){}
+  }
+  if(new URLSearchParams(location.search).get('audit') === '1'){
+    /* deferred, because every page renders after boot and would otherwise
+       overwrite whichever element this writes into */
+    setTimeout(function(){
+      var bar = document.getElementById(barId || 'hubBar');
+      if(!bar) return;
+      bar.hidden = false;
+      bar.innerHTML = '<b>ตรวจความครบของการเก็บค่า · ' + label + '</b> · '
+        + 'เก็บ ' + csKeepNames(list).length + ' · ประกาศไม่เก็บ ' + (skip||[]).length + ' · '
+        + (missing.length
+            ? '<span style="color:#B4291F">ยังไม่ครอบคลุม ' + missing.length + ' ช่อง: '
+              + missing.join(', ') + '</span>'
+            : '<span style="color:#2E7D32">ครบทุกช่อง</span>');
+    }, 60);
+  }
+  return missing;
+}
 /* ═══ end CORAL PROJECT STORE v2 ═══ */

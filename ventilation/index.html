@@ -1479,9 +1479,124 @@ function csDirFlush(){
       return false;
     });
 }
+/* ═══════════════════════════════════════════════════════════════════════
+   KEEP LISTS — one declaration, both directions
+
+   Every tool saves back to its room on every render. That is what makes
+   the work impossible to lose, and it is also what makes an incomplete
+   restore dangerous: merely OPENING a room then recomputes it from
+   whatever the page defaulted to and writes that over the real answer.
+   Nobody touches anything and a number changes. That happened.
+
+   The cure is to stop maintaining two lists. A tool declares once what it
+   keeps; csKeepGet reads those out of the page and csKeepSet puts them
+   back. There is no second place to forget.
+
+   An entry is either an element id, or { k, get, set } for state that does
+   not live in an input — a segmented button, a mode flag, an array.
+
+   csKeepAudit is the other half: it walks every input and select on the
+   page and reports anything in neither the keep list nor the explicit skip
+   list. A field added later cannot quietly go missing; it has to be named
+   in one list or the other. Open any tool with ?audit=1 to see the result
+   on the page rather than only in the console. */
+function csKeepGet(list){
+  var o = {};
+  list.forEach(function(f){
+    if(typeof f === 'string'){
+      var el = document.getElementById(f);
+      if(el) o[f] = el.value;
+    } else if(f && f.k){
+      try { o[f.k] = f.get(); } catch(e){}
+    }
+  });
+  return o;
+}
+function csKeepSet(list, o){
+  if(!o) return;
+  list.forEach(function(f){
+    if(typeof f === 'string'){
+      if(o[f] === undefined || o[f] === null) return;
+      var el = document.getElementById(f);
+      if(!el) return;
+      /* widen a range before writing, or a large value is clamped away */
+      if(el.type === 'range'){
+        var v = parseFloat(o[f]);
+        if(isFinite(v) && v > parseFloat(el.max)) el.max = v;
+      }
+      el.value = o[f];
+    } else if(f && f.k){
+      if(o[f.k] === undefined) return;
+      try { f.set(o[f.k]); } catch(e){}
+    }
+  });
+}
+function csKeepNames(list){
+  return list.map(function(f){ return (typeof f === 'string') ? f : f.k; });
+}
+function csKeepAudit(list, skip, label, barId){
+  var covered = {};
+  csKeepNames(list).forEach(function(k){ covered[k] = 1; });
+  /* a custom entry may read several elements, or one whose id differs from
+     the key it is stored under; ids says which so the audit can see them */
+  list.forEach(function(f){
+    if(f && f.ids) f.ids.forEach(function(k){ covered[k] = 1; }); });
+  (skip || []).forEach(function(k){ covered[k] = 1; });
+  var missing = [];
+  document.querySelectorAll('input, select').forEach(function(el){
+    if(!el.id || el.type === 'file') return;
+    if(!covered[el.id]) missing.push(el.id);
+  });
+  if(missing.length){
+    try { console.warn('[' + label + '] ช่องที่ไม่ได้เก็บและไม่ได้ประกาศว่าไม่เก็บ: '
+                       + missing.join(', ')); } catch(e){}
+  }
+  if(new URLSearchParams(location.search).get('audit') === '1'){
+    /* deferred, because every page renders after boot and would otherwise
+       overwrite whichever element this writes into */
+    setTimeout(function(){
+      var bar = document.getElementById(barId || 'hubBar');
+      if(!bar) return;
+      bar.hidden = false;
+      bar.innerHTML = '<b>ตรวจความครบของการเก็บค่า · ' + label + '</b> · '
+        + 'เก็บ ' + csKeepNames(list).length + ' · ประกาศไม่เก็บ ' + (skip||[]).length + ' · '
+        + (missing.length
+            ? '<span style="color:#B4291F">ยังไม่ครอบคลุม ' + missing.length + ' ช่อง: '
+              + missing.join(', ') + '</span>'
+            : '<span style="color:#2E7D32">ครบทุกช่อง</span>');
+    }, 60);
+  }
+  return missing;
+}
 /* ═══ end CORAL PROJECT STORE v2 ═══ */
 /* ── this page's link to one room ── */
 var HUB = null;              /* { pid, sid, rid } when opened from the hub */
+
+/* ── what this page keeps on its room ──
+   One list, read by csKeepGet and written by csKeepSet. Adding an input
+   means adding it here, once, and it is then both saved and restored. */
+var VENT_KEEP = [
+  'q', 'co', 'c0', 'dur', 'inf', 'base',
+  { k:'func', ids:['cat'],
+              get:function(){ return +catSel.value; },
+              set:function(v){ if(CATS[v]) catSel.value = v; } },
+  { k:'act',  get:function(){ return +$('act').value; },
+              set:function(v){ if(ACTS[v]) $('act').value = v; } },
+  { k:'ac',   get:function(){ return AC; },
+              set:function(v){ hubSetAc(+v); } },
+  /* the law list is rebuilt by hubSetAc, so its index is written after */
+  { k:'law',  get:function(){ return +$('law').value; },
+              set:function(v){ if($('law').options[v]) $('law').value = v; } }
+];
+/* Deliberately not kept, and why. Anything not in one list or the other
+   is reported by csKeepAudit rather than silently lost. */
+var VENT_SKIP = [
+  'w', 'l', 'h', 'pz',      /* the room's, owned by the hub */
+  'pznum', 'qnum',          /* mirrors of the sliders above them */
+  'target',                 /* a what-if question, not a property of the room */
+  'catSearch',              /* filters the dropdown, holds no value */
+  'roomName'                /* names an entry in this page's own local list */
+];
 
 function hubBanner(hit, extra){
   var bar = $('hubBar');
@@ -1494,6 +1609,9 @@ function hubBanner(hit, extra){
     + '&s=' + encodeURIComponent(hit.s.id) + '">← กลับไปภาพรวมโปรเจค</a>'
     + (extra || '')
     + '<span class="sv" id="hubSaved">ขนาดห้องและจำนวนคนดึงมาจากโปรเจค · ผลคำนวณบันทึกกลับอัตโนมัติ</span>';
+
+  /* last, so the audit bar is not overwritten by the banner */
+  csKeepAudit(VENT_KEEP, VENT_SKIP, 'Ventilation & CO₂');
 }
 function esc0(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -1533,13 +1651,11 @@ function hubInit(){
   /* everything the last answer was computed under, restored before the
      first render so nothing is recomputed against a default */
   var vt = hit.r.vent;
-  if(vt){
-    ['co','c0','dur','inf','base'].forEach(function(k){
-      if(vt[k] != null && isFinite(vt[k])) $(k).value = vt[k];
-    });
-  }
-  /* an airflow already chosen for this room is a deliberate choice, not a default */
-  if(vt && vt.q){
+  if(vt && vt.keep){
+    csKeepSet(VENT_KEEP, vt.keep);
+    qTouched = true;              /* the stored airflow is a decision, not a default */
+  } else if(vt && vt.q){
+    /* a room saved before the keep list existed still has its airflow */
     var q = csNum(vt.q);
     if(q > (parseFloat($('q').max)||0)) $('q').max = Math.ceil(q*1.15/1000)*1000;
     $('q').value = q; qTouched = true;
@@ -1555,7 +1671,7 @@ function hubSave(s, rec, endCo2){
   var hit = csFind(db, HUB.pid, HUB.sid, HUB.rid); if(!hit) return;
   /* geometry edited here flows back, so the two never disagree */
   hit.r.w = nv('w'); hit.r.l = nv('l'); hit.r.h = nv('h'); hit.r.pz = s.Pz;
-  /* the function is the room's, so a change here goes back to the room */
+  /* the function is the room's, so a change here goes back to the room too */
   hit.r.func = +catSel.value; hit.r.law = +$('law').value; hit.r.act = +$('act').value;
   hit.r.cat = AC ? 'AC' : 'MV';
   hit.r.vent = {
@@ -1564,12 +1680,12 @@ function hubSave(s, rec, endCo2){
     co2: isFinite(endCo2) ? Math.round(endCo2) : null,
     ok: isFinite(rec) ? (s.Q + 0.5 >= rec) : null,
     cat: s.cat ? s.cat[1] : '',
-    /* the conditions the answer was reached under. Without these a later
-       visit recomputes from the page defaults and quietly replaces a real
-       result with a different one. */
-    dur: s.dur, co: nv('co'), c0: nv('c0'), inf: nv('inf'), base: nv('base'),
     at: new Date().toISOString()
   };
+  /* every input the answer depends on, from the one list. Without these a
+     later visit recomputes from the page defaults and quietly replaces a
+     real result with a different one. */
+  hit.r.vent.keep = csKeepGet(VENT_KEEP);
   csTouch(hit.p);
   var okSave = csWrite(db);
   var el = $('hubSaved');
