@@ -847,6 +847,9 @@ function csWrite(db, flushNow){
   var ok = true;
   try { localStorage.setItem(CS_K2, JSON.stringify(db)); }
   catch(e){ ok = false; }
+  /* a folder is the team arrangement and takes precedence over a single
+     file, but both are mirrored if somebody has linked both */
+  csDirSync(db, !!flushNow);
   csFileSync(db, !!flushNow);
   return ok;
 }
@@ -952,7 +955,14 @@ function csFileSupported(){
   return typeof window !== 'undefined' && 'showSaveFilePicker' in window;
 }
 function csFileInfo(){
-  return { state:csFileState, name:csFileName, at:csFileAt,
+  /* the folder is the arrangement to report when there is one */
+  if(csDirState === 'linked' || csDirState === 'needsPermission'){
+    var at = null;
+    try { at = localStorage.getItem('coral.dir.at'); } catch(e){}
+    return { kind:'dir', state:csDirState, name:csDirName, at:at,
+             supported:csDirSupported() };
+  }
+  return { kind:'file', state:csFileState, name:csFileName, at:csFileAt,
            supported:csFileSupported() };
 }
 function csFileOn(fn){ csFileWatchers.push(fn); fn(csFileInfo()); }
@@ -1005,6 +1015,9 @@ function csFilePerm(handle, ask){
 
 /* called once as a page starts */
 function csFileInit(){
+  return csDirInit().then(csFileInit1).then(function(){ csFileTell(); });
+}
+function csFileInit1(){
   if(!csFileSupported()){ csFileState = 'unsupported'; csFileTell(); return Promise.resolve(); }
   return csIdbGet(CS_HKEY).then(function(h){
     if(!h){ csFileState = 'none'; csFileTell(); return; }
@@ -1105,6 +1118,207 @@ function csFileFlush(){
     .catch(function(){
       /* the usual cause is the permission lapsing after a browser restart */
       csFileState = 'needsPermission'; csFileTell();
+      return false;
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE LINKED FOLDER — one file per project
+   For a shared team folder on SharePoint or OneDrive. One file holding
+   everything is the wrong shape there: two people saving at the same
+   moment leaves the sync client to invent a conflict copy, and it does
+   that for the whole registry even when the two were working on entirely
+   different jobs.
+
+   A file per project narrows that to the case where two people really
+   are in the same project, and the folder stays readable in the browser -
+   a job is a file with the job's name on it. Only projects that actually
+   changed are rewritten, so a save touches one small file.
+
+   Conflict copies can still appear. They are found on load by project id,
+   the newest kept, and the rest reported rather than silently dropped.
+   ═══════════════════════════════════════════════════════════════════════ */
+var CS_DKEY = 'folder';
+var csDirHandle = null, csDirName = '', csDirState = 'none';
+var csDirSeen = {};        /* project id → the text last read from or written to disk */
+var csDirNames = {};       /* project id → the file it lives in */
+
+function csDirInfo(){
+  return { state:csDirState, name:csDirName, supported:csDirSupported() };
+}
+function csDirSupported(){
+  return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+}
+
+/* A file name a person can find in SharePoint, with the id kept on the end
+   so a rename never orphans the project it belongs to. */
+function csSafe(s){
+  /* the characters a Windows or SharePoint file name cannot carry.
+     A literal dash inside a class is a range waiting to happen, so it is
+     not in here at all - a dash in a file name is harmless. */
+  return String(s || 'โปรเจค')
+    .replace(/[\\/:*?"<>|#%{}~]/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 60) || 'โปรเจค';
+}
+function csDirFileName(p){ return csSafe(p.name) + '__' + p.id + '.json'; }
+function csDirIdOf(fn){
+  var m = /__([A-Za-z0-9_-]+)\.json$/.exec(fn);
+  return m ? m[1] : null;
+}
+
+function csDirInit(){
+  if(!csDirSupported()){ csDirState = 'unsupported'; return Promise.resolve(); }
+  return csIdbGet(CS_DKEY).then(function(h){
+    if(!h){ csDirState = 'none'; return; }
+    csDirHandle = h; csDirName = h.name || 'โฟลเดอร์ที่เชื่อมไว้';
+    return csFilePerm(h, false).then(function(p){
+      csDirState = (p === 'granted') ? 'linked' : 'needsPermission';
+    });
+  });
+}
+function csDirLink(){
+  return window.showDirectoryPicker({ mode:'readwrite' }).then(function(h){
+    return csFilePerm(h, true).then(function(p){
+      if(p !== 'granted') throw new Error('ไม่ได้รับสิทธิ์เขียนโฟลเดอร์');
+      return csIdbPut(CS_DKEY, h).then(function(){
+        csDirHandle = h; csDirName = h.name; csDirState = 'linked';
+        csDirSeen = {}; csDirNames = {};
+        return true;
+      });
+    });
+  });
+}
+function csDirUnlink(){
+  return csIdbPut(CS_DKEY, null).then(function(){
+    csDirHandle = null; csDirName = ''; csDirState = 'none';
+    csDirSeen = {}; csDirNames = {};
+  });
+}
+function csDirGrant(){
+  if(!csDirHandle) return Promise.resolve(false);
+  return csFilePerm(csDirHandle, true).then(function(p){
+    csDirState = (p === 'granted') ? 'linked' : 'needsPermission';
+    return p === 'granted';
+  });
+}
+
+/* Read every project file in the folder.
+   Two files can claim the same project when the sync client has made a
+   conflict copy; the newer savedAt wins and the loser is reported. */
+function csDirRead(){
+  if(!csDirHandle) return Promise.resolve(null);
+  var out = [], dupes = [], bad = [], byId = {};
+  return (function(){
+    var it = csDirHandle.values(), chain = Promise.resolve();
+    var acc = [];
+    function step(){
+      return it.next().then(function(r){
+        if(r.done) return acc;
+        var e = r.value;
+        if(e.kind === 'file' && /\.json$/i.test(e.name)) acc.push(e);
+        return step();
+      });
+    }
+    return step();
+  })().then(function(entries){
+    return entries.reduce(function(chain, e){
+      return chain.then(function(){
+        return e.getFile().then(function(f){ return f.text(); }).then(function(t){
+          var d = JSON.parse(t);
+          var p = d && d.project ? d.project : null;
+          if(!p || !p.id) throw new Error('ไม่ใช่ไฟล์โปรเจค');
+          p.__savedAt = (d.savedAt || '');
+          p.__file = e.name;
+          p.__text = t;
+          var prev = byId[p.id];
+          if(prev){
+            var keep = (p.__savedAt > prev.__savedAt) ? p : prev;
+            var drop = (keep === p) ? prev : p;
+            dupes.push({ id:p.id, name:p.name, kept:keep.__file, other:drop.__file });
+            byId[p.id] = keep;
+          } else { byId[p.id] = p; }
+        }).catch(function(){ bad.push(e.name); });
+      });
+    }, Promise.resolve());
+  }).then(function(){
+    Object.keys(byId).forEach(function(k){ out.push(byId[k]); });
+    return { projects:out, dupes:dupes, bad:bad };
+  }).catch(function(){ return null; });
+}
+
+/* Load the folder into the registry, remembering what each file held so a
+   later save can tell which projects actually changed. */
+function csDirAdopt(got){
+  csDirSeen = {}; csDirNames = {};
+  var projects = got.projects.map(function(p){
+    csDirNames[p.id] = p.__file;
+    var clean = JSON.parse(JSON.stringify(p));
+    delete clean.__savedAt; delete clean.__file; delete clean.__text;
+    csDirSeen[p.id] = JSON.stringify(clean);
+    return clean;
+  });
+  return csHeal({ v:2, projects: projects });
+}
+
+/* Write the projects whose content has moved since the folder was last
+   read or written, and remove files for projects that are gone. */
+var csDirTimer = null, csDirPending = null;
+function csDirSync(db, now){
+  if(csDirState !== 'linked' || !csDirHandle) return;
+  csDirPending = db;
+  if(csDirTimer){ clearTimeout(csDirTimer); csDirTimer = null; }
+  if(now) return csDirFlush();
+  csDirTimer = setTimeout(csDirFlush, 1200);
+}
+function csDirFlush(){
+  csDirTimer = null;
+  var db = csDirPending;
+  if(!db || !csDirHandle) return Promise.resolve(false);
+  var live = {};
+  var jobs = db.projects.map(function(p){
+    live[p.id] = true;
+    var text = JSON.stringify(p);
+    if(csDirSeen[p.id] === text) return null;      /* untouched */
+    var want = csDirFileName(p), had = csDirNames[p.id];
+    var payload = { format:'coral.project', v:2,
+                    savedAt:new Date().toISOString(), project:p };
+    return function(){
+      return csDirHandle.getFileHandle(want, { create:true })
+        .then(function(fh){ return fh.createWritable(); })
+        .then(function(w){
+          return w.write(JSON.stringify(payload, null, 1)).then(function(){ return w.close(); });
+        })
+        .then(function(){
+          csDirSeen[p.id] = text;
+          csDirNames[p.id] = want;
+          /* the project was renamed, so the old file should not linger */
+          if(had && had !== want)
+            return csDirHandle.removeEntry(had).catch(function(){});
+        });
+    };
+  }).filter(Boolean);
+
+  /* projects deleted here should go from the folder too */
+  Object.keys(csDirNames).forEach(function(id){
+    if(live[id]) return;
+    var fn = csDirNames[id];
+    jobs.push(function(){
+      return csDirHandle.removeEntry(fn)
+        .then(function(){ delete csDirNames[id]; delete csDirSeen[id]; })
+        .catch(function(){});
+    });
+  });
+
+  if(!jobs.length){ csDirState = 'linked'; csFileTell(); return Promise.resolve(true); }
+  return jobs.reduce(function(c, j){ return c.then(j); }, Promise.resolve())
+    .then(function(){
+      csDirState = 'linked';
+      try { localStorage.setItem('coral.dir.at', new Date().toISOString()); } catch(e){}
+      csFileTell();
+      return true;
+    })
+    .catch(function(){
+      csDirState = 'needsPermission'; csFileTell();
       return false;
     });
 }
@@ -1971,39 +2185,65 @@ function markSaving(){
 
 function fileRender(f){
   var el = $('fileState'); if(!el) return;
+  var dot = '<span class="d" style="width:8px;height:8px;border-radius:50%;background:#2E7D32;'
+          + 'display:inline-block"></span> ';
   var acts, body;
   if(!f.supported){
-    body = '<b>เบราว์เซอร์นี้ผูกไฟล์ไม่ได้</b> · ใช้ได้กับ Chrome และ Edge เท่านั้น';
+    body = '<b>เบราว์เซอร์นี้ผูกโฟลเดอร์ไม่ได้</b> · ใช้ได้กับ Chrome และ Edge เท่านั้น';
     acts = '<button class="btn ghost" id="jExp2">สำรองเป็นไฟล์ JSON แทน</button>';
   } else if(f.state === 'linked'){
-    body = '<span class="d" style="width:8px;height:8px;border-radius:50%;background:#2E7D32;'
-         + 'display:inline-block"></span> <b>ผูกไฟล์แล้ว</b> '
+    body = dot + '<b>' + (f.kind === 'dir' ? 'ผูกโฟลเดอร์แล้ว' : 'ผูกไฟล์แล้ว') + '</b> '
          + '<span class="fname">' + esc(f.name) + '</span>'
+         + (f.kind === 'dir' ? ' · หนึ่งโปรเจคหนึ่งไฟล์' : '')
          + (f.at ? ' · เขียนล่าสุด ' + new Date(f.at).toLocaleString('th-TH') : '');
-    acts = '<button class="btn ghost" id="fSaveNow">เขียนลงไฟล์เดี๋ยวนี้</button>'
+    acts = '<button class="btn ghost" id="fSaveNow">บันทึกเดี๋ยวนี้</button>'
+         + '<button class="btn ghost" id="fRe">อ่านใหม่จาก' + (f.kind === 'dir' ? 'โฟลเดอร์' : 'ไฟล์') + '</button>'
          + '<button class="btn ghost" id="fUnlink">ยกเลิกการเชื่อม</button>';
   } else if(f.state === 'needsPermission'){
     body = '<b style="color:#8A5B12">ต้องกดอนุญาตอีกครั้ง</b> '
          + '<span class="fname">' + esc(f.name) + '</span> · '
-         + 'เบราว์เซอร์ลืมสิทธิ์เขียนไฟล์หลังปิดโปรแกรม ระหว่างนี้บันทึกลงเครื่องอย่างเดียว';
-    acts = '<button class="btn" id="fGrant">อนุญาตเขียนไฟล์</button>'
+         + 'เบราว์เซอร์ลืมสิทธิ์หลังปิดโปรแกรม ระหว่างนี้บันทึกลงเครื่องอย่างเดียว ไม่มีอะไรหาย';
+    acts = '<button class="btn" id="fGrant">อนุญาตอีกครั้ง</button>'
          + '<button class="btn ghost" id="fUnlink">ยกเลิกการเชื่อม</button>';
   } else {
-    body = '<b>ยังไม่ได้ผูกไฟล์</b> · ข้อมูลอยู่ในเบราว์เซอร์นี้เท่านั้น '
+    body = '<b>ยังไม่ได้ผูกที่เก็บ</b> · ข้อมูลอยู่ในเบราว์เซอร์นี้เท่านั้น '
          + 'ล้างข้อมูลเบราว์เซอร์เมื่อไรหายเมื่อนั้น';
-    acts = '<button class="btn" id="fNew">สร้างไฟล์ใหม่</button>'
+    acts = '<button class="btn" id="dLink">เชื่อมโฟลเดอร์ทีม</button>'
+         + '<button class="btn ghost" id="fNew">ไฟล์เดียวจบ</button>'
          + '<button class="btn ghost" id="fOpen">เชื่อมไฟล์ที่มีอยู่</button>';
   }
   el.innerHTML = '<span>' + body + '</span><span class="facts">' + acts + '</span>';
-  $('fileHint').innerHTML = f.supported
-    ? '<b>วิธีใช้</b> กด <b>สร้างไฟล์ใหม่</b> แล้วเลือกโฟลเดอร์ <span class="mono">OneDrive - Coral Life</span> '
-      + 'ตั้งชื่อไฟล์ · จากนั้นทุกครั้งที่แก้ ระบบเขียนลงไฟล์นั้นให้เอง และ OneDrive ซิงก์ขึ้นคลาวด์ต่อ<br>'
-      + 'เพื่อนร่วมทีมเปิดไฟล์เดียวกันได้ด้วยปุ่ม <b>เชื่อมไฟล์ที่มีอยู่</b> · '
-      + '<b>แต่ยังไม่ใช่การทำงานพร้อมกัน</b> ถ้าสองคนแก้พร้อมกัน คนที่บันทึกทีหลังจะทับ '
-      + 'ให้ตกลงกันว่าใครถือไฟล์อยู่'
-    : 'Chrome หรือ Edge เท่านั้นที่ผูกไฟล์ได้ · เบราว์เซอร์อื่นให้ใช้ปุ่ม สำรอง JSON เป็นระยะแทน';
+  $('fileHint').innerHTML = !f.supported
+    ? 'Chrome หรือ Edge เท่านั้นที่ผูกโฟลเดอร์หรือไฟล์ได้ · เบราว์เซอร์อื่นให้ใช้ปุ่ม สำรอง JSON เป็นระยะแทน'
+    : '<b>โฟลเดอร์ทีม คือวิธีที่ควรใช้</b> ซิงก์โฟลเดอร์ SharePoint ลงเครื่องก่อน '
+      + '(เปิดลิงก์โฟลเดอร์ใน SharePoint แล้วกด <b>Sync</b> หรือ <b>Add shortcut to OneDrive</b>) '
+      + 'จากนั้นกด <b>เชื่อมโฟลเดอร์ทีม</b> แล้วชี้ไปที่โฟลเดอร์นั้น<br>'
+      + 'ระบบเก็บ <b>หนึ่งโปรเจคหนึ่งไฟล์</b> ชื่อไฟล์เป็นชื่อโปรเจค เปิดดูใน SharePoint ได้ · '
+      + 'บันทึกครั้งหนึ่งเขียนเฉพาะโปรเจคที่เปลี่ยน<br>'
+      + '<b>ยังไม่ใช่การทำงานพร้อมกันเต็มรูปแบบ</b> คนละโปรเจคทำพร้อมกันได้สบาย '
+      + 'แต่<b>ถ้าสองคนแก้โปรเจคเดียวกันพร้อมกัน คนที่บันทึกทีหลังจะทับ</b> '
+      + 'และ OneDrive อาจสร้างไฟล์ชนกัน · ระบบจะตรวจเจอและบอกให้ตอนอ่าน';
 
   var b;
+  if((b = $('dLink'))) b.addEventListener('click', function(){
+    csDirLink().then(function(){ return csDirRead(); }).then(function(got){
+      if(!got) throw new Error('อ่านโฟลเดอร์ไม่ได้');
+      if(!got.projects.length){
+        /* an empty folder: put what is here into it */
+        csDirSeen = {}; csDirNames = {};
+        markSaving(); csWrite(DB, true);
+        renderList(); renderDetail();
+        $('listHint').innerHTML = 'เชื่อมโฟลเดอร์แล้ว · โฟลเดอร์ยังว่าง '
+          + 'จึงเขียนโปรเจคที่มีอยู่ลงไปให้ หนึ่งโปรเจคหนึ่งไฟล์';
+      } else {
+        dirTake(got, 'โฟลเดอร์นี้มีงานอยู่แล้ว จึงใช้ของในโฟลเดอร์');
+      }
+      fileRender(csFileInfo());
+    }).catch(function(e){
+      if(e && e.name !== 'AbortError') window.alert('เชื่อมโฟลเดอร์ไม่สำเร็จ · ' + e.message);
+    });
+  });
+  if((b = $('fRe'))) b.addEventListener('click', function(){ fileOfferNewer(true); });
   if((b = $('fNew'))) b.addEventListener('click', function(){
     csFileLinkNew().then(function(){ return csWrite(DB, true); })
       .then(function(){ chipIdle(); })
@@ -2014,13 +2254,16 @@ function fileRender(f){
       .catch(function(e){ if(e && e.name !== 'AbortError') window.alert('เชื่อมไฟล์ไม่สำเร็จ · ' + e.message); });
   });
   if((b = $('fGrant'))) b.addEventListener('click', function(){
-    csFileGrant().then(function(ok){ if(ok){ csWrite(DB, true); chipIdle(); } });
+    var g = (f.kind === 'dir') ? csDirGrant() : csFileGrant();
+    g.then(function(ok){ if(ok){ csWrite(DB, true); chipIdle(); fileRender(csFileInfo()); } });
   });
   if((b = $('fUnlink'))) b.addEventListener('click', function(){
-    if(!window.confirm('เลิกผูกไฟล์ใช่หรือไม่' + String.fromCharCode(10)
-      + 'ไฟล์เดิมยังอยู่ครบ แต่ต่อจากนี้จะไม่ถูกเขียนทับอีก'
+    if(!window.confirm('เลิกผูก' + (f.kind === 'dir' ? 'โฟลเดอร์' : 'ไฟล์') + 'ใช่หรือไม่'
+      + String.fromCharCode(10)
+      + 'ของเดิมยังอยู่ครบ แต่ต่อจากนี้จะไม่ถูกเขียนทับอีก'
       + String.fromCharCode(10) + 'ข้อมูลในเบราว์เซอร์ยังอยู่เหมือนเดิม')) return;
-    csFileUnlink();
+    (f.kind === 'dir' ? csDirUnlink() : csFileUnlink())
+      .then(function(){ fileRender(csFileInfo()); });
   });
   if((b = $('fSaveNow'))) b.addEventListener('click', function(){
     markSaving(); csWrite(DB, true);
@@ -2028,11 +2271,62 @@ function fileRender(f){
   if((b = $('jExp2'))) b.addEventListener('click', function(){ $('jExp').click(); });
 }
 
-/* If the file has moved on without us - a colleague saved it, or this is
+/* Adopt what the folder holds. The folder is the team's copy, so this is
+   the ordinary direction of travel; it still asks first. */
+function dirTake(got, why){
+  DB = csDirAdopt(got);
+  CUR = null; CURS = null;
+  try { localStorage.setItem(CS_K2, JSON.stringify(DB)); } catch(e){}
+  var msg = why + ' · อ่านมา ' + got.projects.length + ' โปรเจค';
+  if(got.dupes.length) msg += ' · <b style="color:#8A5B12">พบไฟล์ชนกัน '
+    + got.dupes.length + ' รายการ</b> ใช้ไฟล์ที่บันทึกทีหลัง ('
+    + got.dupes.map(function(d){ return esc(d.other); }).join(', ')
+    + ' ถูกข้ามไป ลบทิ้งได้ถ้าไม่ต้องการ)';
+  if(got.bad.length) msg += ' · ข้ามไฟล์ที่อ่านไม่ออก ' + got.bad.length + ' ไฟล์';
+  $('fileNewer').innerHTML = '';
+  /* render first, then report - renderList writes this same line */
+  renderList(); renderDetail(); chipIdle();
+  $('listHint').innerHTML = msg;
+}
+
+/* If the store has moved on without us - a colleague saved, or this is
    another machine - say so and let the user choose. Never merge silently. */
 function fileOfferNewer(force){
   var bar = $('fileNewer');
-  if(csFileInfo().state !== 'linked'){ if(bar) bar.innerHTML = ''; return Promise.resolve(); }
+  var inf = csFileInfo();
+  if(inf.state !== 'linked'){ if(bar) bar.innerHTML = ''; return Promise.resolve(); }
+
+  if(inf.kind === 'dir'){
+    return csDirRead().then(function(got){
+      if(!got){ bar.innerHTML = ''; return; }
+      var mine = JSON.stringify(DB.projects.map(function(p){ return JSON.stringify(p); }).sort());
+      var theirs = JSON.stringify(got.projects.map(function(p){
+        var c = JSON.parse(JSON.stringify(p));
+        delete c.__savedAt; delete c.__file; delete c.__text;
+        return JSON.stringify(c); }).sort());
+      if(mine === theirs){ bar.innerHTML = ''; if(force)
+        $('listHint').textContent = 'อ่านใหม่แล้ว · ตรงกับที่มีอยู่ ไม่มีอะไรเปลี่ยน'; return; }
+      bar.innerHTML = '<span><b>โฟลเดอร์กับข้อมูลในเครื่องไม่ตรงกัน</b> · '
+        + 'ในโฟลเดอร์มี ' + got.projects.length + ' โปรเจค '
+        + (got.dupes.length ? '· <b>มีไฟล์ชนกัน ' + got.dupes.length + ' รายการ</b> ' : '')
+        + '</span><span class="facts">'
+        + '<button class="btn" id="dTake">ใช้ข้อมูลจากโฟลเดอร์</button>'
+        + '<button class="btn ghost" id="dKeep">ใช้ของในเครื่อง แล้วเขียนทับ</button></span>';
+      $('dTake').addEventListener('click', function(){
+        if(!window.confirm('ใช้ข้อมูลจากโฟลเดอร์แทนของในเครื่องใช่หรือไม่'
+          + String.fromCharCode(10) + 'ของในเครื่องตอนนี้จะถูกแทนที่')) return;
+        dirTake(got, 'ใช้ข้อมูลจากโฟลเดอร์แล้ว');
+      });
+      $('dKeep').addEventListener('click', function(){
+        if(!window.confirm('เขียนทับโฟลเดอร์ด้วยข้อมูลในเครื่องใช่หรือไม่'
+          + String.fromCharCode(10) + 'โปรเจคในโฟลเดอร์ที่ไม่มีในเครื่องจะถูกลบ')) return;
+        csDirSeen = {};
+        got.projects.forEach(function(p){ csDirNames[p.id] = p.__file; });
+        markSaving(); csWrite(DB, true); bar.innerHTML = '';
+      });
+    });
+  }
+
   return csFileRead().then(function(got){
     if(!got){ if(bar) bar.innerHTML = ''; return; }
     var mine = null;
