@@ -382,6 +382,17 @@ tr.gov td{background:#EDF6FD !important}
 .dim3 input{width:56px; text-align:right}
 .dim3 span{color:var(--gray); font-size:11px}
 .thsub{font-weight:400; font-size:10.5px; color:var(--gray)}
+.fnwrap{min-width:210px; max-width:250px}
+.fnsel{margin-bottom:3px; font-size:11.5px; padding:3px 5px}
+.fnhint{font-size:10.5px; color:var(--text-secondary); line-height:1.5;
+  font-variant-numeric:tabular-nums}
+.fnhint b{color:var(--text)}
+.fnq{display:inline-block; width:13px; height:13px; line-height:13px; text-align:center;
+  border-radius:50%; background:var(--surface); border:1px solid var(--border);
+  color:var(--gray); font-size:9px; margin-left:4px; cursor:help}
+.fnsug{border:1px solid #BBDDF7; background:#EDF6FD; color:#1B6FBF; border-radius:4px;
+  padding:1px 6px; font-family:inherit; font-size:10.5px; cursor:pointer; margin-top:3px}
+.fnsug:hover{background:#DBEEFC}
 .ac2{display:flex; gap:4px; align-items:center; justify-content:flex-end}
 .ac2 input{width:56px; text-align:right}
 .ac2 span{color:var(--gray); font-size:11px}
@@ -1099,6 +1110,29 @@ function csFileFlush(){
 }
 /* ═══ end CORAL PROJECT STORE v2 ═══ */
 
+/* ═══ ASHRAE 62.1 Table 6-1 · กฎกระทรวงฉบับที่ 39 · ASHRAE Fundamentals Table 4 ═══ */
+/* CATS  [หมวด, ชื่อพื้นที่, Rp L/s ต่อคน, Ra L/s ต่อ ตร.ม.,
+          ความหนาแน่นอ้างอิง คน/100 ตร.ม., เพดาน CO2 เหนือภายนอก ppm หรือ null]
+   ACTS  [กิจกรรม, met, อัตราปล่อย CO2 L/h ต่อคน]
+   LAW_AC  ห้องปรับอากาศ  [ประเภท, CMH ต่อ ตร.ม.]
+   LAW_NA  ไม่ปรับอากาศ   [ประเภท, ACH]                                    */
+var CATS=[["Animal Facilities", "Animal exam room (veterinary office)", 5.0, 0.6, 20.0, null], ["Animal Facilities", "Animal imaging (MRI/CT/PET)", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal operating rooms", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal postoperative recovery room", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal preparation rooms", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal procedure room", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Animal surgery scrub", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Large-animal holding room", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Necropsy", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Small-animal-cage room (static cages)", 5.0, 0.9, 20.0, null], ["Animal Facilities", "Small-animal-cage room (ventilated cages)", 5.0, 0.9, 20.0, null], ["Correctional Facilities", "Booking/waiting", 3.8, 0.3, 50.0, 1200.0], ["Correctional Facilities", "Cell", 2.5, 0.6, 25.0, null], ["Correctional Facilities", "Dayroom", 2.5, 0.3, 30.0, 1500.0], ["Correctional Facilities", "Guard stations", 2.5, 0.3, 15.0, 1200.0], ["Educational Facilities", "Art classroom", 5.0, 0.9, 20.0, null], ["Educational Facilities", "Classrooms (ages 5 to 8)", 5.0, 0.6, 25.0, 600.0], ["Educational Facilities", "Classrooms (age 9 plus)", 5.0, 0.6, 35.0, 600.0], ["Educational Facilities", "Computer lab", 5.0, 0.6, 25.0, 600.0], ["Educational Facilities", "Daycare sickroom", 5.0, 0.9, 25.0, null], ["Educational Facilities", "Daycare (through age 4)", 5.0, 0.9, 25.0, null], ["Educational Facilities", "Lecture classroom", 3.8, 0.3, 65.0, 1200.0], ["Educational Facilities", "Lecture hall (fixed seats)", 3.8, 0.3, 150.0, 1200.0], ["Educational Facilities", "Libraries", 2.5, 0.6, 10.0, 600.0], ["Educational Facilities", "Media center", 5.0, 0.6, 25.0, 600.0], ["Educational Facilities", "Multiuse assembly", 3.8, 0.3, 100.0, 1200.0], ["Educational Facilities", "Music/theater/dance", 5.0, 0.3, 35.0, 2100.0], ["Educational Facilities", "Science laboratories", 5.0, 0.9, 25.0, null], ["Educational Facilities", "University/college laboratories", 5.0, 0.9, 25.0, null], ["Educational Facilities", "Wood/metal shop", 5.0, 0.9, 20.0, null], ["Food and Beverage Service", "Bars, cocktail lounges", 3.8, 0.9, 100.0, 1200.0], ["Food and Beverage Service", "Cafeteria/fast-food dining", 3.8, 0.9, 100.0, 900.0], ["Food and Beverage Service", "Kitchen (cooking)", 3.8, 0.6, 20.0, null], ["Food and Beverage Service", "Restaurant dining rooms", 3.8, 0.9, 70.0, 1500.0], ["General", "Break rooms", 2.5, 0.3, 25.0, 1500.0], ["General", "Coffee stations", 2.5, 0.3, 20.0, 1200.0], ["General", "Conference/meeting", 2.5, 0.3, 50.0, 1500.0], ["General", "Corridors", 0.0, 0.3, 0.0, null], ["General", "Occupiable storage rooms for liquids or gels", 2.5, 0.6, 2.0, null], ["Hotels, Motels, Resorts, Dormitories", "Barracks sleeping areas", 2.5, 0.3, 20.0, 900.0], ["Hotels, Motels, Resorts, Dormitories", "Bedroom/living room", 2.5, 0.3, 10.0, 600.0], ["Hotels, Motels, Resorts, Dormitories", "Laundry rooms, central", 2.5, 0.6, 10.0, null], ["Hotels, Motels, Resorts, Dormitories", "Laundry rooms within dwelling units", 2.5, 0.6, 10.0, null], ["Hotels, Motels, Resorts, Dormitories", "Lobbies/prefunction", 3.8, 0.3, 30.0, 1500.0], ["Hotels, Motels, Resorts, Dormitories", "Multipurpose assembly", 2.5, 0.3, 120.0, 1800.0], ["Miscellaneous Spaces", "Banks or bank lobbies", 3.8, 0.3, 15.0, 900.0], ["Miscellaneous Spaces", "Bank vaults/safe deposit", 2.5, 0.3, 5.0, 600.0], ["Miscellaneous Spaces", "Computer (not printing)", 2.5, 0.3, 4.0, 600.0], ["Miscellaneous Spaces", "Freezer and refrigerated spaces (<50°F [10°C])", 5.0, 0.0, 0.0, null], ["Miscellaneous Spaces", "Manufacturing where hazardous materials are not used", 5.0, 0.9, 7.0, 600.0], ["Miscellaneous Spaces", "Manufacturing where hazardous materials are used (excludes heavy industrial and chemical processes)", 5.0, 0.9, 7.0, null], ["Miscellaneous Spaces", "Pharmacy (prep. area)", 2.5, 0.9, 10.0, 900.0], ["Miscellaneous Spaces", "Photo studios", 2.5, 0.6, 10.0, null], ["Miscellaneous Spaces", "Shipping/receiving", 5.0, 0.6, 2.0, 700.0], ["Miscellaneous Spaces", "Sorting, packing, light assembly", 3.8, 0.6, 7.0, 900.0], ["Miscellaneous Spaces", "Telephone closets", 0.0, 0.0, 0.0, null], ["Miscellaneous Spaces", "Transportation waiting", 3.8, 0.3, 100.0, 1800.0], ["Miscellaneous Spaces", "Warehouses", 5.0, 0.3, 0.0, 700.0], ["Office Buildings", "Breakrooms", 2.5, 0.6, 50.0, 1500.0], ["Office Buildings", "Main entry lobbies", 2.5, 0.3, 10.0, 1200.0], ["Office Buildings", "Occupiable storage rooms for dry materials", 2.5, 0.3, 2.0, 700.0], ["Office Buildings", "Office space", 2.5, 0.3, 5.0, 600.0], ["Office Buildings", "Reception areas", 2.5, 0.3, 30.0, 2100.0], ["Office Buildings", "Telephone/data entry", 2.5, 0.3, 60.0, 1800.0], ["Public Assembly Spaces", "Auditorium seating area", 2.5, 0.3, 150.0, 1800.0], ["Public Assembly Spaces", "Courtrooms", 2.5, 0.3, 70.0, 1500.0], ["Public Assembly Spaces", "Legislative chambers", 2.5, 0.3, 50.0, 1800.0], ["Public Assembly Spaces", "Libraries", 2.5, 0.6, 10.0, 600.0], ["Public Assembly Spaces", "Lobbies", 2.5, 0.3, 150.0, 1800.0], ["Public Assembly Spaces", "Museums (children’s)", 3.8, 0.6, 40.0, 1800.0], ["Public Assembly Spaces", "Museums/galleries", 3.8, 0.3, 40.0, 1500.0], ["Public Assembly Spaces", "Places of religious worship", 2.5, 0.3, 120.0, 1800.0], ["Residential", "Common corridors", 0.0, 0.3, 120.0, null], ["Retail", "Sales (except as below)", 3.8, 0.6, 15.0, 900.0], ["Retail", "Barbershop", 3.8, 0.3, 25.0, null], ["Retail", "Beauty and nail salons", 10.0, 0.6, 25.0, null], ["Retail", "Coin-operated laundries", 3.8, 0.6, 20.0, 900.0], ["Retail", "Mall common areas", 3.8, 0.3, 40.0, 2100.0], ["Retail", "Pet shops (animal areas)", 3.8, 0.9, 10.0, null], ["Retail", "Supermarket", 3.8, 0.3, 8.0, 1500.0], ["Sports and Entertainment", "Bowling alley (seating)", 5.0, 0.6, 40.0, 900.0], ["Sports and Entertainment", "Disco/dance floors", 10.0, 0.3, 100.0, 1500.0], ["Sports and Entertainment", "Gambling casinos", 3.8, 0.9, 120.0, 1200.0], ["Sports and Entertainment", "Game arcades", 3.8, 0.9, 20.0, 900.0], ["Sports and Entertainment", "Gym, sports arena (play area)", 10.0, 0.9, 7.0, 900.0], ["Sports and Entertainment", "Health club/aerobics room", 10.0, 0.3, 40.0, 1500.0], ["Sports and Entertainment", "Health club/weight rooms", 10.0, 0.3, 10.0, 1500.0], ["Sports and Entertainment", "Spectator areas", 3.8, 0.3, 150.0, 1500.0], ["Sports and Entertainment", "Stages, studios", 5.0, 0.3, 70.0, 1500.0], ["Sports and Entertainment", "Swimming (pool and deck)", 0.0, 2.4, 0.0, null], ["Outpatient Health Care Facilities", "Birthing room", 5.0, 0.9, 15.0, null], ["Outpatient Health Care Facilities", "Class 1 imaging room", 3.8, 0.6, 5.0, null], ["Outpatient Health Care Facilities", "Dental operatory", 5.0, 0.9, 20.0, null], ["Outpatient Health Care Facilities", "General examination room", 3.8, 0.6, 20.0, null], ["Outpatient Health Care Facilities", "Other dental treatment area", 2.5, 0.3, 5.0, null], ["Outpatient Health Care Facilities", "Physical therapy exercise area", 10.0, 0.9, 7.0, null], ["Outpatient Health Care Facilities", "Physical therapy individual room", 5.0, 0.6, 20.0, null], ["Outpatient Health Care Facilities", "Physical therapeutic pool area", 0.0, 2.4, 0.0, null], ["Outpatient Health Care Facilities", "Prosthetics and othotics room", 5.0, 0.9, 20.0, null], ["Outpatient Health Care Facilities", "Psychiatric consultant room", 2.5, 0.3, 20.0, null], ["Outpatient Health Care Facilities", "Psychiatric examination room", 2.5, 0.3, 20.0, null], ["Outpatient Health Care Facilities", "Psychiatric group room", 2.5, 0.3, 50.0, null], ["Outpatient Health Care Facilities", "Psychiatric seclusion room", 5.0, 0.6, 5.0, null], ["Outpatient Health Care Facilities", "Speech therapy room", 2.5, 0.3, 20.0, null], ["Outpatient Health Care Facilities", "Urgent care examination room", 3.8, 0.6, 20.0, null], ["Outpatient Health Care Facilities", "Urgent care observation room", 2.5, 0.3, 20.0, null], ["Outpatient Health Care Facilities", "Urgent care treatment room", 3.8, 0.6, 20.0, null], ["Outpatient Health Care Facilities", "Urgent care triage room", 5.0, 0.9, 20.0, null]];
+var ACTS=[["Sleeping", "0.7", 2.9615], ["Reclining", "0.8", 3.3317], ["Seated, quiet", "1", 4.4423], ["Standing, relaxed", "1.2", 5.1826], ["Walking 3.2 km/h (0.9 m/s)", "2", 8.7128], ["Walking 4.3 km/h (1.2 m/s)", "2.6", 11.6713], ["Walking 6.4 km/h (1.8 m/s)", "3.8", 17.9993], ["Reading, seated", "1", 4.0721], ["Writing", "1", 4.4423], ["Typing", "1.1000000000000001", 4.8125], ["Filing, seated", "1.2", 5.1826], ["Filing, standing", "1.4", 5.923], ["Walking about", "1.7", 7.4731], ["Lifting/packing", "2.1", 9.1328], ["Driving car", "1.0 to 2.0", 6.4783], ["Flying aircraft, routine", "1.2", 5.1826], ["Flying aircraft, instrument landing", "1.8", 7.8829], ["Flying aircraft, combat", "2.4", 10.7982], ["Driving heavy vehicle", "3.2", 14.7677], ["Cooking", "1.6 to 2.0", 7.8829], ["Housecleaning", "2.0 to 3.4", 12.3081], ["Seated, heavy limb movement", "2.2000000000000002", 9.9383], ["Sawing (table saw)", "1.8", 7.8829], ["Light mechine work (electrical industry)", "2.0 to 2.4", 9.7472], ["Heavy mechine work", "4", 19.381], ["Handling 50 kg bags", "4", 19.381], ["Pick and shovel work", "4.0 to 4.8", 21.5728], ["Dancing, social", "2.4 to 4.4", 15.8971], ["Calisthenics/exercise", "3.0 to 4.0", 16.5689], ["Tennis, singles", "3.6 to 4.0", 19.6356], ["Basketball", "5.0 to 7.6", 31.2857], ["Wrestling, competitive", "7.0 to 8.7", 39.2143]];
+
+
+var LAW_AC=[["ห้างสรรพสินค้า (ทางเดินชมสินค้า)",2],["โรงงาน",2],["สำนักงาน",2],["สถานอาบ อบ นวด",2],
+["สถานที่สำหรับติดต่อธุรกิจในธนาคาร",2],["ห้องพักในโรงแรมหรืออาคารชุด",2],["ห้องปฏิบัติการ",2],["ห้องคนไข้",2],
+["ร้านตัดผม",3],["สถานกีฬาในร่ม",4],["โรงมหรสพ (บริเวณที่นั่งสำหรับคนดู)",4],["ห้องเรียน",4],
+["สถานบริหารร่างกาย",5],["ร้านเสริมสวย",5],["ห้องช่วยฉุกเฉิน",5],["ห้อง ไอ.ซี.ยู และห้อง ซี.ซี.ยู",5],
+["ห้องประชุม",6],["ห้องผ่าตัดและห้องคลอด",8],["ห้องน้ำ ห้องส้วม",10],
+["สถานที่จำหน่ายอาหารและเครื่องดื่ม (ห้องรับประทานอาหาร)",10],["ไนท์คลับ บาร์ หรือสถานลีลาศ",10],["ห้องครัว",30]];
+
+var LAW_NA=[["ห้องน้ำ ห้องส้วมของที่พักอาศัยหรือสำนักงาน",2],["ห้องน้ำ ห้องส้วมของอาคารสาธารณะ",4],
+["ที่จอดรถที่อยู่ต่ำกว่าระดับพื้นดิน",4],["โรงงาน",4],["โรงมหรสพ",4],["อาคารพาณิชย์",4],["ห้างสรรพสินค้า",4],
+["สถานที่จำหน่ายอาหารและเครื่องดื่ม",7],["สำนักงาน",7],["ห้องพักในโรงแรมหรืออาคารชุด",7],
+["ห้องครัวของที่พักอาศัย",12],["ห้องครัวของสถานที่จำหน่ายอาหารและเครื่องดื่ม",24]];
+/* ═══ end ventilation reference data ═══ */
+
 var DB = { v:2, projects:[] };
 function saveDB(){
   $('listHint').dataset.err = csWrite(DB) ? '' : '1';
@@ -1342,6 +1376,74 @@ function renderScnCard(s){
   });
 }
 
+
+/* ═══════════ what a room is ═══════════
+   Rate, occupant density and CO2 ceiling all follow from the function, so
+   it is chosen here with the size and the headcount. The CO2 tool reads
+   it; open that when the curve is what you want. */
+var CAT_OPTS = null;
+function catOptions(sel){
+  if(CAT_OPTS === null){
+    var g = null, out = [];
+    CATS.forEach(function(c, i){
+      if(c[0] !== g){ if(g !== null) out.push('</optgroup>');
+                      out.push('<optgroup label="' + esc(c[0]) + '">'); g = c[0]; }
+      out.push('<option value="' + i + '">' + esc(c[1]) + '</option>');
+    });
+    out.push('</optgroup>');
+    CAT_OPTS = out.join('');
+  }
+  return CAT_OPTS.replace('value="' + sel + '"', 'value="' + sel + '" selected');
+}
+function lawOptions(arr, sel){
+  return arr.map(function(l, i){
+    return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>'
+      + esc(l[0]) + ' · ' + l[1] + '</option>'; }).join('');
+}
+function defFunc(){                       /* the tool's own starting point */
+  for(var i=0;i<CATS.length;i++) if(CATS[i][1] === 'Conference/meeting') return i;
+  return 0;
+}
+
+/* The two rates that follow from the function alone. The airflow that
+   actually governs can be higher, because CO2 can be the binding
+   criterion, and working that out needs the tool's model - so this is
+   labelled as a floor, never as the answer. */
+function funcRates(rm){
+  var ac = rm.cat !== 'MV';
+  var c = CATS[csNum(rm.func, defFunc())] || CATS[defFunc()];
+  var arr = ac ? LAW_AC : LAW_NA;
+  var law = arr[csNum(rm.law, 0)] || arr[0];
+  var A = csNum(rm.w)*csNum(rm.l), V = A*csNum(rm.h), pz = csNum(rm.pz);
+  var ash = (c[2] != null && c[3] != null) ? (c[2]*pz + c[3]*A)*3.6 : null;
+  var thai = ac ? law[1]*A : law[1]*V;
+  return { c:c, law:law, ash:ash, thai:thai,
+           min: Math.max(ash || 0, thai),
+           density: c[4], ceil: c[5] };
+}
+function funcCell(rm, j, cnd){
+  var ac = rm.cat !== 'MV';
+  var f = funcRates(rm);
+  var suggest = (f.density > 0 && csNum(rm.w)*csNum(rm.l) > 0)
+    ? Math.max(1, Math.round(f.density/100*csNum(rm.w)*csNum(rm.l))) : 0;
+  return '<div class="fnwrap">'
+    + '<select class="rin fnsel" data-f="func" data-j="'+j+'">'
+      + catOptions(csNum(rm.func, defFunc())) + '</select>'
+    + '<select class="rin fnsel" data-f="law" data-j="'+j+'" '
+      + 'title="หมวดตามกฎกระทรวงฉบับที่ 39">'
+      + lawOptions(ac ? LAW_AC : LAW_NA, csNum(rm.law, 0)) + '</select>'
+    + '<div class="fnhint">Rp ' + (f.c[2]==null?'—':f.c[2]) + ' · Ra ' + (f.c[3]==null?'—':f.c[3])
+      + (f.ceil != null ? ' · เพดาน CO₂ +' + fmt(f.ceil) : ' · ไม่มีเกณฑ์ CO₂')
+      + '<br>ลมขั้นต่ำ <b>' + fmt(Math.ceil(f.min/100)*100) + '</b> CMH'
+      + '<span class="fnq" title="ตัวเลขนี้คิดจาก 62.1 กับกฎกระทรวงเท่านั้น '
+      + 'ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้ · เปิดเครื่องมือเพื่อได้ตัวเลขสุดท้าย">?</span>'
+      + (suggest && suggest !== csNum(rm.pz)
+          ? '<br><button class="fnsug" data-sug="'+j+'" data-n="'+suggest+'">'
+            + 'ความหนาแน่นอ้างอิง ' + suggest + ' คน ↺</button>'
+          : '')
+    + '</div></div>';
+}
+
 /* ── the room table ── */
 function catSel(rm, j){
   return '<select class="rin" data-f="cat" data-j="'+j+'">'
@@ -1356,10 +1458,11 @@ function groupKey(rm){
 }
 var NCOL = 0;
 function renderRooms(p, s, r){
-  var cols = 9 + (SHOWTAG ? 4 : 0);
+  var cols = 10 + (SHOWTAG ? 4 : 0);
   NCOL = cols;
   $('roomHead').innerHTML = '<tr>'
     + '<th>ห้อง</th>'
+    + '<th>ฟังก์ชันห้อง<div class="thsub">ตัดสินอัตราลมและเพดาน CO₂</div></th>'
     + (SHOWTAG ? '<th>รหัส</th><th>ชั้น</th><th>ระบบ</th><th>โซน</th>' : '')
     + '<th class="num">กว้าง × ยาว × สูง</th><th class="num">พื้นที่</th>'
     + '<th class="num">คน</th><th class="num">จำนวน<div class="thsub">ห้องเหมือนกัน</div></th>'
@@ -1372,7 +1475,7 @@ function renderRooms(p, s, r){
     var g = groupKey(rm);
     if(g !== null && g !== last){
       var sub = csRoll({ rooms: s.rooms.filter(function(x){ return groupKey(x) === g; }) });
-      out.push('<tr class="g-row"><td colspan="' + (cols-3) + '"><b>' + esc(g) + '</b>'
+      out.push('<tr class="g-row"><td colspan="' + (cols-4) + '"><b>' + esc(g) + '</b>'
         + ' <span class="qn">' + sub.rows + ' แถว · ' + sub.rooms + ' ห้อง · '
         + fmt(sub.area,1) + ' ตร.ม.</span></td>'
         + '<td>' + (sub.done.vent ? '<b>' + fmt(sub.cmh) + '</b> CMH' : '') + '</td>'
@@ -1386,6 +1489,7 @@ function renderRooms(p, s, r){
       + '<td><input class="rin" data-f="name" data-j="'+j+'" value="'+esc(rm.name)+'">'
         + (cnd.over.length ? '<div class="ovr" data-rst="'+j+'" title="กดเพื่อกลับไปใช้ค่าของทางเลือก">'
             + 'ตั้งค่าเอง ' + cnd.over.length + ' ค่า ↺</div>' : '') + '</td>'
+      + '<td>' + funcCell(rm, j, cnd) + '</td>'
       + (SHOWTAG
           ? '<td><input class="rin" data-f="tag" data-j="'+j+'" value="'+esc(rm.tag)+'" style="width:78px"></td>'
           + '<td><input class="rin" data-f="level" data-j="'+j+'" value="'+esc(rm.level)+'" style="width:64px"></td>'
@@ -1429,7 +1533,7 @@ function renderRooms(p, s, r){
       + 'style="text-align:center;color:var(--gray);padding:22px">ยังไม่มีห้อง กด เพิ่มห้อง เพื่อเริ่ม</td></tr>';
 
   $('roomFoot').innerHTML = s.rooms.length
-    ? '<tr><td colspan="' + (SHOWTAG ? 6 : 2) + '"><b>รวม ' + r.rows + ' แถว · ' + r.rooms + ' ห้อง</b></td>'
+    ? '<tr><td colspan="' + (SHOWTAG ? 7 : 3) + '"><b>รวม ' + r.rows + ' แถว · ' + r.rooms + ' ห้อง</b></td>'
       + '<td class="num"><b>' + fmt(r.area,1) + '</b></td>'
       + '<td class="num"><b>' + fmt(r.people) + '</b></td>'
       + '<td></td><td></td>'
@@ -1439,6 +1543,9 @@ function renderRooms(p, s, r){
       + '<td colspan="2"></td></tr>'
     : '';
   $('roomHint').innerHTML = 'แก้ได้ในตารางโดยตรง เครื่องมือทุกตัวจะเห็นค่าเดียวกัน · '
+    + '<b>ฟังก์ชันห้อง</b> ตัดสินอัตราลมและเพดาน CO₂ · เลือกที่นี่แล้วเครื่องมือ CO₂ รับไปใช้เลย '
+    + 'ตัวเลข <b>ลมขั้นต่ำ</b> คิดจาก 62.1 กับกฎกระทรวงเท่านั้น '
+    + '<b>ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้</b> ต้องเปิดเครื่องมือถึงจะได้ตัวเลขสุดท้าย · '
     + '<b>จำนวน</b> คือห้องที่เหมือนกันทุกอย่าง ใส่ 20 แทนการสร้าง 20 แถว '
     + 'ผลคำนวณเก็บเป็นของห้องเดียว แล้วคูณตอนรวมยอด · '
     + '<b>ประเภท</b> ห้องระบายอากาศไม่มีแอร์ จึงไม่คิดภาระที่ตกกับแอร์<br>'
@@ -1620,13 +1727,20 @@ $('roomBody').addEventListener('input', function(e){
   var rm = s.rooms[+el.dataset.j], f = el.dataset.f;
   rm[f] = (f === 'name' || f === 'tag' || f === 'level' || f === 'system'
            || f === 'zone' || f === 'cat') ? el.value : csNum(el.value);
+  if(f === 'func' || f === 'law') rm[f] = parseInt(el.value, 10);
   if(f === 'qty') rm.qty = Math.max(1, Math.round(csNum(el.value,1)));
   csTouch(curP()); saveDB();
   renderRoll(roll(s), s);
 });
 $('roomBody').addEventListener('change', function(e){
   var el = e.target;
-  if(el.dataset.f !== 'cat' && el.dataset.f !== 'qty') return;
+  if(['cat','qty','func','law'].indexOf(el.dataset.f) < 0) return;
+  /* the law table itself changes with the category, so the index has to go */
+  if(el.dataset.f === 'cat'){
+    var s0 = curS();
+    if(s0) s0.rooms[+el.dataset.j].law = 0;
+    csTouch(curP()); saveDB();
+  }
   renderRoomsOnly();
 });
 $('roomBody').addEventListener('click', function(e){
@@ -1638,6 +1752,10 @@ $('roomBody').addEventListener('click', function(e){
     delete rr.cond; csTouch(curP()); saveDB(); renderRoomsOnly(); return;
   }
   var b = e.target.closest('button'); if(!b) return;
+  if(b.dataset.sug !== undefined){
+    s.rooms[+b.dataset.sug].pz = +b.dataset.n;
+    csTouch(curP()); saveDB(); renderRoomsOnly(); return;
+  }
   if(b.dataset.rdup !== undefined){
     var c = JSON.parse(JSON.stringify(s.rooms[+b.dataset.rdup]));
     c.id = csUid(); c.name = c.name + ' สำเนา'; c.tag = '';
