@@ -88,7 +88,9 @@ body {
 .chart-grid.g1 { grid-template-columns: 1fr; }
 .chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
 .chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 900px) {
+/* screen only - A4 portrait is about 718 CSS px inside its margins, so an
+   unscoped max-width query fires on paper and collapses the report layout */
+@media screen and (max-width: 900px) {
   .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
   .page { padding: 16px; }
   .header { padding: 12px 16px; }
@@ -408,6 +410,79 @@ tr.gov td{background:#EDF6FD !important}
 .ac2{display:flex; gap:4px; align-items:center; justify-content:flex-end}
 .ac2 input{width:56px; text-align:right}
 .ac2 span{color:var(--gray); font-size:11px}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE PRINTABLE REPORT
+   The room table on screen is a working surface - inputs, links, buttons,
+   sized for editing. Printing it gives twenty pages of furniture and no
+   report. This is the other thing: values instead of controls, one A4
+   landscape sheet, and every number a reviewer needs in the order they
+   would ask for it.
+   ═══════════════════════════════════════════════════════════════════════ */
+#p-report{max-width:1180px}
+.rep-tool{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px}
+.rep-tool .opt{font-size:12.5px; color:var(--text-secondary); display:flex;
+  align-items:center; gap:5px; cursor:pointer; user-select:none}
+.sheet{background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:26px 30px}
+.rep-top{display:flex; justify-content:space-between; align-items:flex-start; gap:20px;
+  border-bottom:2px solid var(--text); padding-bottom:9px}
+.rep-top h2{font-size:19px; font-weight:700; line-height:1.25}
+.rep-top .meta{font-size:12px; color:var(--text-secondary); margin-top:3px}
+.rep-top .right{text-align:right; font-size:11px; color:var(--text-secondary); white-space:nowrap; line-height:1.7}
+.rep-sec{margin-top:16px}
+.rep-sec > h3{font-size:13px; font-weight:700; margin-bottom:7px;
+  border-left:3px solid var(--text); padding-left:7px}
+.rep-sec > h3 .n{font-weight:400; color:var(--text-secondary); font-size:11.5px; margin-left:6px}
+/* the schedule is built for paper; on a narrow screen it scrolls rather than
+   squeezing columns that have to stay readable in print */
+.rep-sec.wide{overflow-x:auto}
+.rtab{width:100%; border-collapse:collapse; font-size:11px}
+.rtab th, .rtab td{border:1px solid var(--border); padding:3px 5px; vertical-align:top}
+.rtab thead th{background:var(--surface); font-weight:600; text-align:left; font-size:10.5px;
+  line-height:1.35}
+.rtab th.num, .rtab td.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.rtab th.ctr{text-align:center}
+.rtab tfoot td{background:var(--surface); font-weight:700}
+.rtab tr.grp td{background:#F0EFEC; font-weight:600}
+.rtab .sub{color:var(--text-secondary); font-size:9.5px; font-weight:400}
+.rtab .no{color:var(--gray)}
+.rep-kpi{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px}
+.rep-kpi .k{border:1px solid var(--border); border-radius:6px; padding:7px 9px}
+.rep-kpi .k .v{font-size:17px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.2}
+.rep-kpi .k .v small{font-size:10.5px; font-weight:500; color:var(--text-secondary); margin-left:3px}
+.rep-kpi .k .l{font-size:10px; color:var(--text-secondary); margin-top:2px}
+.rep-cond{display:grid; grid-template-columns:repeat(auto-fit,minmax(178px,1fr)); gap:8px}
+.rep-cond .b{border:1px solid var(--border); border-radius:6px; padding:7px 9px}
+.rep-cond .b h4{font-size:10px; font-weight:700; color:var(--text-secondary); margin-bottom:2px}
+.rep-cond .b .v{font-size:12px}
+.rep-note{font-size:10.5px; color:var(--text-secondary); line-height:1.6}
+.rep-note b{color:var(--text)}
+.rep-note ul{margin:0; padding-left:16px}
+.rep-note li{margin-top:3px}
+.rep-flag{color:#B4291F}
+.rep-sign{display:grid; grid-template-columns:repeat(3,1fr); gap:30px; margin-top:26px; font-size:11px}
+.rep-sign div{border-top:1px solid var(--text); padding-top:5px; color:var(--text-secondary)}
+.rep-foot{margin-top:16px; padding-top:8px; border-top:1px solid var(--border);
+  font-size:10px; color:var(--gray); display:flex; justify-content:space-between; gap:16px}
+.printonly{display:none}
+.rep-break{break-before:page; page-break-before:always}
+
+@media print{
+  .header, .tabs, .footer, .noprint, #chartModal{display:none !important}
+  .page{display:none !important}
+  #p-report.active{display:block !important; padding:0 !important; max-width:none !important}
+  body:not(.rep) .printonly{display:block; padding:30px; font-size:13px; line-height:1.7}
+  .sheet{box-shadow:none; border-radius:0; padding:0; background:#fff}
+  .rtab{font-size:9px}
+  .rtab th, .rtab td{padding:2px 3px}
+  .rtab thead{display:table-header-group}
+  .rtab tr, .rep-kpi, .rep-cond, .rep-sign{break-inside:avoid; page-break-inside:avoid}
+  .rep-sec{break-inside:avoid; page-break-inside:avoid}
+  .rep-sec.wide{break-inside:auto; page-break-inside:auto; overflow:visible}
+  .rep-sec > h3{break-after:avoid; page-break-after:avoid}
+  *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important}
+  @page{size:A4 landscape; margin:10mm}
+}
 </style>
 </head>
 <body>
@@ -421,8 +496,13 @@ tr.gov td{background:#EDF6FD !important}
     <span class="savechip" id="saveChip"><span class="d"></span>พร้อม</span>
     <button class="btn" id="btnSave" title="บันทึกเดี๋ยวนี้ และเขียนลงไฟล์ที่เชื่อมไว้">บันทึก</button>
     <span class="timestamp" id="stamp"></span>
-    <button class="btn ghost" onclick="window.print()">พิมพ์</button>
+    <button class="btn ghost" id="btnReport" title="รายงานหน้าเดียวของโปรเจคที่เปิดอยู่ พร้อมพิมพ์">รายงาน</button>
   </div>
+</div>
+
+<div class="printonly">
+  <b>หน้านี้เป็นหน้าทำงาน ไม่ได้จัดรูปแบบสำหรับพิมพ์</b><br>
+  กดปุ่ม <b>รายงาน</b> ที่มุมขวาบน เปิดรายงานที่จัดหน้าไว้แล้ว แล้วค่อยสั่งพิมพ์
 </div>
 
 <div class="tabs">
@@ -676,6 +756,20 @@ tr.gov td{background:#EDF6FD !important}
       <span class="mono">?s=</span> <span class="mono">?r=</span> ไปด้วย เครื่องมือจึงรู้ว่ากำลังทำห้องไหนของทางเลือกไหน</div>
     </div>
   </div>
+</div>
+
+<!-- ══════════════ REPORT ══════════════ -->
+<div class="page" id="p-report">
+  <div class="rep-tool noprint">
+    <button class="btn ghost" id="repBack">← กลับไปภาพรวมโปรเจค</button>
+    <button class="btn" id="repPrint">พิมพ์ / บันทึกเป็น PDF</button>
+    <label class="opt"><input type="checkbox" id="repAll"> ทุกทางเลือกของโปรเจคนี้</label>
+    <label class="opt"><input type="checkbox" id="repCalc" checked> แนบเงื่อนไขและข้อสมมติ</label>
+    <label class="opt"><input type="checkbox" id="repSign" checked> ช่องลงชื่อ</label>
+    <span class="hint" style="margin:0">ตั้งกระดาษเป็น <b>A4 แนวนอน</b> · ใน Chrome เลือกปลายทางเป็น
+    <b>บันทึกเป็น PDF</b> ได้เลย</span>
+  </div>
+  <div class="sheet" id="repSheet"></div>
 </div>
 
 <div class="footer">
@@ -1974,6 +2068,344 @@ function rowr(a,b,c){
     + '<td style="color:var(--text-secondary);font-size:12.5px">'+c+'</td></tr>';
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   THE REPORT
+   Everything here reads the registry and writes nothing. A report that can
+   change the job it is reporting on is a trap, so this half of the page is
+   one-way by construction: no inputs, no saveDB, no csWrite.
+
+   What it must carry is what somebody checking the work would ask for in
+   order: which building and which set of design conditions · the rooms with
+   their sizes and their answers · what did not pass and why · the totals
+   that are legitimate to add up · and the assumptions behind the numbers,
+   because a printed sheet outlives the conversation that produced it.
+   ═══════════════════════════════════════════════════════════════════════ */
+function repOk(ok, y, n){
+  if(ok === true)  return '<span class="badge ok">' + y + '</span>';
+  if(ok === false) return '<span class="badge bad">' + n + '</span>';
+  return '<span class="no">—</span>';
+}
+function repNone(t){ return '<span class="no">' + (t || '—') + '</span>'; }
+function repPlain(h){ return String(h).replace(/<[^>]+>/g, '').trim(); }
+
+/* ── design conditions of one scenario ── */
+function repCond(s){
+  var c = csCond(s, null), b = s.bill || {};
+  function box(h, v){ return '<div class="b"><h4>' + h + '</h4><div class="v">' + v + '</div></div>'; }
+  return '<div class="rep-cond">'
+    + box('อากาศภายนอก · สภาวะออกแบบ', fmt(c.oaPkT,1) + ' °C / ' + fmt(c.oaPkRh) + ' %RH')
+    + box('อากาศภายนอก · เฉลี่ยทั้งปี', fmt(c.oaAvT,1) + ' °C / ' + fmt(c.oaAvRh) + ' %RH')
+    + box('ภายในห้อง', fmt(c.rT,1) + ' °C / ' + fmt(c.rRh) + ' %RH')
+    + box('ประสิทธิภาพแกน ERV', 'ηt ' + fmt(c.et) + ' % · ηs ' + fmt(c.es) + ' %')
+    + box('ค่าไฟและการใช้งาน', fmt(csNum(b.rate),2) + ' บาท/หน่วย · COP ' + fmt(csNum(b.cop),1)
+        + '<br>' + fmt(csNum(b.hpd),1) + ' ชม./วัน · ' + fmt(csNum(b.dpy)) + ' วัน/ปี')
+    + '</div>';
+}
+
+/* ── headline numbers of one scenario ── */
+function repKpis(r){
+  function k(v, u, l){ return '<div class="k"><div class="v">' + v
+    + (u ? '<small>' + u + '</small>' : '') + '</div><div class="l">' + l + '</div></div>'; }
+  return '<div class="rep-kpi">'
+    + k(fmt(r.rooms), 'ห้อง', 'จำนวนห้อง · นับ Q\'ty แล้ว')
+    + k(fmt(r.area,1), 'ตร.ม.', 'พื้นที่รวม')
+    + k(fmt(r.people), 'คน', 'ผู้ใช้อาคารรวม')
+    + k(r.done.vent ? fmt(r.cmh) : '–', 'CMH', 'ลมบริสุทธิ์รวม')
+    + k(r.done.erv ? fmt(r.rt,2) : '–', 'RT', 'ภาระอากาศภายนอกรวม')
+    + k(r.roi ? baht(r.roi.net) : '–', 'บาท/ปี', 'ประหยัดสุทธิ')
+    + k(r.roi ? repPlain(payText(r.roi)) : '–', '', 'ระยะคืนทุน')
+    + k(String(r.failCo2 + r.failAc), 'ห้อง', 'ที่ยังไม่ผ่านเกณฑ์')
+    + '</div>';
+}
+
+/* ── the room schedule ── */
+function repSchedHead(){
+  return '<thead><tr>'
+    + '<th rowspan="2" class="num">#</th>'
+    + '<th rowspan="2">ห้อง</th>'
+    + '<th rowspan="2">ฟังก์ชัน · ประเภท</th>'
+    + '<th colspan="4" class="ctr">ขนาดและผู้ใช้</th>'
+    + '<th rowspan="2" class="num">แอร์เดิม<br>RT</th>'
+    + '<th colspan="3" class="ctr">ลมบริสุทธิ์และ CO₂</th>'
+    + '<th colspan="3" class="ctr">ภาระที่ตกกับแอร์</th>'
+    + '<th colspan="2" class="ctr">เสียงที่รั่วออก</th>'
+    + '</tr><tr>'
+    + '<th class="num">ก × ย × ส (ม.)</th><th class="num">พื้นที่<br>ตร.ม.</th>'
+    + '<th class="num">คน</th><th class="num">จำนวน</th>'
+    + '<th class="num">ลมออกแบบ<br>CMH</th><th class="num">CO₂<br>ppm</th><th>เกณฑ์</th>'
+    + '<th class="num">ภาระ<br>RT</th><th class="num">ห้องร้อนขึ้น<br>°C</th><th>เกณฑ์</th>'
+    + '<th class="num">ที่ผู้รับ<br>dB(A)</th><th class="num">เกณฑ์<br>dB(A)</th>'
+    + '</tr></thead>';
+}
+function repRoomRow(s, rm, j){
+  var q = Math.max(1, csNum(rm.qty,1)), isMv = rm.cat === 'MV';
+  var f = funcRates(rm), cnd = csCond(s, rm);
+  var A = csNum(rm.w)*csNum(rm.l), v = rm.vent, e = rm.erv, a = rm.ac;
+  var tag = [rm.tag, rm.level, rm.system, rm.zone].filter(function(x){ return x; }).join(' · ');
+  return '<tr>'
+    + '<td class="num">' + (j+1) + '</td>'
+    + '<td><b>' + esc(rm.name) + '</b>'
+      + (tag ? '<div class="sub">' + esc(tag) + '</div>' : '')
+      + (cnd.over.length ? '<div class="sub rep-flag">ตั้งค่าเอง · '
+          + cnd.over.map(function(k){ return CS_COND_TH[k]; }).join(' · ') + '</div>' : '') + '</td>'
+    + '<td>' + esc(f.c[1]) + '<div class="sub">' + (isMv ? 'ระบายอากาศ' : 'ปรับอากาศ')
+      + ' · Rp ' + (f.c[2]==null?'—':f.c[2]) + ' · Ra ' + (f.c[3]==null?'—':f.c[3])
+      + (f.ceil != null ? ' · เพดาน CO₂ +' + fmt(f.ceil) : '') + '</div></td>'
+    + '<td class="num">' + fmt(csNum(rm.w),1) + ' × ' + fmt(csNum(rm.l),1) + ' × ' + fmt(csNum(rm.h),1) + '</td>'
+    + '<td class="num">' + fmt(A,1) + (q > 1 ? '<div class="sub">รวม ' + fmt(A*q,1) + '</div>' : '') + '</td>'
+    + '<td class="num">' + fmt(csNum(rm.pz)) + '</td>'
+    + '<td class="num">' + q + '</td>'
+    + '<td class="num">' + (isMv ? repNone('ไม่มีแอร์')
+        : (csNum(rm.cap) > 0 ? fmt(csNum(rm.cap),1) : repNone('ยังไม่ใส่'))) + '</td>'
+    + '<td class="num">' + (v ? '<b>' + fmt(csNum(v.q)) + '</b>'
+        + '<div class="sub">ขั้นต่ำ ' + fmt(Math.ceil(f.min/100)*100) + '</div>'
+        + (q > 1 ? '<div class="sub">รวม ' + fmt(csNum(v.q)*q) + '</div>' : '')
+        : repNone('ยังไม่คำนวณ')) + '</td>'
+    + '<td class="num">' + (v && v.co2 != null ? fmt(csNum(v.co2)) : repNone()) + '</td>'
+    + '<td>' + repOk(v ? v.ok : null, 'ผ่าน', 'ลมไม่พอ') + '</td>'
+    + '<td class="num">' + (isMv ? repNone() : e ? '<b>' + fmt(csNum(e.rt),2) + '</b>' : repNone('ยังไม่คำนวณ')) + '</td>'
+    + '<td class="num">' + (!isMv && e ? fmt(csNum(e.dT),2) : repNone()) + '</td>'
+    + '<td>' + (isMv ? repNone('ไม่มีแอร์') : repOk(e ? e.ok : null, 'รับไหว', 'แอร์ไม่พอ')) + '</td>'
+    + '<td class="num">' + (a ? '<b>' + fmt(csNum(a.dba),1) + '</b>' : repNone('ยังไม่คำนวณ')) + '</td>'
+    + '<td class="num">' + (a && a.lim != null ? fmt(csNum(a.lim),1) : repNone()) + '</td>'
+    + '</tr>';
+}
+function repGroupRow(g, sub){
+  return '<tr class="grp"><td></td><td colspan="3">' + esc(g)
+    + ' <span class="sub">' + sub.rows + ' แถว · ' + sub.rooms + ' ห้อง</span></td>'
+    + '<td class="num">' + fmt(sub.area,1) + '</td>'
+    + '<td class="num">' + fmt(sub.people) + '</td>'
+    + '<td class="num"></td>'
+    + '<td class="num">' + (sub.cap > 0 ? fmt(sub.cap,1) : '') + '</td>'
+    + '<td class="num">' + (sub.done.vent ? fmt(sub.cmh) : '') + '</td>'
+    + '<td colspan="2"></td>'
+    + '<td class="num">' + (sub.done.erv ? fmt(sub.rt,2) : '') + '</td>'
+    + '<td colspan="4"></td></tr>';
+}
+function repSched(s, r){
+  var last = null, out = [];
+  s.rooms.forEach(function(rm, j){
+    var g = groupKey(rm);
+    if(g !== null && g !== last){
+      out.push(repGroupRow(g, csRoll({ rooms: s.rooms.filter(function(x){ return groupKey(x) === g; }) })));
+      last = g;
+    }
+    out.push(repRoomRow(s, rm, j));
+  });
+  var foot = '<tfoot><tr><td colspan="4"><b>รวม ' + r.rows + ' แถว · ' + fmt(r.rooms) + ' ห้อง</b></td>'
+    + '<td class="num">' + fmt(r.area,1) + '</td>'
+    + '<td class="num">' + fmt(r.people) + '</td>'
+    + '<td class="num">' + fmt(r.rooms) + '</td>'
+    + '<td class="num">' + (r.cap > 0 ? fmt(r.cap,1) : '—') + '</td>'
+    + '<td class="num">' + (r.done.vent ? fmt(r.cmh) : '—') + '</td>'
+    + '<td colspan="2" class="num">' + (r.worstCo2 !== null ? 'สูงสุด ' + fmt(r.worstCo2) : '') + '</td>'
+    + '<td class="num">' + (r.done.erv ? fmt(r.rt,2) : '—') + '</td>'
+    + '<td colspan="2"></td>'
+    + '<td colspan="2" class="num">' + (r.worstDba !== null ? 'สูงสุด ' + fmt(r.worstDba,1) : '') + '</td>'
+    + '</tr></tfoot>';
+  return '<table class="rtab">' + repSchedHead() + '<tbody>'
+    + (out.join('') || '<tr><td colspan="16" style="text-align:center;color:var(--gray);padding:14px">'
+       + 'ทางเลือกนี้ยังไม่มีห้อง</td></tr>')
+    + '</tbody>' + foot + '</table>';
+}
+
+/* ── what did not pass, and why ── */
+function repFails(s){
+  var rows = [];
+  s.rooms.forEach(function(rm, j){
+    var q = Math.max(1, csNum(rm.qty,1)), why = [];
+    if(rm.vent && rm.vent.ok === false)
+      why.push('<b>ลมไม่พอ</b> · ออกแบบไว้ ' + fmt(csNum(rm.vent.q)) + ' CMH'
+        + (rm.vent.rec != null ? ' เกณฑ์ต้องการ ' + fmt(csNum(rm.vent.rec)) + ' CMH' : '')
+        + (rm.vent.co2 != null ? ' · CO₂ จะไปหยุดที่ ' + fmt(csNum(rm.vent.co2)) + ' ppm' : ''));
+    if(rm.erv && rm.erv.ok === false)
+      why.push('<b>แอร์เดิมรับไม่ไหว</b> · ขาดอีก ' + fmt(csNum(rm.erv.deficitRt),2) + ' RT'
+        + ' · ห้องจะร้อนขึ้น ' + fmt(csNum(rm.erv.dT),2) + ' °C');
+    if(rm.ac && rm.ac.ok === false)
+      why.push('<b>เสียงเกินเกณฑ์</b> · ที่ผู้รับ ' + fmt(csNum(rm.ac.dba),1) + ' dB(A)'
+        + (rm.ac.lim != null ? ' เกณฑ์ ' + fmt(csNum(rm.ac.lim),1) + ' dB(A)' : ''));
+    if(!rm.vent && !rm.erv && !rm.ac)
+      why.push('ยังไม่ได้คำนวณด้วยเครื่องมือใดเลย');
+    if(why.length)
+      rows.push('<tr><td class="num">' + (j+1) + '</td>'
+        + '<td><b>' + esc(rm.name) + '</b>' + (q > 1 ? ' <span class="sub">× ' + q + ' ห้อง</span>' : '') + '</td>'
+        + '<td>' + why.join('<br>') + '</td></tr>');
+  });
+  if(!rows.length) return '';
+  return '<div class="rep-sec wide"><h3>ห้องที่ยังไม่ผ่านเกณฑ์ หรือยังไม่ได้คำนวณ'
+    + '<span class="n">' + rows.length + ' แถว</span></h3>'
+    + '<table class="rtab"><thead><tr><th class="num" style="width:28px">#</th>'
+    + '<th style="width:170px">ห้อง</th><th>เรื่องที่ต้องแก้</th></tr></thead>'
+    + '<tbody>' + rows.join('') + '</tbody></table></div>';
+}
+
+/* ── the totals that are legitimate to add up, and the ones that are not ── */
+function repTotals(r, s){
+  function row(a, b, c){ return '<tr><td style="width:210px">' + a + '</td>'
+    + '<td class="num" style="width:150px"><b>' + b + '</b></td>'
+    + '<td class="sub" style="font-size:10.5px">' + c + '</td></tr>'; }
+  var t = row('พื้นที่รวม', fmt(r.area,1) + ' ตร.ม.', 'บวกได้ · คูณ Q\'ty แล้ว')
+    + row('จำนวนคนรวม', fmt(r.people) + ' คน', 'บวกได้ · คูณ Q\'ty แล้ว')
+    + row('ลมบริสุทธิ์รวม', r.done.vent ? fmt(r.cmh) + ' CMH' : 'ยังไม่ครบ',
+        r.done.vent < r.rows ? 'คำนวณแล้ว ' + r.done.vent + ' จาก ' + r.rows + ' แถว'
+                             : 'ครบทุกแถว · ถือว่าทุกห้องใช้งานพร้อมกัน')
+    + row('ภาระอากาศภายนอกรวม', r.done.erv ? fmt(r.rt,2) + ' RT' : 'ยังไม่ครบ',
+        r.done.erv < r.acRows ? 'คำนวณแล้ว ' + r.done.erv + ' จาก ' + r.acRows + ' แถวปรับอากาศ'
+                              : 'ครบทุกแถวปรับอากาศ')
+    + row('ขนาดแอร์เดิมรวม', r.cap > 0 ? fmt(r.cap,1) + ' RT' : 'ยังไม่ใส่',
+        r.noCap ? 'ยังไม่ใส่ ' + r.noCap + ' จาก ' + r.acRows + ' แถวปรับอากาศ' : 'ใส่ครบทุกแถวปรับอากาศ')
+    + row('ระดับ CO₂', r.worstCo2 !== null ? 'สูงสุด ' + fmt(r.worstCo2) + ' ppm' : 'ยังไม่คำนวณ',
+        '<b>บวกหรือเฉลี่ยไม่ได้</b> รายงานเป็นห้องที่แย่ที่สุด ค่าจริงรายห้องอยู่ในตารางด้านบน')
+    + row('ระดับเสียงที่ผู้รับ', r.worstDba !== null ? 'สูงสุด ' + fmt(r.worstDba,1) + ' dB(A)' : 'ยังไม่คำนวณ',
+        '<b>บวกไม่ได้</b> ขึ้นกับช่องเปิดและระยะของห้องนั้น')
+    + row('ห้องที่ลมไม่พอ', fmt(r.failCo2) + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย')
+    + row('ห้องที่แอร์เดิมรับไม่ไหว', fmt(r.failAc) + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย');
+  if(r.roi){
+    t += row('ประหยัดสุทธิต่อปี', baht(r.roi.net) + ' บาท',
+             'ของทั้งทางเลือก คิดจากลม ' + fmt(r.roi.q) + ' CMH ที่สภาวะเฉลี่ยทั้งปี')
+      + row('ระยะคืนทุน', repPlain(payText(r.roi)) || '—',
+             r.roi.capexKnown ? 'เทียบกับพัดลมระบายอากาศธรรมดา' : 'ยังไม่ได้ใส่ราคา ERV ที่ติดตั้ง')
+      + row('ลดขนาดแอร์ได้', fmt(r.roi.rtSaved,2) + ' RT',
+             'ที่สภาวะออกแบบ · ใช้ได้เมื่อยังไม่ได้สั่งเครื่อง');
+  } else {
+    t += row('ROI ของทางเลือกนี้', 'ยังไม่ได้คิด', 'เปิดเครื่องมือ ERV Energy Saving');
+  }
+  return '<div class="rep-sec"><h3>ยอดรวมของทางเลือกนี้</h3>'
+    + '<table class="rtab"><tbody>' + t + '</tbody></table></div>';
+}
+
+/* ── one scenario against another ── */
+function repCompare(p){
+  var rows = p.scenarios.map(function(s, j){
+    var r = roll(s), c = csCond(s, null);
+    return '<tr><td><b>' + esc(s.name) + '</b>'
+      + (j === 0 ? ' <span class="sub">หลัก</span>' : '') + '</td>'
+      + '<td class="num">' + fmt(r.rooms) + '</td>'
+      + '<td class="num">' + fmt(r.area,1) + '</td>'
+      + '<td class="num">' + fmt(c.oaPkT,1) + ' °C / ' + fmt(c.oaPkRh) + ' %</td>'
+      + '<td class="num">' + fmt(c.et) + ' / ' + fmt(c.es) + '</td>'
+      + '<td class="num">' + (r.done.vent ? fmt(r.cmh) : '—') + '</td>'
+      + '<td class="num">' + (r.done.erv ? fmt(r.rt,2) : '—') + '</td>'
+      + '<td class="num">' + (r.roi ? baht(r.roi.net) : '—') + '</td>'
+      + '<td class="num">' + (r.roi ? repPlain(payText(r.roi)) : '—') + '</td>'
+      + '<td class="num">' + (r.roi ? fmt(r.roi.rtSaved,2) : '—') + '</td>'
+      + '<td class="num">' + (r.failCo2 + r.failAc) + '</td></tr>';
+  }).join('');
+  return '<div class="rep-sec wide"><h3>เทียบทางเลือกออกแบบ<span class="n">'
+    + p.scenarios.length + ' ทางเลือก · อาคารเดียวกัน</span></h3>'
+    + '<table class="rtab"><thead><tr><th>ทางเลือก</th><th class="num">ห้อง</th>'
+    + '<th class="num">พื้นที่<br>ตร.ม.</th><th class="num">อากาศนอก<br>ออกแบบ</th>'
+    + '<th class="num">ηt / ηs<br>%</th><th class="num">ลมรวม<br>CMH</th>'
+    + '<th class="num">ภาระรวม<br>RT</th><th class="num">ประหยัด<br>บาท/ปี</th>'
+    + '<th class="num">คืนทุน</th><th class="num">ลดแอร์ได้<br>RT</th>'
+    + '<th class="num">ห้องไม่ผ่าน</th></tr></thead><tbody>' + rows + '</tbody></table>'
+    + '<div class="rep-note" style="margin-top:6px">ทุกทางเลือกเป็น<b>อาคารหลังเดียวกัน</b> '
+    + 'ต่างกันที่ชุดเงื่อนไขออกแบบ · ตัวเลขคนละแถวจึงเทียบกันได้ตรง ๆ แต่<b>บวกกันไม่ได้</b></div></div>';
+}
+
+/* ── the assumptions behind every number above ── */
+function repNotes(s){
+  var c = csCond(s, null);
+  return '<div class="rep-sec"><h3>ข้อสมมติและที่มาของตัวเลข</h3><div class="rep-note"><ul>'
+    + '<li><b>ลมบริสุทธิ์</b> คิดตาม ASHRAE 62.1 Table 6-1 (Rp · คน + Ra · พื้นที่) '
+    + 'เทียบกับกฎกระทรวงฉบับที่ 39 แล้วใช้ค่าที่สูงกว่า · '
+    + 'ถ้า CO₂ เป็นตัวคุม ค่าที่ออกแบบจะสูงกว่าขั้นต่ำทั้งสองเกณฑ์</li>'
+    + '<li><b>สภาวะออกแบบ ' + fmt(c.oaPkT,1) + ' °C / ' + fmt(c.oaPkRh) + ' %RH</b> '
+    + 'ใช้คิดขนาดเครื่องเท่านั้น · <b>ค่าเฉลี่ยทั้งปี ' + fmt(c.oaAvT,1) + ' °C / '
+    + fmt(c.oaAvRh) + ' %RH</b> ใช้คิดค่าไฟและ ROI · เอาค่าออกแบบไปคิดค่าไฟจะได้ตัวเลขประหยัดสูงเกินจริงมาก</li>'
+    + '<li>คู่อากาศภายนอกที่ตั้งไว้เป็น <b>DB/RH</b> ไม่ใช่ DB/MCWB ตาม ASHRAE ซึ่งเผื่อหนักกว่าความจริง '
+    + 'ถ้ามีข้อมูลภูมิอากาศของพื้นที่จริงควรใส่ทับ</li>'
+    + '<li><b>ยอดลมรวม</b> เป็นการบวกตรง ๆ ที่ถือว่าทุกห้องใช้งานพร้อมกัน '
+    + 'ถ้าจริง ๆ ไม่ได้ใช้พร้อมกัน การเลือกเครื่องรวมตัวเดียวจากยอดนี้จะได้เครื่องใหญ่เกินไป</li>'
+    + '<li><b>CO₂ และระดับเสียงบวกหรือเฉลี่ยไม่ได้</b> รายงานนี้จึงแสดงเป็นค่าสูงสุดและจำนวนห้องที่ไม่ผ่าน '
+    + 'ค่าจริงของแต่ละห้องอยู่ในตารางห้อง</li>'
+    + '<li><b>ขนาดแอร์เดิมและลมจ่าย</b> เป็นค่าที่ผู้ใช้กรอกจากเครื่องที่ติดตั้งอยู่จริง ไม่ได้คำนวณจากภาระความร้อนของห้อง</li>'
+    + '<li><b>ประสิทธิภาพแกน ηt ' + fmt(c.et) + ' % · ηs ' + fmt(c.es) + ' %</b> '
+    + 'ต้องตรงกับสเปกของรุ่นที่จะติดตั้งจริง ตัวเลขประหยัดทั้งหมดขึ้นกับค่านี้โดยตรง</li>'
+    + '<li>ห้องที่มีป้าย <span class="rep-flag">ตั้งค่าเอง</span> ใช้เงื่อนไขต่างจากทางเลือกนี้ '
+    + 'ตัวเลขของห้องนั้นจึงไม่ได้อยู่บนฐานเดียวกับห้องอื่น</li>'
+    + '</ul></div></div>';
+}
+
+/* ── one scenario, whole block ── */
+function repScnBlock(p, s, o, first){
+  var r = roll(s);
+  return (first ? '' : '<div class="rep-break"></div>')
+    + '<div class="rep-sec"><h3>ทางเลือกออกแบบ · ' + esc(s.name)
+      + '<span class="n">' + r.rows + ' แถว · ' + fmt(r.rooms) + ' ห้อง</span></h3>'
+      + repKpis(r) + '</div>'
+    + (o.calc ? '<div class="rep-sec"><h3>เงื่อนไขของทางเลือกนี้</h3>' + repCond(s)
+        + '<div class="rep-note" style="margin-top:6px">ห้องทุกห้องใช้ค่าชุดนี้ '
+        + 'เว้นห้องที่มีป้าย <span class="rep-flag">ตั้งค่าเอง</span> ในตารางด้านล่าง</div></div>' : '')
+    + '<div class="rep-sec wide"><h3>ตารางห้อง'
+      + (GROUPBY ? '<span class="n">จัดกลุ่มตาม' + ({level:'ชั้น',system:'ระบบ',zone:'โซน'}[GROUPBY]) + '</span>' : '')
+      + '</h3>' + repSched(s, r) + '</div>'
+    + repFails(s)
+    + repTotals(r, s)
+    + (o.calc ? repNotes(s) : '');
+}
+
+function repOpts(){
+  return { all: $('repAll').checked, calc: $('repCalc').checked, sign: $('repSign').checked };
+}
+function renderReport(){
+  var p = curP(), s = curS(), sheet = $('repSheet');
+  if(!p || !s){
+    sheet.innerHTML = '<div class="rep-note" style="padding:20px;font-size:13px">'
+      + 'ยังไม่ได้เลือกโปรเจค · กดปุ่ม <b>เปิดดู</b> ในแท็บรายการโปรเจคก่อน แล้วค่อยกด <b>รายงาน</b></div>';
+    return;
+  }
+  var o = repOpts();
+  var list = o.all ? p.scenarios : [s];
+  var now = new Date();
+  var stamp = now.toLocaleDateString('th-TH', { year:'numeric', month:'long', day:'numeric' })
+    + ' ' + now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+
+  var head = '<div class="rep-top"><div>'
+    + '<h2>' + esc(p.name) + '</h2>'
+    + '<div class="meta">' + (p.client ? 'ลูกค้า ' + esc(p.client) + ' · ' : '')
+      + (p.status ? esc(p.status) + ' · ' : '')
+      + (o.all ? 'รายงานทุกทางเลือก (' + p.scenarios.length + ')' : 'ทางเลือก ' + esc(s.name))
+      + '</div></div>'
+    + '<div class="right">รายงานสรุปงานออกแบบระบบอากาศ<br>'
+    + 'Coral Life · ทีมออกแบบ<br>ออกรายงาน ' + stamp + '</div></div>';
+
+  var body = (o.all && p.scenarios.length > 1 ? repCompare(p) : '')
+    + list.map(function(x, i){ return repScnBlock(p, x, o, i === 0 && !(o.all && p.scenarios.length > 1)); }).join('');
+
+  var sign = o.sign ? '<div class="rep-sign">'
+    + '<div>ผู้คำนวณ / วันที่</div><div>ผู้ตรวจสอบ / วันที่</div><div>ผู้อนุมัติ / วันที่</div></div>' : '';
+
+  var foot = '<div class="rep-foot"><span>' + esc(p.name)
+    + ' · แก้ล่าสุด ' + dstr(p.updatedAt) + '</span>'
+    + '<span>ออกจาก Project Hub เมื่อ ' + stamp + ' · ตัวเลขทั้งหมดมาจากทะเบียนกลางของโปรเจคนี้</span></div>';
+
+  sheet.innerHTML = head + body + sign + foot;
+}
+
+/* ── getting in and out of the report ── */
+/* The room table's spreadsheet shortcuts listen on the document, and a row
+   selection left behind on the detail page would still be a paste target.
+   Reading a report must never be able to write to the job. */
+function REPORT_OPEN(){ return document.body.classList.contains('rep'); }
+function openReport(){
+  SEL.clear(); SELANCHOR = null;
+  document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('active'); });
+  document.querySelectorAll('.page').forEach(function(x){ x.classList.remove('active'); });
+  $('p-report').classList.add('active');
+  document.body.classList.add('rep');
+  renderReport();
+  window.scrollTo(0, 0);
+}
+$('btnReport').addEventListener('click', openReport);
+$('repBack').addEventListener('click', function(){
+  document.querySelector('.tab[data-p="detail"]').click();
+});
+$('repPrint').addEventListener('click', function(){ window.print(); });
+['repAll','repCalc','repSign'].forEach(function(id){
+  $(id).addEventListener('change', renderReport);
+});
+
 /* ═══════════ events ═══════════ */
 $('listFilter').addEventListener('click', function(e){
   var b = e.target.closest('button'); if(!b) return;
@@ -2227,6 +2659,7 @@ $('baDel').addEventListener('click', function(){
 
 /* ═══════════ Excel-style copy / paste ═══════════ */
 document.addEventListener('copy', function(e){
+  if(REPORT_OPEN()) return;
   if(!SEL.size) return;
   var ae = document.activeElement;
   if(ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) return;   /* editing a field */
@@ -2243,6 +2676,7 @@ document.addEventListener('copy', function(e){
   e.preventDefault();
 });
 document.addEventListener('paste', function(e){
+  if(REPORT_OPEN()) return;
   var s = curS(); if(!s) return;
   var cd = e.clipboardData || window.clipboardData; if(!cd) return;
   var txt = cd.getData('text'); if(txt == null || txt === '') return;
@@ -2279,6 +2713,7 @@ document.addEventListener('paste', function(e){
     + 'จาก ' + cells.length + ' แถวที่วาง · ช่องว่างไม่ทับของเดิม · เปิดเครื่องมือแต่ละตัวเพื่อคำนวณผลใหม่';
 });
 document.addEventListener('keydown', function(e){
+  if(REPORT_OPEN()) return;
   if(!SEL.size) return;
   var ae = document.activeElement;
   var editing = ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName);
@@ -2457,6 +2892,7 @@ document.querySelectorAll('.tab').forEach(function(b){
     document.querySelectorAll('.page').forEach(function(x){ x.classList.remove('active'); });
     b.classList.add('active');
     $('p-'+b.dataset.p).classList.add('active');
+    document.body.classList.remove('rep');
     if(b.dataset.p === 'detail') renderDetail();
   });
 });
