@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERV Project Cost Database</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root{
+  --bg:#F7F7F5; --surface:#F4F3F0; --card-bg:#FFFFFF; --border:#E3E2DE;
+  --text:#37352F; --text-secondary:#787774; --blue:#2383E2; --red:#D44C47;
+  --purple:#6940A5; --green:#669BBC; --orange:#CB912F; --gray:#9B9A97;
+  --navy:#14477F; --ok:#2E7D32; --radius:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.04), 0 0 0 1px var(--border);
+}
+body{font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; background:var(--bg);
+  color:var(--text); line-height:1.5; -webkit-font-smoothing:antialiased}
+.header{background:var(--card-bg); border-bottom:1px solid var(--border); padding:16px 32px;
+  display:flex; align-items:center; justify-content:space-between; position:sticky; top:0;
+  z-index:100; gap:14px; flex-wrap:wrap}
+.header h1{font-size:20px; font-weight:600}
+.header .sub{font-size:12px; color:var(--text-secondary)}
+.header-right{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.btn{background:var(--blue); color:#fff; border:none; padding:6px 14px; border-radius:6px;
+  font-size:13px; cursor:pointer; font-weight:500; font-family:inherit; transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn.ghost{background:none; border:1px solid var(--border); color:var(--text-secondary)}
+.btn.ghost:hover{background:var(--surface); color:var(--text); opacity:1}
+.btn:disabled{opacity:.4; cursor:default}
+.tabs{display:flex; background:var(--card-bg); border-bottom:1px solid var(--border);
+  padding:0 32px; flex-wrap:wrap; position:sticky; top:65px; z-index:99}
+.tab{padding:10px 18px; font-size:14px; font-weight:500; color:var(--text-secondary);
+  cursor:pointer; border:0; border-bottom:2px solid transparent; background:none;
+  font-family:inherit; user-select:none}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--text); border-bottom-color:var(--text)}
+.tabcount{display:inline-block; margin-left:6px; background:var(--surface); color:var(--text-secondary);
+  border-radius:10px; padding:0 7px; font-size:11px}
+.page{display:none; padding:24px 32px; max-width:1500px; margin:0 auto}
+.page.active{display:block}
+.card{background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:20px; margin-bottom:20px}
+.card h3{font-size:14px; font-weight:600; margin-bottom:12px}
+.card-title-row{display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin-bottom:12px; flex-wrap:wrap}
+.card-title-row h3{margin-bottom:0}
+.kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:16px; margin-bottom:20px}
+.kpi-card{background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:18px; text-align:center}
+.kpi-value{font-size:28px; font-weight:700; line-height:1.2; font-variant-numeric:tabular-nums}
+.kpi-value small{font-size:13px; font-weight:500; color:var(--text-secondary); margin-left:4px}
+.kpi-label{font-size:12.5px; color:var(--text-secondary); margin-top:3px; font-weight:500}
+.kpi-note{font-size:11px; color:var(--gray); margin-top:2px}
+.tablewrap{overflow-x:auto}
+table.dtable{width:100%; border-collapse:collapse; font-size:12.5px}
+table.dtable th{background:var(--surface); font-weight:600; text-align:left; padding:7px 9px;
+  border-bottom:1px solid var(--border); white-space:nowrap; font-size:11.5px}
+table.dtable td{padding:6px 9px; border-bottom:1px solid var(--border); vertical-align:top}
+table.dtable tr:hover td{background:#FAFAF8}
+table.dtable td.num, table.dtable th.num{text-align:right; font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+table.dtable tfoot td{background:var(--surface); font-weight:700; border-bottom:0}
+.note{border:1px solid var(--border); border-left:3px solid var(--blue); background:#F6FAFE;
+  border-radius:6px; padding:12px 16px; font-size:13px; color:var(--text-secondary); margin-bottom:14px}
+.note b{color:var(--text)}
+.note.warn{border-left-color:var(--orange); background:#FDF8EF}
+.note.bad{border-left-color:var(--red); background:#FBEAE9}
+.hint{font-size:12px; color:var(--text-secondary); margin-top:8px}
+.badge{font-size:11.5px; padding:2px 9px; border-radius:20px; font-weight:500;
+  white-space:nowrap; display:inline-block}
+.badge.ok{background:#E8F3E9; color:var(--ok)}
+.badge.bad{background:#FBEAE9; color:var(--red)}
+.badge.na{background:var(--surface); color:var(--gray)}
+.rin{border:1px solid var(--border); border-radius:5px; padding:4px 7px; font-family:inherit;
+  font-size:12.5px; background:#fff; color:var(--text); width:100%}
+.rin:focus{outline:2px solid #BBDDF7; outline-offset:-1px}
+.filterbar{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px}
+.fld{display:flex; flex-direction:column; gap:3px}
+.fld label{font-size:11px; color:var(--text-secondary); font-weight:500}
+.fld .rin{width:auto; min-width:140px}
+.grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px}
+.drop{border:2px dashed var(--border); border-radius:var(--radius); padding:26px; text-align:center;
+  color:var(--text-secondary); font-size:13px; background:#FCFCFB; cursor:pointer}
+.drop:hover, .drop.over{border-color:var(--blue); background:#F6FAFE; color:var(--text)}
+.drop b{color:var(--text); font-size:14px}
+.savechip{display:inline-flex; align-items:center; gap:6px; font-size:11.5px;
+  color:var(--text-secondary); border:1px solid var(--border); border-radius:20px; padding:2px 10px}
+.savechip .d{width:7px; height:7px; border-radius:50%; background:var(--gray)}
+.savechip.on .d{background:var(--ok)}
+.savechip.warn .d{background:var(--orange)}
+.eq{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 14px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px;
+  white-space:pre-wrap; overflow-x:auto; line-height:1.6; color:var(--text)}
+.split{display:grid; grid-template-columns:1.3fr 1fr; gap:20px; align-items:start}
+.bar{height:9px; border-radius:5px; background:var(--surface); overflow:hidden; display:flex}
+.bar i{display:block; height:100%}
+.legend{display:flex; gap:12px; flex-wrap:wrap; font-size:11.5px; color:var(--text-secondary);
+  margin-top:7px}
+.legend span{display:inline-flex; align-items:center; gap:5px}
+.legend i{width:9px; height:9px; border-radius:2px; display:inline-block}
+.footer{text-align:center; padding:26px; color:var(--gray); font-size:12px}
+@media screen and (max-width:900px){
+  .page{padding:16px} .header{padding:12px 16px} .tabs{padding:0 16px; top:61px}
+  .split{grid-template-columns:1fr}
+}
+@media print{
+  .header,.tabs,.footer,.noprint{display:none !important}
+  .page{display:none !important}
+  .page.active{display:block !important; padding:0 !important}
+  .card{box-shadow:none; border:1px solid var(--border); break-inside:avoid}
+  @page{size:A4 landscape; margin:10mm}
+  *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>ERV Project Cost Database</h1>
+    <div class="sub">ต้นทุน BOQ ของงานที่ทำไปแล้ว · อัตราต่อหน่วยสำหรับประมาณราคางานใหม่</div>
+  </div>
+  <div class="header-right">
+    <span class="savechip" id="saveChip"><span class="d"></span>ยังไม่มีข้อมูล</span>
+    <button class="btn ghost" id="btnLink" title="ผูกไฟล์บน OneDrive ให้บันทึกอัตโนมัติ">เชื่อมไฟล์</button>
+    <button class="btn" id="btnSave">บันทึก</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-p="list">โปรเจคทั้งหมด<span class="tabcount" id="cProj">0</span></button>
+  <button class="tab" data-p="cat">ต้นทุนต่อหมวด</button>
+  <button class="tab" data-p="rate">อัตราต่อหน่วย</button>
+  <button class="tab" data-p="est">ประมาณราคา</button>
+  <button class="tab" data-p="io">นำเข้า · BOQ · เทมเพลต</button>
+  <button class="tab" data-p="how">วิธีใช้และกติกา</button>
+</div>
+
+<!-- ══════════ PROJECTS ══════════ -->
+<div class="page active" id="p-list">
+  <div class="note" id="emptyNote" hidden><b>ยังไม่มีข้อมูลในเครื่องนี้</b>
+  ไปที่แท็บ <b>นำเข้า · BOQ · เทมเพลต</b> แล้วนำเข้าไฟล์ <span class="mono">ERV_Project_Cost_Database.xlsx</span> ก่อน
+  · ข้อมูลเก็บในเบราว์เซอร์ของเครื่องนี้เท่านั้น ไม่ได้ขึ้นเซิร์ฟเวอร์และไม่ได้อยู่ใน repo</div>
+
+  <div class="kpi-row" id="listKpis"></div>
+
+  <div class="card">
+    <div class="card-title-row">
+      <h3>โปรเจคทั้งหมด</h3>
+      <div class="filterbar" style="margin:0">
+        <div class="fld"><label>ประเภทอาคาร</label><select class="rin" id="fType"></select></div>
+        <div class="fld"><label>ขอบเขตงาน</label><select class="rin" id="fScope"></select></div>
+        <div class="fld"><label>ปี</label><select class="rin" id="fYear"></select></div>
+        <div class="fld"><label>ค้นหา</label><input class="rin" id="fText" placeholder="ชื่อโปรเจค"></div>
+      </div>
+    </div>
+    <div class="tablewrap"><table class="dtable">
+      <thead id="listHead"></thead><tbody id="listBody"></tbody><tfoot id="listFoot"></tfoot>
+    </table></div>
+    <div class="hint" id="listHint"></div>
+  </div>
+</div>
+
+<!-- ══════════ CATEGORIES ══════════ -->
+<div class="page" id="p-cat">
+  <div class="card">
+    <div class="card-title-row">
+      <h3>สัดส่วนต้นทุนต่อหมวด</h3>
+      <div class="filterbar" style="margin:0">
+        <div class="fld"><label>ประเภทอาคาร</label><select class="rin" id="cType"></select></div>
+        <div class="fld"><label>ขอบเขตงาน</label><select class="rin" id="cScope"></select></div>
+      </div>
+    </div>
+    <div id="catMix"></div>
+  </div>
+  <div class="card">
+    <h3>ต้นทุนต่อหมวด รายโปรเจค</h3>
+    <div class="tablewrap"><table class="dtable">
+      <thead id="catHead"></thead><tbody id="catBody"></tbody><tfoot id="catFoot"></tfoot>
+    </table></div>
+    <div class="hint">ตัวเลขทุกช่องเป็น <b>ราคาที่เสนอลูกค้า (BOQ price)</b> ไม่ใช่ราคาทุน ·
+    แถวที่บันทึกเป็น <span class="mono">Internal cost</span> ถูกกรองออกจากทุกการเฉลี่ยแล้ว</div>
+  </div>
+</div>
+
+<!-- ══════════ RATE CARD ══════════ -->
+<div class="page" id="p-rate">
+  <div class="note warn"><b>กฎเหล็กสี่ข้อของไฟล์ต้นฉบับ ยังใช้ที่นี่เหมือนเดิม</b><br>
+  อย่าเฉลี่ยข้ามคนละ <b>ขอบเขตงาน</b> · ค่าเครื่องให้ normalize ด้วย <b>THB/CMH</b> ไม่ใช่ THB/ตร.ม. ·
+  <b>กลุ่มไหน n &lt; 3 อย่าใช้ค่าเฉลี่ยของกลุ่มนั้น</b> ให้ใช้ค่ารวมทุกประเภท ·
+  เก็บที่ราคาเสนอลูกค้าอย่างเดียว</div>
+  <div class="card">
+    <div class="card-title-row">
+      <h3>อัตราต่อหน่วย แยกตามประเภทอาคาร</h3>
+      <div class="filterbar" style="margin:0">
+        <div class="fld"><label>ขอบเขตงาน</label><select class="rin" id="rScope"></select></div>
+      </div>
+    </div>
+    <div class="tablewrap"><table class="dtable">
+      <thead id="rateHead"></thead><tbody id="rateBody"></tbody>
+    </table></div>
+    <div class="hint">นับเฉพาะโปรเจคที่ <span class="mono">Include_in_RateCard = Yes</span>
+    และมีตัวหารครบ · ช่องที่ขึ้น <span class="badge na">n&lt;3</span> คือกลุ่มที่ข้อมูลยังน้อยเกินกว่าจะตั้งราคาให้งานอื่น</div>
+  </div>
+</div>
+
+<!-- ══════════ ESTIMATOR ══════════ -->
+<div class="page" id="p-est">
+  <div class="split">
+    <div class="card">
+      <h3>ประมาณต้นทุน BOQ งานใหม่</h3>
+      <div class="grid2" id="estIn"></div>
+      <div class="hint">จบที่ <b>ต้นทุน BOQ</b> ยังไม่รวมกำไรของเรา ·
+      อัตราที่ใช้มาจากแท็บอัตราต่อหน่วย ถ้ากลุ่มนั้น n&lt;3 จะถอยไปใช้ค่ารวมทุกประเภทให้เอง</div>
+    </div>
+    <div class="card">
+      <h3>ผลประมาณการ</h3>
+      <div class="tablewrap"><table class="dtable"><tbody id="estOut"></tbody></table></div>
+      <div class="hint" id="estSrc"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ IO ══════════ -->
+<div class="page" id="p-io">
+  <div class="card">
+    <h3>1 · นำเข้าฐานข้อมูลต้นทุน</h3>
+    <div class="drop" id="dropDb">
+      <b>ลากไฟล์ ERV_Project_Cost_Database.xlsx มาวางที่นี่</b><br>
+      หรือคลิกเพื่อเลือกไฟล์ · อ่านแผ่น Projects · BOQ_Summary · Lists
+    </div>
+    <input type="file" id="fileDb" accept=".xlsx" hidden>
+    <div class="hint" id="dbHint">อ่านค่าที่ Excel คำนวณไว้แล้ว ไม่ได้คำนวณสูตรใหม่ ·
+    นำเข้าซ้ำได้ ระบบจะถามก่อนว่าจะแทนที่หรือรวมเข้ากับของเดิม</div>
+  </div>
+
+  <div class="card">
+    <h3>2 · อัปโหลด BOQ เพื่อเพิ่มโปรเจคใหม่</h3>
+    <div class="drop" id="dropBoq">
+      <b>ลากไฟล์ BOQ (26-xx_ERV Quotation.xlsx) มาวางที่นี่</b><br>
+      หรือคลิกเพื่อเลือกไฟล์ · อ่านแผ่น BOQ ตารางสรุปหัวชีท
+    </div>
+    <input type="file" id="fileBoq" accept=".xlsx" hidden>
+    <div id="boqPreview"></div>
+  </div>
+
+  <div class="card">
+    <h3>3 · เทมเพลต BOQ</h3>
+    <div class="grid2">
+      <div>
+        <p style="font-size:13px; color:var(--text-secondary)">โหลดเทมเพลตเปล่าไปกรอก
+        แล้วอัปโหลดกลับเข้าข้อ 2 ได้เลย · เป็นโครงเดียวกับ
+        <span class="mono">26-xx_ERV Quotation.xlsx</span> แต่ <b>ไม่มีราคาต่อหน่วยติดมา</b>
+        เพราะอันนั้นเป็นข้อมูลราคาภายใน</p>
+        <button class="btn" id="btnTpl">ดาวน์โหลดเทมเพลต BOQ (.xlsx)</button>
+      </div>
+      <div class="eq" id="tplSpec"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>4 · สำรองและส่งต่อ</h3>
+    <div class="filterbar">
+      <button class="btn ghost" id="btnExpJson">สำรอง JSON</button>
+      <button class="btn ghost" id="btnImpJson">คืนค่า JSON</button>
+      <input type="file" id="fileJson" accept=".json,application/json" hidden>
+      <button class="btn ghost" id="btnExpCsv">ตาราง CSV</button>
+      <button class="btn ghost" id="btnExpXlsx">ส่งออก .xlsx</button>
+      <span style="flex:1"></span>
+      <button class="btn ghost" id="btnWipe" style="color:var(--red)">ล้างข้อมูลในเครื่องนี้</button>
+    </div>
+    <div class="note bad" style="margin-bottom:0"><b>ข้อมูลชุดนี้มีชื่อลูกค้าและราคา</b>
+    จึงเก็บอยู่ในเบราว์เซอร์ของเครื่องนี้และไฟล์บน OneDrive ของบริษัทเท่านั้น
+    <b>ไม่ได้อยู่ใน repo ที่เป็น public</b> และไม่ได้ส่งขึ้นเซิร์ฟเวอร์ใด ๆ ·
+    เปิดหน้านี้จากเครื่องอื่นจะเห็นหน้าเปล่า จนกว่าจะนำเข้าไฟล์เอง</div>
+  </div>
+</div>
+
+<!-- ══════════ HOW ══════════ -->
+<div class="page" id="p-how">
+  <div class="card">
+    <h3>หน้านี้คืออะไร</h3>
+    <div class="note"><b>เอาไฟล์ ERV_Project_Cost_Database.xlsx ขึ้นเว็บ</b>
+    เพื่อให้เปิดดูได้โดยไม่ต้องมี Excel และเพื่อให้ <b>อัปโหลด BOQ แล้วเพิ่มโปรเจคเข้าฐานได้ในคลิกเดียว</b>
+    แทนการคัดยอด 7 หัวข้อด้วยมือทุกครั้ง</div>
+    <div class="eq">ไฟล์ Excel เดิม            หน้านี้
+─────────────────────────────────────────────
+Projects        →  แท็บ โปรเจคทั้งหมด
+BOQ_Summary     →  แท็บ ต้นทุนต่อหมวด
+Benchmark       →  รวมเข้าไปในสองแท็บข้างบน
+RateCard        →  แท็บ อัตราต่อหน่วย
+Estimator       →  แท็บ ประมาณราคา
+Lists           →  ใช้เป็นตัวเลือกในฟอร์ม</div>
+    <div class="hint">ไฟล์ Excel ยังเป็นของจริงอยู่ หน้านี้ไม่ได้มาแทน ·
+    ถ้าแก้ในหน้านี้แล้วอยากได้กลับเป็น Excel ให้กด <b>ส่งออก .xlsx</b></div>
+  </div>
+
+  <div class="card">
+    <h3>อัปโหลด BOQ แล้วเกิดอะไรขึ้น</h3>
+    <div class="eq" id="howBoq"></div>
+  </div>
+
+  <div class="card">
+    <h3>กติกาที่ยกมาจากไฟล์ต้นฉบับ</h3>
+    <div class="note warn" style="margin-bottom:10px"><b>เรื่อง basis ราคา — จุดที่พังง่ายที่สุด</b><br>
+    ใน BOQ เดิม หมวด 1 ลงราคา <b>ที่เสนอลูกค้า</b> แต่แผ่น Cost เป็น <b>ทุนจริง</b>
+    ถ้าเอาสองอันมาเฉลี่ยรวมกันตัวเลขพังทันที ·
+    ทุกแถวที่หน้านี้เก็บจึงติดป้าย <span class="mono">Price_Basis</span> ไว้
+    และการเฉลี่ยทั้งหมดกรองเฉพาะ <span class="mono">BOQ price</span></div>
+    <div class="tablewrap"><table class="dtable">
+      <thead><tr><th>ตัวขับต้นทุน</th><th>ระดับ</th><th>ทำไมถึงสำคัญ</th></tr></thead>
+      <tbody id="howDrivers"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h3>ที่ยังไม่ได้ทำ</h3>
+    <div class="prose" style="font-size:13px; color:var(--text-secondary)">
+    <ul style="padding-left:18px; line-height:1.9">
+      <li>ใช้ <b>ค่าเฉลี่ย</b> ไม่ใช่ median / P25-P75 เหมือนไฟล์ต้นฉบับ · พอเกิน 20 โปรเจคค่อยเปลี่ยน</li>
+      <li>ยังไม่มี <b>price index</b> ปรับเงินเฟ้อข้ามปี</li>
+      <li>อ่าน BOQ ได้เฉพาะโครงของ <span class="mono">26-xx_ERV Quotation.xlsx</span>
+      ถ้า BOQ มาจากที่อื่น ให้กรอกลงเทมเพลตก่อน</li>
+      <li>ยังไม่แยก <b>ค่าของ / ค่าแรง</b> ของหมวด 2-7 · BOQ เดิมมีข้อมูลนี้อยู่ ดึงเพิ่มได้</li>
+    </ul></div>
+  </div>
+</div>
+
+<div class="footer">
+  ข้อมูลเก็บในเบราว์เซอร์นี้และไฟล์ที่เชื่อมไว้เท่านั้น · Coral Life · ทีมออกแบบ
+</div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(i){ return document.getElementById(i); };
+
+/* ═══════════════════════════════════════════════════════════════════════
+   READING AND WRITING XLSX WITHOUT A LIBRARY
+
+   An xlsx is a zip of XML, and the browser already does both halves:
+   DecompressionStream('deflate-raw') inflates, CompressionStream deflates,
+   DOMParser reads the XML. So this is a zip directory walk and two small
+   XML passes rather than a dependency - which matters here because every
+   other tool in this set has none, and a vendored spreadsheet parser is
+   exactly the kind of thing that goes stale and nobody dares upgrade.
+
+   Values come back as the numbers Excel cached when it last saved, so a
+   BOQ total that is a formula reads as its answer. That is what we want:
+   we are reading somebody's finished quotation, not recalculating it.
+   ═══════════════════════════════════════════════════════════════════════ */
+function zipEntries(buf){
+  var dv = new DataView(buf), n = buf.byteLength, eocd = -1;
+  for(var i = n - 22; i >= 0 && i > n - 65558; i--){
+    if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  }
+  if(eocd < 0) throw new Error('ไม่ใช่ไฟล์ .xlsx');
+  var count = dv.getUint16(eocd + 10, true), off = dv.getUint32(eocd + 16, true);
+  var out = {}, p = off, dec = new TextDecoder();
+  for(var k = 0; k < count; k++){
+    if(dv.getUint32(p, true) !== 0x02014b50) throw new Error('โครงไฟล์ zip เสีย');
+    var nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true),
+        clen = dv.getUint16(p + 32, true);
+    out[dec.decode(new Uint8Array(buf, p + 46, nlen))] = {
+      method: dv.getUint16(p + 10, true), csize: dv.getUint32(p + 20, true),
+      lho: dv.getUint32(p + 42, true) };
+    p += 46 + nlen + elen + clen;
+  }
+  return out;
+}
+async function zipRead(buf, e){
+  var dv = new DataView(buf);
+  if(dv.getUint32(e.lho, true) !== 0x04034b50) throw new Error('zip entry เสีย');
+  var start = e.lho + 30 + dv.getUint16(e.lho + 26, true) + dv.getUint16(e.lho + 28, true);
+  var raw = new Uint8Array(buf, start, e.csize);
+  if(e.method === 0) return raw;
+  if(e.method !== 8) throw new Error('zip method ' + e.method + ' ไม่รองรับ');
+  var st = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(st).arrayBuffer());
+}
+function colNum(ref){
+  var n = 0;
+  for(var i = 0; i < ref.length; i++){
+    var c = ref.charCodeAt(i);
+    if(c < 65 || c > 90) break;
+    n = n * 26 + (c - 64);
+  }
+  return n;
+}
+async function xlsxRead(buf){
+  var dir = zipEntries(buf), dec = new TextDecoder();
+  async function xml(path){
+    if(!dir[path]) return null;
+    return new DOMParser().parseFromString(dec.decode(await zipRead(buf, dir[path])), 'application/xml');
+  }
+  var shared = [], sst = await xml('xl/sharedStrings.xml');
+  if(sst){
+    var sis = sst.getElementsByTagName('si');
+    for(var i = 0; i < sis.length; i++){
+      var ts = sis[i].getElementsByTagName('t'), s = '';
+      for(var j = 0; j < ts.length; j++){
+        if(ts[j].parentNode.nodeName === 'rPh') continue;   /* phonetic ruby */
+        s += ts[j].textContent;
+      }
+      shared.push(s);
+    }
+  }
+  var wbx = await xml('xl/workbook.xml'), rel = await xml('xl/_rels/workbook.xml.rels');
+  var relMap = {};
+  if(rel){
+    var rs = rel.getElementsByTagName('Relationship');
+    for(var r = 0; r < rs.length; r++)
+      relMap[rs[r].getAttribute('Id')] = rs[r].getAttribute('Target');
+  }
+  var sheets = [], sh = wbx.getElementsByTagName('sheet');
+  for(var s2 = 0; s2 < sh.length; s2++){
+    var rid = sh[s2].getAttribute('r:id') || sh[s2].getAttributeNS(
+      'http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+    var tgt = relMap[rid] || ('worksheets/sheet' + (s2 + 1) + '.xml');
+    tgt = (tgt.charAt(0) === '/') ? tgt.slice(1) : 'xl/' + tgt;
+    sheets.push({ name: sh[s2].getAttribute('name'), path: tgt });
+  }
+  async function readSheet(path){
+    var doc = await xml(path);
+    if(!doc) return [];
+    var grid = [], rows = doc.getElementsByTagName('row');
+    for(var i = 0; i < rows.length; i++){
+      var rn = +rows[i].getAttribute('r') || (i + 1);
+      var line = grid[rn] = grid[rn] || [];
+      var cs = rows[i].getElementsByTagName('c');
+      for(var j = 0; j < cs.length; j++){
+        var c = cs[j], cn = colNum(c.getAttribute('r') || '') || (j + 1);
+        var t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], val = null;
+        if(t === 's') val = shared[+(v ? v.textContent : -1)] || '';
+        else if(t === 'inlineStr'){
+          var is = c.getElementsByTagName('t'), str = '';
+          for(var q = 0; q < is.length; q++) str += is[q].textContent;
+          val = str;
+        }
+        else if(t === 'b') val = (v && v.textContent === '1');
+        else if(t === 'e') val = null;                      /* #REF! and friends */
+        else if(v){ var f = parseFloat(v.textContent); val = isFinite(f) ? f : v.textContent; }
+        line[cn] = val;
+      }
+    }
+    return grid;
+  }
+  return { sheets: sheets, readSheet: readSheet, sheet: async function(name){
+    for(var i = 0; i < sheets.length; i++)
+      if(sheets[i].name === name) return await readSheet(sheets[i].path);
+    return null;
+  } };
+}
+
+/* ── writing ── */
+var CRC = (function(){
+  var t = new Uint32Array(256);
+  for(var n = 0; n < 256; n++){
+    var c = n;
+    for(var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8){
+  var c = 0xFFFFFFFF;
+  for(var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function deflateRaw(u8){
+  var st = new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(st).arrayBuffer());
+}
+async function zipMake(files){
+  var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+  for(var i = 0; i < files.length; i++){
+    var nameU8 = enc.encode(files[i].name);
+    var data = enc.encode(files[i].text);
+    var comp = await deflateRaw(data), crc = crc32(data);
+    var lh = new Uint8Array(30 + nameU8.length), dv = new DataView(lh.buffer);
+    dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true);
+    dv.setUint16(6, 0, true); dv.setUint16(8, 8, true);
+    dv.setUint16(10, 0, true); dv.setUint16(12, 0x2821, true);
+    dv.setUint32(14, crc, true); dv.setUint32(18, comp.length, true);
+    dv.setUint32(22, data.length, true); dv.setUint16(26, nameU8.length, true);
+    dv.setUint16(28, 0, true);
+    lh.set(nameU8, 30);
+    parts.push(lh, comp);
+    var ch = new Uint8Array(46 + nameU8.length), cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true); cv.setUint16(10, 8, true);
+    cv.setUint16(12, 0, true); cv.setUint16(14, 0x2821, true);
+    cv.setUint32(16, crc, true); cv.setUint32(20, comp.length, true);
+    cv.setUint32(24, data.length, true); cv.setUint16(28, nameU8.length, true);
+    cv.setUint32(42, offset, true);
+    ch.set(nameU8, 46);
+    central.push(ch);
+    offset += lh.length + comp.length;
+  }
+  var cdSize = central.reduce(function(a, b){ return a + b.length; }, 0);
+  var eocd = new Uint8Array(22), ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+  return new Blob(parts.concat(central, [eocd]), { type:
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+function xesc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]; });
+}
+function colName(n){
+  var s = '';
+  while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
+  return s;
+}
+async function xlsxWrite(sheets){
+  var parts = [], sheetXml = [];
+  sheets.forEach(function(sh, si){
+    var rows = sh.rows.map(function(row, ri){
+      var cells = row.map(function(v, ci){
+        if(v === null || v === undefined || v === '') return '';
+        var ref = colName(ci + 1) + (ri + 1);
+        if(typeof v === 'number' && isFinite(v))
+          return '<c r="' + ref + '"><v>' + v + '</v></c>';
+        return '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">'
+          + xesc(v) + '</t></is></c>';
+      }).join('');
+      return '<row r="' + (ri + 1) + '">' + cells + '</row>';
+    }).join('');
+    sheetXml.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      + '<sheetData>' + rows + '</sheetData></worksheet>');
+  });
+  var wbSheets = sheets.map(function(s, i){
+    return '<sheet name="' + xesc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>';
+  }).join('');
+  var wbRels = sheets.map(function(s, i){
+    return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/'
+      + 'officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>';
+  }).join('');
+  var types = sheets.map(function(s, i){
+    return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType='
+      + '"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+  }).join('');
+  parts.push({ name: '[Content_Types].xml', text:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-'
+    + 'officedocument.spreadsheetml.sheet.main+xml"/>' + types + '</Types>' });
+  parts.push({ name: '_rels/.rels', text:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+    + 'relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' });
+  parts.push({ name: 'xl/workbook.xml', text:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+    + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheets>' + wbSheets + '</sheets></workbook>' });
+  parts.push({ name: 'xl/_rels/workbook.xml.rels', text:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + wbRels + '</Relationships>' });
+  sheetXml.forEach(function(x, i){
+    parts.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', text: x }); });
+  return await zipMake(parts);
+}
+
+/* ═══════════ the data this page holds ═══════════ */
+var KEY = 'coral.cost.v1';
+var DB = { v:1, lists:{}, cats:[], projects:[], boq:[], savedAt:null };
+var DIRTY = false;
+
+var PCOLS = ['Project_ID','Project_Name','Client','Building_Type','Building_Subtype','Grade',
+ 'Region','Province','Year','Work_Nature','Scope_Package','Working_Condition','Served_Area_sqm',
+ 'Floors_Served','Ceiling_Height_m','Ceiling_Type','Occupancy_Persons','System_Type',
+ 'Total_Airflow_CMH','ERV_Unit_Count','Unit_Size_Class','Duct_Material','Duct_Insulation',
+ 'Duct_Area_sqm','Duct_Main_Run_m','Terminal_Points','Direct_BOQ_THB','Equipment_BOQ_THB',
+ 'Equip_Material_THB','Equip_Labour_THB','Install_BOQ_THB','Grp_DuctInst_THB','Grp_Elec_THB',
+ 'Grp_TestDoc_THB','Prelim_THB','OH_THB','BOQ_Total_Cost_THB','Prelim_Pct','OH_Pct',
+ 'Confidence','Include_in_RateCard','Notes'];
+
+var CATS_DEFAULT = [
+ [1,'Ventilation unit','Equipment','Total_Airflow_CMH'],
+ [2,'Duct work','Installation','Duct_Area_sqm'],
+ [3,'Grille / Diffuser / Louver / VD','Installation','Terminal_Points'],
+ [4,'Ceiling work','Installation','Terminal_Points'],
+ [5,'Electrical & Control system','Installation','ERV_Unit_Count'],
+ [6,'Testing & Commissioning','Installation','ERV_Unit_Count'],
+ [7,'Shop & As-Built drawings','Installation','Served_Area_sqm'],
+ [8,'Preliminary','Markup','Direct_Cost'],
+ [9,'Overhead & Profit','Markup','Direct_Cost'],
+ [10,'Design consultant fee','Other','Served_Area_sqm'],
+ [11,'Maintenance / AFS (yearly)','Other','ERV_Unit_Count']
+];
+
+function num(x, d){ var v = parseFloat(x); return isFinite(v) ? v : (d === undefined ? 0 : d); }
+function fmt(n, d){ d = d || 0; return (isFinite(n) ? n : 0)
+  .toLocaleString('en-US', { minimumFractionDigits:d, maximumFractionDigits:d }); }
+function baht(n){ return fmt(Math.round(n)); }
+function esc(t){ return String(t == null ? '' : t)
+  .replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+function load(){
+  try {
+    var raw = localStorage.getItem(KEY);
+    if(raw){ DB = JSON.parse(raw); }
+  } catch(e){}
+  if(!DB.cats || !DB.cats.length)
+    DB.cats = CATS_DEFAULT.map(function(c){
+      return { code:c[0], name:c[1], group:c[2], driver:c[3] }; });
+  if(!DB.projects) DB.projects = [];
+  if(!DB.boq) DB.boq = [];
+  if(!DB.lists) DB.lists = {};
+}
+function save(flush){
+  DB.savedAt = new Date().toISOString();
+  var ok = true;
+  try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e){ ok = false; }
+  DIRTY = false;
+  fileSync(flush);
+  chip(ok);
+  return ok;
+}
+function touch(){ DIRTY = true; chip(true); }
+function chip(ok){
+  var el = $('saveChip');
+  var n = DB.projects.length;
+  el.className = 'savechip' + (DIRTY ? ' warn' : (n ? ' on' : ''));
+  el.innerHTML = '<span class="d"></span>' + (
+    !n ? 'ยังไม่มีข้อมูล'
+    : DIRTY ? 'มีการแก้ที่ยังไม่บันทึก'
+    : (ok === false ? 'บันทึกลงเครื่องไม่ได้'
+      : n + ' โปรเจค · ' + (FH ? 'ลงไฟล์ ' + FNAME : 'ในเครื่องนี้')));
+}
+
+/* ── linking one file on OneDrive, so the work survives the browser ── */
+var FH = null, FNAME = '', FT = null;
+function idb(){
+  return new Promise(function(res, rej){
+    var r = indexedDB.open('coral-cost', 1);
+    r.onupgradeneeded = function(){ r.result.createObjectStore('h'); };
+    r.onsuccess = function(){ res(r.result); };
+    r.onerror = function(){ rej(r.error); };
+  });
+}
+async function idbPut(k, v){
+  var d = await idb();
+  return new Promise(function(res){
+    var t = d.transaction('h', 'readwrite');
+    t.objectStore('h').put(v, k); t.oncomplete = function(){ res(); };
+  });
+}
+async function idbGet(k){
+  var d = await idb();
+  return new Promise(function(res){
+    var t = d.transaction('h', 'readonly'), q = t.objectStore('h').get(k);
+    q.onsuccess = function(){ res(q.result || null); };
+    q.onerror = function(){ res(null); };
+  });
+}
+async function fileInit(){
+  if(!('showSaveFilePicker' in window)){ $('btnLink').disabled = true;
+    $('btnLink').textContent = 'เชื่อมไฟล์ (ต้องใช้ Chrome/Edge)'; return; }
+  var h = await idbGet('file');
+  if(!h) return;
+  var p = await h.queryPermission({ mode:'readwrite' });
+  FH = h; FNAME = h.name;
+  $('btnLink').textContent = (p === 'granted') ? 'เชื่อมแล้ว · ' + h.name : 'อนุญาตไฟล์อีกครั้ง';
+  chip(true);
+}
+function fileSync(now){
+  if(!FH) return;
+  if(FT) clearTimeout(FT);
+  FT = setTimeout(fileFlush, now ? 0 : 1200);
+}
+async function fileFlush(){
+  if(!FH) return;
+  try {
+    if(await FH.queryPermission({ mode:'readwrite' }) !== 'granted'){
+      if(await FH.requestPermission({ mode:'readwrite' }) !== 'granted') return;
+    }
+    var w = await FH.createWritable();
+    await w.write(JSON.stringify({ format:'coral.cost', v:1,
+      savedAt:new Date().toISOString(), db:DB }, null, 1));
+    await w.close();
+    chip(true);
+  } catch(e){}
+}
+
+/* ═══════════ importing the cost database workbook ═══════════ */
+function rowsToObjects(grid, headRow, cols){
+  var out = [];
+  for(var r = headRow + 1; r < grid.length; r++){
+    var line = grid[r];
+    if(!line) continue;
+    var o = {}, any = false;
+    for(var c = 1; c <= cols.length; c++){
+      var v = line[c];
+      if(v !== undefined && v !== null && v !== '') any = true;
+      o[cols[c - 1]] = (v === undefined) ? '' : v;
+    }
+    if(any && o[cols[0]]) out.push(o);
+  }
+  return out;
+}
+async function importCostDb(buf, mode){
+  var wb = await xlsxRead(buf);
+  var pg = await wb.sheet('Projects');
+  if(!pg) throw new Error('ไม่พบแผ่น Projects ในไฟล์นี้');
+  var head = pg[2] || [], cols = [];
+  for(var c = 1; c < head.length; c++) cols.push(head[c] || ('col' + c));
+  var projects = rowsToObjects(pg, 2, cols);
+
+  var bg = await wb.sheet('BOQ_Summary'), boq = [];
+  if(bg){
+    for(var r = 3; r < bg.length; r++){
+      var L = bg[r];
+      if(!L || !L[1]) continue;
+      boq.push({ pid:String(L[1]), cat:num(L[2]), item:String(L[3] == null ? '' : L[3]),
+                 part:String(L[5] == null ? '' : L[5]), amount:num(L[6]),
+                 basis:String(L[7] || 'BOQ price'), remark:String(L[8] == null ? '' : L[8]) });
+    }
+  }
+  var lg = await wb.sheet('Lists'), lists = {}, cats = [];
+  if(lg){
+    var lh = lg[2] || [];
+    for(var c2 = 1; c2 < lh.length; c2++){
+      if(!lh[c2]) continue;
+      var arr = [];
+      for(var r2 = 3; r2 <= 20; r2++){
+        var v = lg[r2] && lg[r2][c2];
+        if(v !== undefined && v !== null && v !== '') arr.push(String(v));
+      }
+      lists[lh[c2]] = arr;
+    }
+    for(var r3 = 24; r3 <= 40; r3++){
+      var L2 = lg[r3];
+      if(!L2 || L2[1] === undefined || L2[1] === null || L2[1] === '') continue;
+      cats.push({ code:num(L2[1]), name:String(L2[2] || ''), group:String(L2[3] || ''),
+                  driver:String(L2[4] || '') });
+    }
+  }
+  if(mode === 'replace' || !DB.projects.length){
+    DB.projects = projects; DB.boq = boq;
+  } else {
+    var seen = {};
+    DB.projects.forEach(function(p){ seen[p.Project_ID] = 1; });
+    projects.forEach(function(p){ if(!seen[p.Project_ID]) DB.projects.push(p); });
+    var keep = {};
+    projects.forEach(function(p){ if(!seen[p.Project_ID]) keep[p.Project_ID] = 1; });
+    boq.forEach(function(b){ if(keep[b.pid]) DB.boq.push(b); });
+  }
+  if(Object.keys(lists).length) DB.lists = lists;
+  if(cats.length) DB.cats = cats;
+  save(true);
+  return { projects: projects.length, boq: boq.length, lists: Object.keys(lists).length };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   READING A QUOTATION BOQ
+
+   The team's quotation carries its own summary block at the head of the
+   BOQ sheet: seven numbered lines, then Preliminary and Overhead. Those
+   nine numbers are exactly the nine cost categories this database keeps,
+   so the import is a read of that block rather than a walk of all 138
+   lines - and it agrees with the file's own totals by construction.
+
+   Category 1 has to be split into material and labour, which the summary
+   does not do. The head of the sheet already holds the material subtotal
+   (the Equipment line, SUMPRODUCT of unit price and quantity), so labour
+   is the remainder. If that cell is missing the split is left blank
+   rather than guessed.
+   ═══════════════════════════════════════════════════════════════════════ */
+function findRow(grid, from, to, col, test){
+  for(var r = from; r <= to && r < grid.length + 5; r++){
+    var v = grid[r] && grid[r][col];
+    if(v != null && test(String(v))) return r;
+  }
+  return -1;
+}
+async function parseBoq(buf, fname){
+  var wb = await xlsxRead(buf);
+  var g = await wb.sheet('BOQ');
+  if(!g) throw new Error('ไม่พบแผ่นชื่อ BOQ ในไฟล์นี้');
+
+  var hdr = findRow(g, 1, 60, 1, function(s){ return s.trim() === 'No.'; });
+  if(hdr < 0) throw new Error('ไม่พบหัวตาราง No. / Description ในแผ่น BOQ');
+  var items = [], r = hdr + 1, guard = 0;
+  while(r < g.length && guard++ < 60){
+    var L = g[r] || [];
+    var no = L[1], nm = L[2], amt = L[9];
+    if(nm != null && String(nm).indexOf('Total Price') === 0) break;
+    if(no != null && isFinite(+no) && +no >= 1)
+      items.push({ no:+no, name:String(nm == null ? '' : nm).trim(), amount:num(amt) });
+    r++;
+  }
+  if(!items.length) throw new Error('อ่านรายการในตารางสรุปไม่ได้');
+
+  var rTotal = findRow(g, hdr, hdr + 40, 2, function(s){ return s.indexOf('Total Price') === 0; });
+  var rPre   = findRow(g, hdr, hdr + 40, 2, function(s){ return /Prelimin/i.test(s); });
+  var rOh    = findRow(g, hdr, hdr + 40, 2, function(s){ return /Overhead/i.test(s); });
+  var rGrand = findRow(g, hdr, hdr + 40, 2, function(s){ return /Grand Total/i.test(s); });
+
+  /* the header block: area and the equipment material subtotal */
+  var area = 0, equipMat = 0;
+  for(var q = 1; q <= 20; q++){
+    var lab = g[q] && g[q][10];
+    if(lab == null) continue;
+    var s = String(lab).trim();
+    if(s === 'Area') area = num(g[q][11]);
+    if(s === 'Equipment') equipMat = num(g[q][11]);
+  }
+  var cat1 = items.length ? items[0].amount : 0;
+  var out = {
+    file: fname,
+    items: items,
+    total:  rTotal > 0 ? num(g[rTotal][9]) : 0,
+    prelim: rPre   > 0 ? num(g[rPre][9])   : 0,
+    oh:     rOh    > 0 ? num(g[rOh][9])    : 0,
+    prelimPct: rPre > 0 ? num(g[rPre][8])  : 0,
+    ohPct:     rOh  > 0 ? num(g[rOh][8])   : 0,
+    grand:  rGrand > 0 ? num(g[rGrand][9]) : 0,
+    area: area,
+    equipMat: equipMat || null,
+    equipLab: equipMat ? (cat1 - equipMat) : null
+  };
+  var sum = items.reduce(function(a, b){ return a + b.amount; }, 0);
+  out.checkSum = sum;
+  out.checkOk = Math.abs(sum - out.total) < 1;
+  return out;
+}
+
+/* build the rows this database keeps, from a parsed BOQ plus the fields
+   the BOQ cannot know */
+function boqToProject(p, meta){
+  var rows = [];
+  p.items.forEach(function(it){
+    if(it.no === 1 && p.equipMat !== null){
+      rows.push({ pid:meta.Project_ID, cat:1, item:'1.1', part:'ค่าของ',
+                  amount:p.equipMat, basis:'BOQ price', remark:'' });
+      rows.push({ pid:meta.Project_ID, cat:1, item:'1.2', part:'ค่าแรงติดตั้ง',
+                  amount:p.equipLab, basis:'BOQ price', remark:'' });
+    } else {
+      rows.push({ pid:meta.Project_ID, cat:it.no, item:String(it.no), part:'',
+                  amount:it.amount, basis:'BOQ price', remark:it.name });
+    }
+  });
+  if(p.prelim) rows.push({ pid:meta.Project_ID, cat:8, item:'8', part:'',
+                           amount:p.prelim, basis:'BOQ price', remark:'' });
+  if(p.oh)     rows.push({ pid:meta.Project_ID, cat:9, item:'9', part:'',
+                           amount:p.oh, basis:'BOQ price', remark:'' });
+
+  var direct = p.items.reduce(function(a, b){ return a + b.amount; }, 0);
+  var equip = p.items.length ? p.items[0].amount : 0;
+  var proj = {};
+  PCOLS.forEach(function(k){ proj[k] = ''; });
+  proj.Project_ID = meta.Project_ID;
+  proj.Project_Name = meta.Project_Name;
+  proj.Building_Type = meta.Building_Type;
+  proj.Work_Nature = meta.Work_Nature;
+  proj.Scope_Package = meta.Scope_Package;
+  proj.Year = meta.Year;
+  proj.System_Type = 'ERV';
+  proj.Served_Area_sqm = num(meta.Served_Area_sqm);
+  proj.Total_Airflow_CMH = num(meta.Total_Airflow_CMH);
+  proj.Duct_Area_sqm = num(meta.Duct_Area_sqm);
+  proj.Terminal_Points = num(meta.Terminal_Points);
+  proj.ERV_Unit_Count = num(meta.ERV_Unit_Count);
+  proj.Floors_Served = num(meta.Floors_Served);
+  proj.Direct_BOQ_THB = direct;
+  proj.Equipment_BOQ_THB = equip;
+  proj.Equip_Material_THB = p.equipMat === null ? '' : p.equipMat;
+  proj.Equip_Labour_THB = p.equipLab === null ? '' : p.equipLab;
+  proj.Install_BOQ_THB = direct - equip;
+  proj.Prelim_THB = p.prelim;
+  proj.OH_THB = p.oh;
+  proj.Prelim_Pct = p.prelimPct;
+  proj.OH_Pct = p.ohPct;
+  proj.BOQ_Total_Cost_THB = direct + p.prelim + p.oh;
+  proj.Confidence = 'C - Quotation only';
+  proj.Include_in_RateCard = 'Yes';
+  proj.Notes = 'นำเข้าจาก ' + p.file;
+  return { project: proj, rows: rows };
+}
+function nextPid(){
+  /* the existing ids run on the Gregorian year - P-26-01 is 2026, not 2569 */
+  var y = String(new Date().getFullYear()).slice(-2);
+  var max = 0;
+  DB.projects.forEach(function(p){
+    var m = /^P-(\d+)-(\d+)$/.exec(String(p.Project_ID || ''));
+    if(m && m[1] === y) max = Math.max(max, +m[2]);
+  });
+  return 'P-' + y + '-' + String(max + 1).padStart(2, '0');
+}
+
+/* ═══════════ numbers this page works out ═══════════ */
+function amountOf(pid, cats){
+  var s = 0;
+  DB.boq.forEach(function(b){
+    if(b.pid !== pid) return;
+    if(b.basis && b.basis !== 'BOQ price') return;     /* never mix cost with price */
+    if(cats.indexOf(b.cat) < 0) return;
+    s += num(b.amount);
+  });
+  return s;
+}
+function metrics(p){
+  var pid = p.Project_ID;
+  var equip = amountOf(pid, [1]) || num(p.Equipment_BOQ_THB);
+  var inst  = amountOf(pid, [2,3,4,5,6,7]) || num(p.Install_BOQ_THB);
+  var duct  = amountOf(pid, [2]);
+  var direct = equip + inst || num(p.Direct_BOQ_THB);
+  var area = num(p.Served_Area_sqm), cmh = num(p.Total_Airflow_CMH),
+      dsq = num(p.Duct_Area_sqm), pts = num(p.Terminal_Points);
+  return {
+    equip: equip, inst: inst, duct: duct, direct: direct,
+    total: direct + num(p.Prelim_THB) + num(p.OH_THB),
+    area: area, cmh: cmh, dsq: dsq, pts: pts,
+    cmhPerSqm:  area > 0 ? cmh / area : null,
+    equipPerCmh: cmh > 0 ? equip / cmh : null,
+    instPerSqm:  area > 0 ? inst / area : null,
+    ductPerDsqm: dsq > 0 ? duct / dsq : null,
+    directPerSqm: area > 0 ? direct / area : null
+  };
+}
+function stat(arr){
+  var v = arr.filter(function(x){ return x !== null && isFinite(x) && x > 0; });
+  if(!v.length) return null;
+  var s = v.reduce(function(a, b){ return a + b; }, 0);
+  return { n:v.length, min:Math.min.apply(null, v), max:Math.max.apply(null, v), avg:s / v.length };
+}
+
+/* ═══════════ rendering ═══════════ */
+function opts(sel, arr, cur, allLabel){
+  sel.innerHTML = '<option value="">' + (allLabel || 'ทั้งหมด') + '</option>'
+    + arr.map(function(v){
+        return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>'
+          + esc(v) + '</option>'; }).join('');
+}
+function uniq(key){
+  var s = {}, out = [];
+  DB.projects.forEach(function(p){
+    var v = p[key];
+    if(v !== '' && v != null && !s[v]){ s[v] = 1; out.push(String(v)); }
+  });
+  return out.sort();
+}
+function filtered(type, scope, year, text){
+  return DB.projects.filter(function(p){
+    if(type && String(p.Building_Type) !== type) return false;
+    if(scope && String(p.Scope_Package) !== scope) return false;
+    if(year && String(p.Year) !== year) return false;
+    if(text && String(p.Project_Name || '').toLowerCase().indexOf(text.toLowerCase()) < 0) return false;
+    return true;
+  });
+}
+function kpi(v, u, label, note){
+  return '<div class="kpi-card"><div class="kpi-value">' + v + '<small>' + u + '</small></div>'
+    + '<div class="kpi-label">' + label + '</div><div class="kpi-note">' + note + '</div></div>';
+}
+function renderList(){
+  $('emptyNote').hidden = DB.projects.length > 0;
+  $('cProj').textContent = DB.projects.length;
+  var rows = filtered($('fType').value, $('fScope').value, $('fYear').value, $('fText').value);
+  $('listHead').innerHTML = '<tr><th>รหัส</th><th>โปรเจค</th><th>ประเภทอาคาร</th>'
+    + '<th>ขอบเขตงาน</th><th class="num">ปี</th><th class="num">พื้นที่<br>ตร.ม.</th>'
+    + '<th class="num">ลม<br>CMH</th><th class="num">ค่าเครื่อง</th><th class="num">ค่าติดตั้ง</th>'
+    + '<th class="num">รวม BOQ</th><th class="num">บาท/ตร.ม.</th><th class="num">บาท/CMH</th>'
+    + '<th>เข้า<br>ค่าเฉลี่ย</th></tr>';
+  var tA = 0, tC = 0, tE = 0, tI = 0, tT = 0;
+  $('listBody').innerHTML = rows.map(function(p){
+    var m = metrics(p);
+    tA += m.area; tC += m.cmh; tE += m.equip; tI += m.inst; tT += m.total;
+    return '<tr><td class="mono">' + esc(p.Project_ID) + '</td>'
+      + '<td>' + esc(p.Project_Name) + '</td>'
+      + '<td>' + esc(p.Building_Type) + '</td>'
+      + '<td>' + esc(p.Scope_Package) + '</td>'
+      + '<td class="num">' + esc(p.Year) + '</td>'
+      + '<td class="num">' + (m.area ? fmt(m.area, 1) : '—') + '</td>'
+      + '<td class="num">' + (m.cmh ? fmt(m.cmh) : '—') + '</td>'
+      + '<td class="num">' + baht(m.equip) + '</td>'
+      + '<td class="num">' + baht(m.inst) + '</td>'
+      + '<td class="num"><b>' + baht(m.total) + '</b></td>'
+      + '<td class="num">' + (m.directPerSqm ? baht(m.directPerSqm) : '—') + '</td>'
+      + '<td class="num">' + (m.equipPerCmh ? fmt(m.equipPerCmh, 1) : '—') + '</td>'
+      + '<td>' + (String(p.Include_in_RateCard) === 'No'
+          ? '<span class="badge na">ไม่นับ</span>' : '<span class="badge ok">นับ</span>') + '</td></tr>';
+  }).join('') || '<tr><td colspan="13" style="text-align:center;color:var(--gray);padding:24px">'
+    + 'ไม่มีโปรเจคในตัวกรองนี้</td></tr>';
+  $('listFoot').innerHTML = rows.length ? '<tr><td colspan="5"><b>รวม ' + rows.length + ' โปรเจค</b></td>'
+    + '<td class="num"><b>' + fmt(tA, 1) + '</b></td><td class="num"><b>' + fmt(tC) + '</b></td>'
+    + '<td class="num"><b>' + baht(tE) + '</b></td><td class="num"><b>' + baht(tI) + '</b></td>'
+    + '<td class="num"><b>' + baht(tT) + '</b></td><td colspan="3"></td></tr>' : '';
+
+  var withArea = rows.filter(function(p){ return num(p.Served_Area_sqm) > 0; }).length;
+  var withCmh  = rows.filter(function(p){ return num(p.Total_Airflow_CMH) > 0; }).length;
+  $('listKpis').innerHTML =
+      kpi(String(rows.length), 'โปรเจค', 'ในตัวกรองนี้', DB.projects.length + ' โปรเจคทั้งหมด')
+    + kpi(baht(tT), 'บาท', 'มูลค่า BOQ รวม', 'ราคาที่เสนอลูกค้า')
+    + kpi(fmt(tA, 0), 'ตร.ม.', 'พื้นที่รวม', withArea + ' จาก ' + rows.length + ' โปรเจคกรอกพื้นที่')
+    + kpi(fmt(tC), 'CMH', 'ลมรวม', withCmh + ' จาก ' + rows.length + ' โปรเจคกรอกลม');
+  $('listHint').innerHTML = 'บาท/ตร.ม. คิดจากหมวด 1-7 ไม่รวม Preliminary กับ Overhead · '
+    + 'โปรเจคที่ยังไม่กรอกพื้นที่หรือลม จะไม่มีอัตราต่อหน่วยและไม่เข้าค่าเฉลี่ย';
+}
+
+var CATCOLORS = ['#14477F','#2383E2','#669BBC','#CB912F','#6940A5','#B4291F','#2E7D32',
+                 '#9B9A97','#787774','#C9C8C4','#E3E2DE'];
+function renderCat(){
+  var rows = filtered($('cType').value, $('cScope').value, '', '');
+  var cats = DB.cats.filter(function(c){ return c.code >= 1 && c.code <= 9; });
+  var tot = {}, grand = 0;
+  cats.forEach(function(c){ tot[c.code] = 0; });
+  rows.forEach(function(p){
+    cats.forEach(function(c){
+      var v = amountOf(p.Project_ID, [c.code]);
+      tot[c.code] += v; grand += v;
+    });
+  });
+  $('catMix').innerHTML = !grand ? '<div class="hint">ยังไม่มีข้อมูลหมวดของโปรเจคในตัวกรองนี้</div>'
+    : '<div class="bar">' + cats.map(function(c, i){
+        var pc = grand ? tot[c.code] / grand * 100 : 0;
+        return pc > 0 ? '<i style="width:' + pc.toFixed(2) + '%;background:'
+          + CATCOLORS[i % CATCOLORS.length] + '" title="' + esc(c.name) + ' '
+          + pc.toFixed(1) + '%"></i>' : '';
+      }).join('') + '</div><div class="legend">' + cats.map(function(c, i){
+        var pc = grand ? tot[c.code] / grand * 100 : 0;
+        return pc > 0 ? '<span><i style="background:' + CATCOLORS[i % CATCOLORS.length]
+          + '"></i>' + esc(c.code + ' ' + c.name) + ' <b>' + pc.toFixed(1) + '%</b></span>' : '';
+      }).join('') + '</div>';
+
+  $('catHead').innerHTML = '<tr><th>โปรเจค</th>'
+    + cats.map(function(c){ return '<th class="num">' + c.code + '<div style="font-weight:400;'
+        + 'color:var(--text-secondary)">' + esc(c.name.slice(0, 16)) + '</div></th>'; }).join('')
+    + '<th class="num">รวม</th></tr>';
+  var colTot = {}; cats.forEach(function(c){ colTot[c.code] = 0; });
+  $('catBody').innerHTML = rows.map(function(p){
+    var s = 0;
+    var tds = cats.map(function(c){
+      var v = amountOf(p.Project_ID, [c.code]);
+      s += v; colTot[c.code] += v;
+      return '<td class="num">' + (v ? baht(v) : '<span style="color:var(--gray)">—</span>') + '</td>';
+    }).join('');
+    return '<tr><td>' + esc(p.Project_Name) + '<div style="font-size:11px;color:var(--text-secondary)">'
+      + esc(p.Building_Type) + '</div></td>' + tds
+      + '<td class="num"><b>' + baht(s) + '</b></td></tr>';
+  }).join('') || '<tr><td colspan="' + (cats.length + 2) + '" style="text-align:center;'
+    + 'color:var(--gray);padding:22px">ไม่มีข้อมูล</td></tr>';
+  $('catFoot').innerHTML = rows.length ? '<tr><td><b>รวม</b></td>'
+    + cats.map(function(c){ return '<td class="num"><b>' + baht(colTot[c.code]) + '</b></td>'; }).join('')
+    + '<td class="num"><b>' + baht(grand) + '</b></td></tr>' : '';
+}
+
+function rateGroups(scope){
+  var by = {};
+  DB.projects.forEach(function(p){
+    if(String(p.Include_in_RateCard) === 'No') return;
+    if(scope && String(p.Scope_Package) !== scope) return;
+    var t = String(p.Building_Type || 'ไม่ได้ระบุ');
+    (by[t] = by[t] || []).push(metrics(p));
+  });
+  return by;
+}
+function renderRate(){
+  var scope = $('rScope').value, by = rateGroups(scope);
+  var all = [];
+  Object.keys(by).forEach(function(k){ all = all.concat(by[k]); });
+  var names = Object.keys(by).sort();
+  $('rateHead').innerHTML = '<tr><th>ประเภทอาคาร</th><th class="num">n</th>'
+    + '<th class="num">CMH/ตร.ม.</th>'
+    + '<th class="num">ค่าเครื่อง<br>บาท/CMH</th>'
+    + '<th class="num">ค่าติดตั้ง<br>บาท/ตร.ม.</th>'
+    + '<th class="num">ท่อลม<br>บาท/ตร.ม.ท่อ</th>'
+    + '<th class="num">รวมหมวด 1-7<br>บาท/ตร.ม.</th></tr>';
+  function cell(st, d){
+    if(!st) return '<td class="num"><span style="color:var(--gray)">—</span></td>';
+    var body = '<b>' + fmt(st.avg, d) + '</b><div style="font-size:10.5px;color:var(--text-secondary)">'
+      + fmt(st.min, d) + ' – ' + fmt(st.max, d) + '</div>';
+    if(st.n < 3) body += '<span class="badge na">n&lt;3</span>';
+    return '<td class="num">' + body + '</td>';
+  }
+  function line(label, arr, bold){
+    var g = { cmh:stat(arr.map(function(m){ return m.cmhPerSqm; })),
+              eq:stat(arr.map(function(m){ return m.equipPerCmh; })),
+              ins:stat(arr.map(function(m){ return m.instPerSqm; })),
+              duct:stat(arr.map(function(m){ return m.ductPerDsqm; })),
+              dir:stat(arr.map(function(m){ return m.directPerSqm; })) };
+    return '<tr' + (bold ? ' style="background:var(--surface);font-weight:600"' : '') + '>'
+      + '<td>' + esc(label) + '</td><td class="num">' + arr.length + '</td>'
+      + cell(g.cmh, 2) + cell(g.eq, 1) + cell(g.ins, 0) + cell(g.duct, 0) + cell(g.dir, 0) + '</tr>';
+  }
+  $('rateBody').innerHTML = (names.map(function(t){ return line(t, by[t], false); }).join(''))
+    + (all.length ? line('รวมทุกประเภท', all, true) : '')
+    || '<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:22px">ยังไม่มีข้อมูล</td></tr>';
+}
+
+var EST = { type:'', scope:'', area:1000, floors:1, cmh:'', prelim:10, oh:15, cx:1 };
+function renderEstIn(){
+  var types = Object.keys(rateGroups(EST.scope)).sort();
+  function sel(id, label, arr, cur){
+    return '<div class="fld"><label>' + label + '</label><select class="rin" id="' + id + '">'
+      + '<option value="">— ทุกประเภท —</option>'
+      + arr.map(function(v){ return '<option value="' + esc(v) + '"'
+          + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('')
+      + '</select></div>';
+  }
+  function n(id, label, val, step, unit){
+    return '<div class="fld"><label>' + label + (unit ? ' · ' + unit : '') + '</label>'
+      + '<input class="rin" type="number" step="' + step + '" id="' + id + '" value="' + val + '"></div>';
+  }
+  $('estIn').innerHTML =
+      sel('eType', 'ประเภทอาคาร', types, EST.type)
+    + sel('eScope', 'ขอบเขตงาน', uniq('Scope_Package'), EST.scope)
+    + n('eArea', 'พื้นที่ที่ให้บริการ', EST.area, '10', 'ตร.ม.')
+    + n('eFloors', 'จำนวนชั้น', EST.floors, '1', 'ชั้น')
+    + n('eCmh', 'ลมรวม ถ้ารู้แล้ว', EST.cmh, '50', 'CMH')
+    + n('ePre', 'Preliminary', EST.prelim, '1', '%')
+    + n('eOh', 'Overhead', EST.oh, '1', '%')
+    + n('eCx', 'Complexity factor', EST.cx, '0.05', '1.0 ปกติ · 1.15 retrofit · 1.3 อาคารเปิดใช้งาน');
+  ['eType','eScope','eArea','eFloors','eCmh','ePre','eOh','eCx'].forEach(function(id){
+    $(id).addEventListener('input', function(){
+      EST.type = $('eType').value; EST.scope = $('eScope').value;
+      EST.area = num($('eArea').value); EST.floors = num($('eFloors').value);
+      EST.cmh = $('eCmh').value; EST.prelim = num($('ePre').value);
+      EST.oh = num($('eOh').value); EST.cx = num($('eCx').value, 1);
+      renderEstOut();
+    });
+  });
+}
+function pickStat(by, type, key, minN){
+  var arr = type && by[type] ? by[type] : null;
+  var src = 'ตารางรวมทุกประเภท';
+  if(arr){
+    var s = stat(arr.map(function(m){ return m[key]; }));
+    if(s && s.n >= (minN || 3)) return { s:s, src:'กลุ่ม ' + type + ' (n=' + s.n + ')' };
+  }
+  var all = [];
+  Object.keys(by).forEach(function(k){ all = all.concat(by[k]); });
+  var s2 = stat(all.map(function(m){ return m[key]; }));
+  return { s:s2, src:src + (s2 ? ' (n=' + s2.n + ')' : '') };
+}
+function renderEstOut(){
+  var by = rateGroups(EST.scope);
+  var cmhRate = pickStat(by, EST.type, 'cmhPerSqm');
+  var eqRate  = pickStat(by, EST.type, 'equipPerCmh');
+  var insRate = pickStat(by, EST.type, 'instPerSqm');
+  if(!eqRate.s || !insRate.s){
+    $('estOut').innerHTML = '<tr><td style="padding:18px;color:var(--gray)">'
+      + 'ยังไม่มีข้อมูลพอจะประมาณราคา ต้องมีโปรเจคที่กรอกพื้นที่และลมอย่างน้อย 1 รายการ</td></tr>';
+    $('estSrc').textContent = '';
+    return;
+  }
+  var cmh = num(EST.cmh, 0) || (EST.area * (cmhRate.s ? cmhRate.s.avg : 0));
+  var equip = cmh * eqRate.s.avg;
+  var inst = EST.area * insRate.s.avg * (EST.cx || 1);
+  var direct = equip + inst;
+  var pre = direct * EST.prelim / 100;
+  var oh = (direct + pre) * EST.oh / 100;
+  var total = direct + pre + oh;
+  function row(a, b, c, bold){
+    return '<tr><td' + (bold ? ' style="font-weight:700"' : '') + '>' + a + '</td>'
+      + '<td class="num"' + (bold ? ' style="font-weight:700"' : '') + '>' + b + '</td>'
+      + '<td class="num" style="color:var(--text-secondary)">' + c + '</td></tr>';
+  }
+  var per = function(v){ return EST.area > 0 ? baht(v / EST.area) + ' บาท/ตร.ม.' : '—'; };
+  $('estOut').innerHTML =
+      row('ลมรวมที่ประมาณได้', fmt(cmh) + ' CMH',
+          EST.cmh ? 'ใส่เอง' : fmt(cmhRate.s ? cmhRate.s.avg : 0, 2) + ' CMH/ตร.ม.')
+    + row('1 · ค่าเครื่อง', baht(equip) + ' บาท', per(equip))
+    + row('2-7 · ค่าติดตั้งทั้งหมด', baht(inst) + ' บาท', per(inst))
+    + row('รวมหมวด 1-7', baht(direct) + ' บาท', per(direct), true)
+    + row('8 · Preliminary ' + EST.prelim + '%', baht(pre) + ' บาท', per(pre))
+    + row('9 · Overhead ' + EST.oh + '%', baht(oh) + ' บาท', per(oh))
+    + row('ต้นทุน BOQ รวม', baht(total) + ' บาท', per(total), true);
+  $('estSrc').innerHTML = 'อัตราที่ใช้ · ค่าเครื่อง ' + fmt(eqRate.s.avg, 1) + ' บาท/CMH จาก '
+    + esc(eqRate.src) + ' · ค่าติดตั้ง ' + baht(insRate.s.avg) + ' บาท/ตร.ม. จาก '
+    + esc(insRate.src) + (EST.cx !== 1 ? ' · คูณ complexity ' + EST.cx : '')
+    + '<br><b>จบที่ต้นทุน BOQ ยังไม่รวมกำไรของเรา</b>';
+}
+
+function renderHow(){
+  $('howBoq').textContent =
+    'ไฟล์ BOQ                        เข้าฐานข้อมูลเป็น\n'
+  + '─────────────────────────────────────────────────────────\n'
+  + 'ตารางสรุปหัวชีท BOQ บรรทัด 1-7   หมวด 1-7  (คอลัมน์ Amount)\n'
+  + '  บรรทัด 1 Ventilation unit      แยกเป็น 1.1 ค่าของ / 1.2 ค่าแรง\n'
+  + '  โดยค่าของ = ช่อง Equipment หัวชีท (SUMPRODUCT ราคา x จำนวน)\n'
+  + '  ค่าแรง   = ยอดหมวด 1 ลบด้วยค่าของ\n'
+  + 'Preliminaly                     หมวด 8\n'
+  + 'Overhead                        หมวด 9\n'
+  + 'ช่อง Area หัวชีท                 Served_Area_sqm\n'
+  + '\n'
+  + 'ตรวจก่อนรับเข้าเสมอ  ผลบวกหมวด 1-7 ต้องเท่ากับ Total Price ในไฟล์\n'
+  + 'ถ้าไม่เท่า จะเตือนและไม่บันทึกให้จนกว่าจะยืนยัน\n'
+  + '\n'
+  + 'สิ่งที่ BOQ ไม่รู้ ต้องกรอกเอง   ประเภทอาคาร · ขอบเขตงาน · new/retrofit\n'
+  + '                                ลมรวม CMH · พื้นที่ท่อ · จำนวนหัวจ่าย · จำนวนเครื่อง';
+  /* Only what somebody needs in order to use this page correctly. The
+     numbers behind these - the multipliers and the rate ranges - are the
+     team's own commercial knowledge and this page is served from a public
+     repository, so they stay in the README of the Excel file. */
+  var drivers = [
+   ['Scope_Package','T1','ขอบเขตงาน ตัวแปรที่แรงที่สุด ต้องแยกก่อนเสมอ'],
+   ['Building_Type','T1','กำหนดอัตราระบายอากาศ จึงกำหนด CMH ต่อพื้นที่'],
+   ['Total_Airflow_CMH','T1','ตัวขับราคาค่าเครื่องโดยตรง'],
+   ['Duct_Area_sqm','T1','ตัวขับราคางานท่อลม'],
+   ['Floors_Served','T2','จำนวนชั้นมีผลกับ shaft · main run · ค่าแรงยกของ'],
+   ['Work_Nature','T2','งานใหม่กับ retrofit ค่าแรงไม่เท่ากัน'],
+   ['Ceiling_Type','T2','ชนิดฝ้ามีผลกับงานรื้อและ service panel'],
+   ['Duct_Material','T2','วัสดุท่อคนละชนิด ราคาต่างกันมาก ห้ามเฉลี่ยรวมกัน'],
+   ['Working_Condition','T3','เงื่อนไขเวลาเข้าทำงานมีผลกับค่าแรง'],
+   ['Year','T3','เอาไว้ปรับ price index ย้อนหลัง']
+  ];
+  $('howDrivers').innerHTML = drivers.map(function(d){
+    return '<tr><td class="mono">' + d[0] + '</td><td><span class="badge '
+      + (d[1] === 'T1' ? 'bad' : d[1] === 'T2' ? 'na' : 'na') + '">' + d[1] + '</span></td>'
+      + '<td>' + esc(d[2]) + '</td></tr>';
+  }).join('');
+  $('tplSpec').textContent =
+    'แผ่น BOQ ที่เทมเพลตสร้างให้\n'
+  + '  J6  / K6    Area / ตัวเลขพื้นที่ ตร.ม.\n'
+  + '  J10 / K10   Equipment / ค่าของหมวด 1\n'
+  + '  A13         หัวตาราง No. | Description | ... | Amount\n'
+  + '  A15-A21     รายการที่ 1-7 พร้อมยอดในคอลัมน์ I\n'
+  + '  B22         Total Price\n'
+  + '  B23 / B24   Preliminaly / Overhead  (%) ที่ H\n'
+  + '  B29         Grand Total';
+}
+
+function refresh(){
+  var keep = { t:$('fType').value, s:$('fScope').value, y:$('fYear').value };
+  opts($('fType'), uniq('Building_Type'), keep.t);
+  opts($('fScope'), uniq('Scope_Package'), keep.s);
+  opts($('fYear'), uniq('Year'), keep.y);
+  opts($('cType'), uniq('Building_Type'), $('cType').value);
+  opts($('cScope'), uniq('Scope_Package'), $('cScope').value);
+  opts($('rScope'), uniq('Scope_Package'), $('rScope').value);
+  renderList(); renderCat(); renderRate(); renderEstIn(); renderEstOut();
+  chip(true);
+}
+
+/* ═══════════ events ═══════════ */
+document.querySelectorAll('.tab').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    $('p-' + b.dataset.p).classList.add('active');
+  });
+});
+['fType','fScope','fYear','fText'].forEach(function(id){
+  $(id).addEventListener('input', renderList); });
+['cType','cScope'].forEach(function(id){ $(id).addEventListener('input', renderCat); });
+$('rScope').addEventListener('input', function(){ renderRate(); renderEstIn(); renderEstOut(); });
+
+function dl(blob, name){
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function hookDrop(zone, input, handler){
+  zone.addEventListener('click', function(){ input.click(); });
+  zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', function(){ zone.classList.remove('over'); });
+  zone.addEventListener('drop', function(e){
+    e.preventDefault(); zone.classList.remove('over');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) handler(e.dataTransfer.files[0]);
+  });
+  input.addEventListener('change', function(){
+    if(this.files && this.files[0]) handler(this.files[0]);
+    this.value = '';
+  });
+}
+hookDrop($('dropDb'), $('fileDb'), async function(f){
+  $('dbHint').innerHTML = 'กำลังอ่าน ' + esc(f.name) + ' …';
+  try {
+    var mode = 'replace';
+    if(DB.projects.length){
+      mode = window.confirm('มีข้อมูลอยู่แล้ว ' + DB.projects.length + ' โปรเจค\n\n'
+        + 'กด OK = แทนที่ทั้งหมดด้วยไฟล์นี้\n'
+        + 'กด Cancel = เพิ่มเฉพาะโปรเจคที่ยังไม่มี') ? 'replace' : 'merge';
+    }
+    var r = await importCostDb(await f.arrayBuffer(), mode);
+    refresh();
+    $('dbHint').innerHTML = '<b>นำเข้าแล้ว</b> ' + r.projects + ' โปรเจค · '
+      + r.boq + ' แถวหมวดต้นทุน · ' + r.lists + ' รายการ dropdown · '
+      + (mode === 'replace' ? 'แทนที่ของเดิม' : 'เพิ่มเฉพาะที่ยังไม่มี');
+  } catch(e){
+    $('dbHint').innerHTML = '<span style="color:var(--red)"><b>อ่านไฟล์ไม่สำเร็จ</b> '
+      + esc(e.message) + '</span>';
+  }
+});
+
+var PENDING = null;
+hookDrop($('dropBoq'), $('fileBoq'), async function(f){
+  $('boqPreview').innerHTML = '<div class="hint">กำลังอ่าน ' + esc(f.name) + ' …</div>';
+  try {
+    PENDING = await parseBoq(await f.arrayBuffer(), f.name);
+    showBoqPreview(f.name);
+  } catch(e){
+    PENDING = null;
+    $('boqPreview').innerHTML = '<div class="note bad"><b>อ่านไฟล์ไม่สำเร็จ</b> ' + esc(e.message)
+      + '<br>ไฟล์ต้องมีแผ่นชื่อ <span class="mono">BOQ</span> และตารางสรุปแบบเดียวกับ '
+      + '<span class="mono">26-xx_ERV Quotation.xlsx</span> · '
+      + 'ถ้า BOQ มาจากที่อื่นให้กรอกลงเทมเพลตในข้อ 3 ก่อน</div>';
+  }
+});
+function showBoqPreview(fname){
+  var p = PENDING;
+  var lists = DB.lists || {};
+  function sel(id, label, arr, cur){
+    return '<div class="fld"><label>' + label + '</label><select class="rin" id="' + id + '">'
+      + '<option value="">— เลือก —</option>'
+      + (arr || []).map(function(v){ return '<option value="' + esc(v) + '"'
+          + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('')
+      + '</select></div>';
+  }
+  function inp(id, label, val, type){
+    return '<div class="fld"><label>' + label + '</label><input class="rin" id="' + id + '"'
+      + (type ? ' type="' + type + '"' : '') + ' value="' + esc(val) + '"></div>';
+  }
+  var name = fname.replace(/\.xlsx$/i, '');
+  $('boqPreview').innerHTML =
+      '<div class="note' + (p.checkOk ? '' : ' bad') + '" style="margin-top:14px">'
+      + (p.checkOk
+          ? '<b>ยอดกระทบตรง</b> ผลบวกหมวด 1-7 = ' + baht(p.checkSum)
+            + ' เท่ากับ Total Price ในไฟล์'
+          : '<b>ยอดไม่ตรง</b> ผลบวกหมวด 1-7 = ' + baht(p.checkSum)
+            + ' แต่ Total Price ในไฟล์ = ' + baht(p.total)
+            + ' · ตรวจไฟล์ก่อนบันทึก')
+      + '</div>'
+    + '<div class="tablewrap"><table class="dtable"><thead><tr><th>หมวด</th><th>รายการในไฟล์</th>'
+      + '<th class="num">บาท</th></tr></thead><tbody>'
+      + p.items.map(function(it){
+          return '<tr><td class="num">' + it.no + '</td><td>' + esc(it.name) + '</td>'
+            + '<td class="num">' + baht(it.amount) + '</td></tr>'; }).join('')
+      + (p.equipMat !== null
+          ? '<tr style="color:var(--text-secondary)"><td>1.1</td><td>ค่าของ (จากช่อง Equipment หัวชีท)</td>'
+            + '<td class="num">' + baht(p.equipMat) + '</td></tr>'
+            + '<tr style="color:var(--text-secondary)"><td>1.2</td><td>ค่าแรงติดตั้ง (หมวด 1 ลบค่าของ)</td>'
+            + '<td class="num">' + baht(p.equipLab) + '</td></tr>'
+          : '<tr><td colspan="3" style="color:var(--orange)">ไม่พบช่อง Equipment หัวชีท '
+            + 'จึงแยกค่าของ/ค่าแรงของหมวด 1 ไม่ได้ · จะบันทึกเป็นก้อนเดียว</td></tr>')
+      + '<tr><td class="num">8</td><td>Preliminary ' + fmt(p.prelimPct * 100, 0) + '%</td>'
+      + '<td class="num">' + baht(p.prelim) + '</td></tr>'
+      + '<tr><td class="num">9</td><td>Overhead ' + fmt(p.ohPct * 100, 0) + '%</td>'
+      + '<td class="num">' + baht(p.oh) + '</td></tr>'
+      + '</tbody><tfoot><tr><td colspan="2"><b>ต้นทุน BOQ รวม</b></td><td class="num"><b>'
+      + baht(p.checkSum + p.prelim + p.oh) + '</b></td></tr></tfoot></table></div>'
+    + '<div class="note warn" style="margin-top:14px"><b>สี่ช่องล่างนี้คือช่องที่ทำให้ประมาณราคาแม่น</b>'
+      + ' ไฟล์ BOQ ไม่มีข้อมูลพวกนี้ ถ้าไม่กรอก แถวนี้จะแทบไม่มีประโยชน์ในการตั้งราคางานอื่น</div>'
+    + '<div class="grid2" style="margin-top:12px">'
+      + inp('bName', 'ชื่อโปรเจค', name)
+      + inp('bPid', 'รหัสโปรเจค', nextPid())
+      + sel('bType', 'ประเภทอาคาร *', lists['Building_Type'], '')
+      + sel('bScope', 'ขอบเขตงาน *', lists['Scope_Package'], '')
+      + sel('bNature', 'ลักษณะงาน', lists['Work_Nature'], '')
+      + inp('bYear', 'ปี', new Date().getFullYear(), 'number')
+      + inp('bArea', 'พื้นที่ที่ให้บริการ ตร.ม. *', p.area || '', 'number')
+      + inp('bCmh', 'ลมรวม CMH *', '', 'number')
+      + inp('bDuct', 'พื้นที่ท่อลม ตร.ม. *', '', 'number')
+      + inp('bPts', 'จำนวนหัวจ่าย/กริล *', '', 'number')
+      + inp('bUnits', 'จำนวนเครื่อง ERV', '', 'number')
+      + inp('bFloors', 'จำนวนชั้น', '', 'number')
+    + '</div>'
+    + '<div class="filterbar" style="margin-top:14px">'
+      + '<button class="btn" id="bAdd">เพิ่มเข้าฐานข้อมูล</button>'
+      + '<button class="btn ghost" id="bCancel">ยกเลิก</button>'
+    + '</div>';
+  $('bCancel').addEventListener('click', function(){ PENDING = null; $('boqPreview').innerHTML = ''; });
+  $('bAdd').addEventListener('click', function(){
+    if(!$('bType').value || !$('bScope').value){
+      window.alert('เลือกประเภทอาคารและขอบเขตงานก่อน\n\nสองช่องนี้เป็นตัวแยกกลุ่มเวลาเฉลี่ยราคา '
+        + 'ถ้าไม่มี แถวนี้จะเข้าค่าเฉลี่ยไม่ได้'); return;
+    }
+    if(!PENDING.checkOk && !window.confirm('ยอดในไฟล์ยังไม่กระทบกัน ยืนยันจะบันทึกไหม')) return;
+    var pid = $('bPid').value.trim() || nextPid();
+    if(DB.projects.some(function(x){ return String(x.Project_ID) === pid; })){
+      window.alert('รหัส ' + pid + ' มีอยู่แล้ว เปลี่ยนรหัสก่อน'); return;
+    }
+    var built = boqToProject(PENDING, {
+      Project_ID: pid, Project_Name: $('bName').value.trim() || pid,
+      Building_Type: $('bType').value, Scope_Package: $('bScope').value,
+      Work_Nature: $('bNature').value, Year: num($('bYear').value),
+      Served_Area_sqm: $('bArea').value, Total_Airflow_CMH: $('bCmh').value,
+      Duct_Area_sqm: $('bDuct').value, Terminal_Points: $('bPts').value,
+      ERV_Unit_Count: $('bUnits').value, Floors_Served: $('bFloors').value
+    });
+    DB.projects.push(built.project);
+    built.rows.forEach(function(r){ DB.boq.push(r); });
+    save(true);
+    PENDING = null;
+    $('boqPreview').innerHTML = '<div class="note"><b>เพิ่มแล้ว</b> ' + esc(pid)
+      + ' · ไปดูได้ที่แท็บโปรเจคทั้งหมด</div>';
+    refresh();
+    document.querySelector('.tab[data-p="list"]').click();
+  });
+}
+
+/* the blank template - structure only, no unit prices, because those are
+   the team's internal numbers and this page is served from a public repo */
+$('btnTpl').addEventListener('click', async function(){
+  var rows = [];
+  function put(r, c, v){ rows[r - 1] = rows[r - 1] || []; rows[r - 1][c - 1] = v; }
+  put(4, 3, 'Bill of Quantities');
+  put(6, 10, 'Area');        put(6, 12, 'sqm.');
+  put(10, 10, 'Equipment');  put(10, 12, 'Bath');
+  put(10, 2, 'Project : ');
+  put(11, 2, 'System : Energy Recovery Ventilation');
+  put(13, 1, 'No.'); put(13, 2, 'Description'); put(13, 4, 'UNIT'); put(13, 5, 'QTY');
+  put(13, 6, 'UNIT RATE'); put(13, 8, 'Total Unit Cost'); put(13, 9, 'Amount');
+  put(14, 6, 'Material'); put(14, 7, 'Labour'); put(14, 9, '(THB)');
+  var cats = ['Total Ventilation unit', 'Total Duct Work', 'Grille ,Diffuser, Louver',
+              'Ceiling work', 'Total Electrical & Control system',
+              'Total Testing & Commissioning', 'Shop & As-Built Drawings'];
+  cats.forEach(function(c, i){
+    put(15 + i, 1, i + 1); put(15 + i, 2, c); put(15 + i, 4, 'Lot'); put(15 + i, 5, 1);
+  });
+  put(22, 2, 'Total Price');
+  put(23, 2, '*(ของผู้รับเหมา) Preliminaly'); put(23, 8, 0.1);
+  put(24, 2, '*(ของผู้รับเหมา 10-20%) Overhead'); put(24, 8, 0.15);
+  put(25, 2, 'Total cost');
+  put(26, 2, 'Total Price');
+  put(28, 2, 'VAT'); put(28, 8, 0.07);
+  put(29, 2, 'Grand Total');
+  put(32, 2, 'กรอกยอดของแต่ละหมวดในคอลัมน์ I (Amount) แถว 15 ถึง 21');
+  put(33, 2, 'กรอกพื้นที่ที่ให้บริการใน K6 และค่าของหมวด 1 ใน K10');
+  put(34, 2, 'ยอดหมวด 1 ลบด้วย K10 จะเป็นค่าแรงติดตั้งของเครื่อง');
+  put(35, 2, 'ไฟล์นี้ไม่มีราคาต่อหน่วยติดมา ให้ใช้ราคาจากไฟล์ใบเสนอราคาของทีม');
+  var help = [
+    ['ช่อง', 'ใส่อะไร'],
+    ['K6', 'พื้นที่ที่ให้บริการ ตร.ม.'],
+    ['K10', 'ค่าของหมวด 1 (ราคาเครื่องรวม ไม่รวมค่าแรง)'],
+    ['I15 - I21', 'ยอดของหมวด 1 ถึง 7'],
+    ['I23 / I24', 'Preliminary และ Overhead เป็นบาท'],
+    ['H23 / H24', 'เปอร์เซ็นต์ของสองหมวดนั้น'],
+    ['I26', 'Total Price'],
+    ['I29', 'Grand Total รวม VAT']
+  ];
+  var blob = await xlsxWrite([{ name:'BOQ', rows:rows }, { name:'วิธีกรอก', rows:help }]);
+  dl(blob, 'BOQ template (Coral ERV).xlsx');
+});
+
+$('btnExpJson').addEventListener('click', function(){
+  dl(new Blob([JSON.stringify({ format:'coral.cost', v:1,
+    savedAt:new Date().toISOString(), db:DB }, null, 1)], { type:'application/json' }),
+    'ERV cost database ' + new Date().toISOString().slice(0, 10) + '.json');
+});
+$('btnImpJson').addEventListener('click', function(){ $('fileJson').click(); });
+$('fileJson').addEventListener('change', function(){
+  var f = this.files && this.files[0]; this.value = '';
+  if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){
+    try {
+      var o = JSON.parse(String(rd.result));
+      if(!o.db || !o.db.projects) throw new Error('ไม่ใช่ไฟล์สำรองของหน้านี้');
+      DB = o.db; save(true); refresh();
+      window.alert('คืนค่าแล้ว ' + DB.projects.length + ' โปรเจค');
+    } catch(e){ window.alert('อ่านไฟล์ไม่ได้ · ' + e.message); }
+  };
+  rd.readAsText(f, 'utf-8');
+});
+$('btnExpCsv').addEventListener('click', function(){
+  var NL = String.fromCharCode(13) + String.fromCharCode(10);
+  function cell(s){ s = String(s == null ? '' : s);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  var rows = [PCOLS.map(cell).join(',')];
+  DB.projects.forEach(function(p){
+    rows.push(PCOLS.map(function(k){ return cell(p[k]); }).join(',')); });
+  dl(new Blob([String.fromCharCode(0xFEFF) + rows.join(NL)],
+    { type:'text/csv;charset=utf-8' }), 'ERV projects.csv');
+});
+$('btnExpXlsx').addEventListener('click', async function(){
+  var pr = [PCOLS].concat(DB.projects.map(function(p){
+    return PCOLS.map(function(k){ return p[k] === '' ? null : p[k]; }); }));
+  var bq = [['Project_ID','Cat_Code','Item_No','Cat_Name','Part','Amount_THB','Price_Basis','Remark']]
+    .concat(DB.boq.map(function(b){
+      var c = DB.cats.filter(function(x){ return x.code === b.cat; })[0];
+      return [b.pid, b.cat, b.item, c ? c.name : '', b.part, b.amount, b.basis, b.remark]; }));
+  var ct = [['Cat_Code','Cat_Name','Cost_Group','Main_Driver']].concat(DB.cats.map(function(c){
+    return [c.code, c.name, c.group, c.driver]; }));
+  var blob = await xlsxWrite([{ name:'Projects', rows:pr },
+                              { name:'BOQ_Summary', rows:bq },
+                              { name:'Cat_Codes', rows:ct }]);
+  dl(blob, 'ERV cost database ' + new Date().toISOString().slice(0, 10) + '.xlsx');
+});
+$('btnWipe').addEventListener('click', function(){
+  if(!window.confirm('ล้างข้อมูลทั้งหมดในเบราว์เซอร์นี้\n\n'
+    + 'ไฟล์ที่เชื่อมไว้และไฟล์ Excel ต้นฉบับไม่ถูกแตะ · ยืนยันไหม')) return;
+  DB = { v:1, lists:DB.lists, cats:DB.cats, projects:[], boq:[], savedAt:null };
+  save(true); refresh();
+});
+$('btnSave').addEventListener('click', function(){
+  save(true);
+  $('btnSave').textContent = 'บันทึกแล้ว';
+  setTimeout(function(){ $('btnSave').textContent = 'บันทึก'; }, 1200);
+});
+$('btnLink').addEventListener('click', async function(){
+  if(!('showSaveFilePicker' in window)){
+    window.alert('เบราว์เซอร์นี้ผูกไฟล์ไม่ได้ ใช้ Chrome หรือ Edge · '
+      + 'ระหว่างนี้ให้กด สำรอง JSON เป็นระยะแทน'); return;
+  }
+  try {
+    var h = await window.showSaveFilePicker({
+      suggestedName: 'ERV cost database.json',
+      types: [{ description:'JSON', accept:{ 'application/json':['.json'] } }] });
+    FH = h; FNAME = h.name;
+    await idbPut('file', h);
+    $('btnLink').textContent = 'เชื่อมแล้ว · ' + h.name;
+    await fileFlush();
+    chip(true);
+  } catch(e){}
+});
+
+window.addEventListener('beforeunload', function(e){
+  if(DIRTY){ e.preventDefault(); e.returnValue = ''; }
+});
+
+load();
+renderHow();
+refresh();
+fileInit();
+})();
+</script>
+</body>
+</html>
