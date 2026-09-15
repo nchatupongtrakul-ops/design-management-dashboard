@@ -88,7 +88,9 @@ body {
 .chart-grid.g1 { grid-template-columns: 1fr; }
 .chart-grid.g2 { grid-template-columns: repeat(2, 1fr); }
 .chart-grid.g3 { grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 900px) {
+/* screen only - A4 portrait is about 718 CSS px inside its margins, so an
+   unscoped max-width query fires on paper and collapses the flow chart */
+@media screen and (max-width: 900px) {
   .chart-grid.g2, .chart-grid.g3 { grid-template-columns: 1fr; }
   .page { padding: 16px; }
   .header { padding: 12px 16px; }
@@ -273,6 +275,132 @@ tfoot td{background:var(--surface); font-weight:600}
 .page a:hover{text-decoration:underline}
 table.dtable td a{white-space:nowrap}
 .sectitle{font-size:22px;font-weight:700;margin-bottom:20px}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE FLOW CHART
+   Drawn in HTML rather than as one SVG, so the Thai text sets in the same
+   font as the rest of the page and reflows if somebody prints at another
+   size. The connectors are percentage-positioned rules, which keeps the
+   geometry independent of how tall any box turns out to be.
+   ═══════════════════════════════════════════════════════════════════════ */
+#p-flow{max-width:900px}
+.sheet{background:#fff; border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:26px 30px; margin-bottom:20px}
+.sh-top{display:flex; justify-content:space-between; align-items:flex-start; gap:18px;
+  border-bottom:2px solid var(--text); padding-bottom:9px; margin-bottom:16px}
+.sh-top h2{font-size:19px; font-weight:700; line-height:1.25}
+.sh-top .meta{font-size:12px; color:var(--text-secondary); margin-top:3px}
+.sh-top .right{text-align:right; font-size:11px; color:var(--text-secondary); line-height:1.7; white-space:nowrap}
+
+.flow{--line:#C9C8C4}
+.fbox{border:1px solid var(--border); border-radius:9px; padding:9px 13px 10px;
+  background:#fff; border-left-width:4px; position:relative}
+.fbox .fh{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+.fbox .fn{font-size:11px; font-weight:700; color:#fff; background:var(--text);
+  border-radius:20px; padding:1px 8px; line-height:1.5}
+.fbox .ft{font-size:14.5px; font-weight:700}
+.fbox .fw{font-size:10.5px; color:var(--text-secondary); border:1px solid var(--border);
+  border-radius:4px; padding:0 6px; background:var(--surface)}
+.fbox .fq{font-size:12px; color:var(--text-secondary); margin-top:4px}
+.fbox .fo{font-size:12.5px; margin-top:5px}
+.fbox .fo b{color:var(--text)}
+.fbox .fchips{margin-top:6px; font-size:10.5px; color:var(--text-secondary); line-height:1.75}
+.fbox .fchips i{font-style:normal; border:1px solid var(--border); border-radius:4px;
+  padding:1px 6px; margin-right:4px; display:inline-block; background:#FCFCFB}
+.fbox.hub{border-left-color:#14477F; background:#F7FBFF}
+.fbox.hub .fn{background:#14477F}
+.fbox.t1{border-left-color:#2383E2} .fbox.t1 .fn{background:#2383E2}
+.fbox.t2{border-left-color:#CB912F} .fbox.t2 .fn{background:#CB912F}
+.fbox.t3{border-left-color:#6940A5} .fbox.t3 .fn{background:#6940A5}
+.fbox.t4{border-left-color:#2E7D32} .fbox.t4 .fn{background:#2E7D32}
+.fbox.t5{border-left-color:#14477F; background:#F7FBFF} .fbox.t5 .fn{background:#14477F}
+
+/* a straight connector with the thing that travels down it written on it */
+.farr{position:relative; height:40px}
+.farr .ln{position:absolute; left:50%; top:0; bottom:8px; border-left:2px solid var(--line); margin-left:-1px}
+.farr .hd{position:absolute; left:50%; bottom:0; margin-left:-6px;
+  border-left:6px solid transparent; border-right:6px solid transparent;
+  border-top:8px solid var(--line)}
+.farr .lb{position:absolute; left:50%; top:9px; margin-left:12px; font-size:11px;
+  color:var(--text-secondary); background:#fff; padding:0 4px; white-space:nowrap}
+
+/* one in, two out - and the mirror of it */
+.fsplit{position:relative; height:40px}
+.fsplit .up{position:absolute; left:50%; top:0; height:18px; border-left:2px solid var(--line); margin-left:-1px}
+.fsplit .h{position:absolute; left:25%; right:25%; top:17px; border-top:2px solid var(--line)}
+.fsplit .d{position:absolute; top:18px; height:14px; border-left:2px solid var(--line)}
+.fsplit .d.a{left:25%} .fsplit .d.b{left:75%}
+.fsplit .hd{position:absolute; bottom:0; margin-left:-6px;
+  border-left:6px solid transparent; border-right:6px solid transparent;
+  border-top:8px solid var(--line)}
+.fsplit .hd.a{left:25%} .fsplit .hd.b{left:75%}
+.fsplit .lb{position:absolute; left:50%; top:-2px; margin-left:12px; font-size:11px;
+  color:var(--text-secondary); background:#fff; padding:0 4px; white-space:nowrap}
+.fsplit.rev .up{top:22px; height:18px}
+.fsplit.rev .h{top:21px}
+.fsplit.rev .d{top:8px; height:14px}
+.fsplit.rev .hd{top:32px; bottom:auto; left:50%}
+.fpair{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+
+/* the one place the work can turn round and go back */
+.fdec{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:0}
+.fdiam{border:2px solid #E0A94E; background:#FDF8EF; border-radius:9px;
+  padding:9px 14px; text-align:center; font-size:13px; font-weight:600; color:#8A5B12}
+.fno{display:flex; align-items:center; gap:0}
+.fno .ln{flex:1; border-top:2px solid #E0A94E; min-width:26px}
+.fno .hd{border-top:6px solid transparent; border-bottom:6px solid transparent;
+  border-left:8px solid #E0A94E}
+.fno .lb{font-size:11px; color:#8A5B12; font-weight:600; padding:0 6px; white-space:nowrap}
+.fback{border:1px dashed #E0A94E; border-radius:9px; background:#FDF8EF;
+  padding:8px 12px; font-size:11.5px; color:#8A5B12; line-height:1.6}
+.fback b{color:#6E4710}
+.fend{border:2px solid var(--text); border-radius:20px; padding:7px 16px; text-align:center;
+  font-size:13px; font-weight:700; display:inline-block}
+.fendwrap{text-align:center}
+.fnote{margin-top:16px; border:1px solid var(--border); border-left:3px solid #14477F;
+  background:#F7FBFF; border-radius:6px; padding:10px 14px; font-size:11.5px;
+  color:var(--text-secondary); line-height:1.65}
+.fnote b{color:var(--text)}
+.sh-foot{margin-top:14px; padding-top:8px; border-top:1px solid var(--border);
+  font-size:10px; color:var(--gray); display:flex; justify-content:space-between; gap:16px}
+.rtab{width:100%; border-collapse:collapse; font-size:11.5px}
+.rtab th, .rtab td{border:1px solid var(--border); padding:5px 7px; vertical-align:top; text-align:left}
+.rtab thead th{background:var(--surface); font-weight:600; font-size:11px}
+.rtab td b{color:var(--text)}
+.rtab .w1{width:23%} .rtab .w2{width:27%} .rtab .w3{width:25%}
+
+@media screen and (max-width:760px){
+  .fpair{grid-template-columns:1fr}
+  .fsplit, .fdec{display:none}
+  .sheet{padding:18px 16px}
+}
+@media print{
+  .header, .tabs, .footer, .noprint{display:none !important}
+  .page{display:none !important}
+  .page.active{display:block !important; padding:0 !important; max-width:none !important}
+  .sheet{box-shadow:none; border-radius:0; padding:0; margin:0; break-after:page}
+  .sheet:last-child{break-after:auto}
+  .fbox, .fdec, .fpair, .rtab tr{break-inside:avoid}
+  /* paper is a fixed height - the flow gives up its air so it stays one page */
+  .farr{height:30px}
+  .fsplit{height:32px}
+  .fsplit .up{height:14px}
+  .fsplit .h{top:13px}
+  .fsplit .d{top:14px; height:10px}
+  .fsplit.rev .up{top:18px; height:14px}
+  .fsplit.rev .h{top:17px}
+  .fsplit.rev .d{top:8px; height:10px}
+  .fsplit.rev .hd{top:26px}
+  .fbox{padding:7px 12px 8px}
+  .fbox .fq{margin-top:3px}
+  .fbox .fo{margin-top:4px}
+  .fbox .fchips{margin-top:4px; line-height:1.6}
+  .fnote{margin-top:10px; padding:8px 12px}
+  .sh-top{margin-bottom:11px}
+  .sh-foot{margin-top:10px}
+  *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important}
+  @page{size:A4 portrait; margin:12mm}
+}
 </style>
 </head>
 <body>
@@ -289,7 +417,8 @@ table.dtable td a{white-space:nowrap}
 </div>
 
 <div class="tabs">
-  <button class="tab active" data-p="start">เริ่มตรงนี้</button>
+  <button class="tab active" data-p="flow">แผนผังการใช้งาน</button>
+  <button class="tab" data-p="start">เริ่มตรงนี้</button>
   <button class="tab" data-p="hub">Project Hub</button>
   <button class="tab" data-p="vent">Ventilation &amp; CO₂</button>
   <button class="tab" data-p="erv">ERV Load Impact</button>
@@ -299,7 +428,102 @@ table.dtable td a{white-space:nowrap}
 </div>
 
 <!-- ═══════════ START ═══════════ -->
-<div class="page active" id="p-start">
+
+<!-- ═══════════ FLOW ═══════════ -->
+<div class="page active" id="p-flow">
+  <div class="note noprint" style="margin-bottom:16px"><b>หน้านี้พิมพ์ได้เลย</b>
+  กดปุ่ม <b>พิมพ์</b> มุมขวาบน แล้วเลือกปลายทางเป็น <b>บันทึกเป็น PDF</b> ·
+  ตั้งกระดาษ <b>A4 แนวตั้ง</b> · ได้สองหน้า คือแผนผังหนึ่งหน้า และตารางอ้างอิงอีกหน้า</div>
+
+  <div class="sheet">
+    <div class="sh-top">
+      <div><h2>ใช้เครื่องมือชุดนี้ยังไง</h2>
+        <div class="meta">งานหนึ่งโครงการ ไล่จากบนลงล่างครั้งเดียวจบ · ผลของขั้นก่อนเป็นอินพุตของขั้นถัดไปเอง</div></div>
+      <div class="right">Coral Life · ทีมออกแบบ<br>เครื่องมือ IAQ · Acoustic · ERV<br><span id="fstamp"></span></div>
+    </div>
+
+    <div class="flow">
+<div class="fbox hub"><div class="fh"><span class="fn">0</span><span class="ft">Project Hub</span><span class="fw">ทำครั้งเดียวต่อโครงการ</span></div><div class="fq">ตั้งทะเบียนกลางก่อน — สร้างโปรเจค → ตั้งเงื่อนไขของทางเลือก → ใส่ห้องให้ครบ</div><div class="fo"><b>ได้ →</b> ที่เก็บกลางที่เครื่องมือทุกตัวอ่านและเขียนกลับ ไม่ต้องกรอกซ้ำอีก</div><div class="fchips"><i>เงื่อนไข</i> อากาศภายนอกออกแบบ · อากาศภายนอกเฉลี่ย · CO₂ ภายนอก · สภาวะห้อง · ηt ηs · ค่าไฟ<br><i>ห้อง</i> ฟังก์ชันห้อง · ก×ย×ส · จำนวนคน · จำนวนห้องเหมือนกัน · ปรับอากาศ/ระบายอากาศ · แอร์เดิม</div><div class="fchips" style="color:#8A5B12">ห้องเยอะ — เลือกหลายแถวแล้วตั้งค่าทีเดียว หรือวางจาก Excel ด้วย Ctrl+V</div></div><div class="farr"><span class="ln"></span><span class="hd"></span><span class="lb">ขนาดห้อง · จำนวนคน · ฟังก์ชัน · CO₂ ภายนอก</span></div><div class="fbox t1"><div class="fh"><span class="fn">1</span><span class="ft">Ventilation &amp; CO₂</span><span class="fw">ทีละห้อง</span></div><div class="fq">ต้องเติมลมเท่าไร ห้องถึงผ่านเกณฑ์</div><div class="fo"><b>ได้ →</b> ลมที่ต้องเติม <b>CMH</b> · CO₂ จะไปหยุดที่กี่ <b>ppm</b> · ผ่านเกณฑ์หรือยัง</div></div><div class="fsplit"><span class="up"></span><span class="h"></span>
+      <span class="d a"></span><span class="hd a"></span>
+      <span class="d b"></span><span class="hd b"></span>
+      <span class="lb">ลมที่ต้องเติม (CMH) ไหลต่อไปเองทั้งสองทาง</span></div>
+    <div class="fpair"><div class="fbox t2"><div class="fh"><span class="fn">2</span><span class="ft">ERV Load Impact</span><span class="fw">ทีละห้อง</span></div><div class="fq">ลมที่เติมเข้ามา ไปเป็นภาระของแอร์เดิมเท่าไร</div><div class="fo"><b>ได้ →</b> ภาระ <b>RT</b> · ห้องจะร้อนขึ้นกี่ <b>°C</b> · แอร์เดิมรับไหวไหม</div></div><div class="fbox t3"><div class="fh"><span class="fn">3</span><span class="ft">Noise Breakout</span><span class="fw">ทีละห้อง</span></div><div class="fq">เสียงจากท่อลมรั่วออกไปถึงเพื่อนบ้านแค่ไหน</div><div class="fo"><b>ได้ →</b> <b>dB(A)</b> ที่ผู้รับ เทียบกับเกณฑ์ · ต้องมีชุดลดเสียงแค่ไหน</div></div></div>
+    <div class="fsplit rev"><span class="up"></span><span class="h"></span>
+      <span class="d a"></span><span class="d b"></span><span class="hd"></span></div>
+
+    <div class="fdec">
+      <div class="fdiam">ผ่านทั้ง<b>แอร์</b>และ<b>เสียง</b> ?</div>
+      <div class="fno"><span class="ln"></span><span class="lb">ไม่ผ่าน</span>
+        <span class="ln"></span><span class="hd"></span></div>
+      <div class="fback"><b>ย้อนกลับไปขั้น 1 ของห้องนั้น</b><br>
+        ลดลมลง · หรือเพิ่มชุดลดเสียง · หรือเพิ่ม ERV ให้ภาระถึงแอร์น้อยลง แล้วไล่ 1 → 2 → 3 ใหม่</div>
+    </div>
+<div class="farr"><span class="ln"></span><span class="hd"></span><span class="lb">ผ่านครบทุกห้องแล้ว</span></div><div class="fbox t4"><div class="fh"><span class="fn">4</span><span class="ft">ERV Energy Saving</span><span class="fw">ทั้งโปรเจครวดเดียว</span></div><div class="fq">คุ้มไหม — ลมรวมของทุกห้องถูกบวกมาให้แล้ว เหลือใส่ค่าไฟกับราคาเครื่อง</div><div class="fo"><b>ได้ →</b> ประหยัด <b>บาท/ปี</b> · <b>คืนทุนกี่ปี</b> · ลดขนาดแอร์ได้กี่ <b>RT</b></div></div><div class="farr"><span class="ln"></span><span class="hd"></span></div><div class="fbox t5"><div class="fh"><span class="fn">5</span><span class="ft">Project Hub · ปุ่ม รายงาน</span><span class="fw">ทั้งโปรเจค</span></div><div class="fq">รวบทุกอย่างเป็นใบเดียว A4 แนวนอน</div><div class="fo"><b>ได้ →</b> ตารางห้องทุกห้อง · ห้องที่ไม่ผ่านพร้อมเหตุผล · ยอดรวม · ROI · ข้อสมมติ · ช่องลงชื่อ</div></div><div class="farr"><span class="ln"></span><span class="hd"></span></div><div class="fendwrap"><span class="fend">PDF · ส่งลูกค้า · แนบข้อเสนอ · เก็บเข้าแฟ้มงาน</span></div>
+
+      <div class="fnote"><b>สองอย่างที่ทำให้ไม่ต้องจดตัวเลขไปมา</b><br>
+      ① ทุกผลถูก<b>เขียนกลับเข้า Project Hub เองทุกครั้งที่กรอก</b> ขั้นถัดไปจึงหยิบไปใช้ได้เลย ·
+      ② ถ้ามีคนแก้เงื่อนไขของทางเลือกทีหลัง ห้องที่คำนวณไปแล้วจะขึ้นป้าย
+      <b>คิดไว้ใต้เงื่อนไขเดิม</b> ให้เห็น <b>ระบบไม่คิดใหม่ให้เอง</b> เพื่อไม่ให้คำตอบที่ตรวจไปแล้วเปลี่ยนเงียบ ๆ
+      · เปิดเครื่องมือของห้องนั้นอีกครั้งแล้วป้ายจะหายไป</div>
+    </div>
+
+    <div class="sh-foot"><span>ลำดับนี้ใช้กับทุกโครงการ · ห้องที่ยังไม่ผ่านให้แก้ก่อนไปขั้น 4</span>
+      <span>คู่มือฉบับเต็มอยู่ในแท็บถัดไปของหน้านี้</span></div>
+  </div>
+
+  <div class="sheet">
+    <div class="sh-top">
+      <div><h2>ตารางอ้างอิงเร็ว</h2>
+        <div class="meta">เปิดตัวไหน ต้องเตรียมอะไร ได้อะไรกลับมา และตรงไหนที่พลาดกันบ่อย</div></div>
+      <div class="right">Coral Life · ทีมออกแบบ<br><span id="fstamp2"></span></div>
+    </div>
+    <table class="rtab">
+      <thead><tr><th class="w1">เครื่องมือ</th><th class="w2">ต้องเตรียมอะไร</th>
+        <th class="w3">ได้อะไรกลับมา</th><th>ที่พลาดกันบ่อยที่สุด</th></tr></thead>
+      <tbody>
+        <tr><td><b>0 · Project Hub</b><br><span style="color:var(--text-secondary)">ทะเบียนกลาง</span></td>
+          <td>รายการห้องจากแบบ · ขนาด · จำนวนคนที่ใช้จริง · แอร์เดิมกี่ RT ลมจ่ายกี่ CMH ·
+            เงื่อนไขอากาศภายนอกและค่าไฟ</td>
+          <td>ที่เก็บกลางของทั้งโครงการ · ยอดรวมทุกอย่าง · ใบรายงานพร้อมพิมพ์</td>
+          <td><b>ใส่ห้องไม่ครบแล้วไปคิด ROI เลย</b> ลมรวมจะขาด ตัวเลขคืนทุนจึงผิด ·
+            และ<b>คัดลอกทั้งโปรเจคเพื่อทำทางเลือก</b> จะได้ห้องสองชุดที่ไม่ผูกกัน ให้กด คัดลอกทางเลือก แทน</td></tr>
+        <tr><td><b>1 · Ventilation &amp; CO₂</b><br><span style="color:var(--text-secondary)">ทีละห้อง</span></td>
+          <td>ฟังก์ชันห้องตาม ASHRAE 62.1 · จำนวนคนสูงสุด · กิจกรรม (นั่ง/ยืน/เต้น) ·
+            ระยะเวลาที่ใช้ห้องต่อรอบ</td>
+          <td>ลมที่ต้องเติม CMH · กราฟ CO₂ ตามเวลา · เทียบกฎกระทรวง ฉ.39 · ASHRAE · LEED/WELL</td>
+          <td><b>เลือกฟังก์ชันตามชื่อห้องในแบบ</b> แทนที่จะตามการใช้งานจริง ·
+            และ<b>ลืมกิจกรรม</b> ซึ่งพลิกผลได้ถึง 3.6 เท่า</td></tr>
+        <tr><td><b>2 · ERV Load Impact</b><br><span style="color:var(--text-secondary)">ทีละห้อง</span></td>
+          <td>ไม่ต้องเตรียมอะไรเพิ่ม — ลมมาจากขั้น 1 · แอร์เดิมและสภาวะมาจาก Hub</td>
+          <td>ภาระ RT ที่ลมภายนอกเพิ่มให้แอร์ · ห้องจะร้อนขึ้นกี่ °C ถ้าแอร์ไม่พอ ·
+            ขาดอีกกี่ RT</td>
+          <td><b>ลืมว่าตัวนี้คิดเฉพาะภาระจากลมภายนอก</b> ไม่ได้คิดผนัง หลังคา กระจก คน ไฟ ·
+            ถ้าต้องการทั้งอาคารต้องใช้โปรแกรม heat load ตามปกติ</td></tr>
+        <tr><td><b>3 · Noise Breakout</b><br><span style="color:var(--text-secondary)">ทีละห้อง</span></td>
+          <td>ระยะถึงเพื่อนบ้าน · ชนิดผนัง/ช่องเปิด · รุ่นของ silencer และ louver ถ้าเลือกแล้ว</td>
+          <td>dB(A) ที่ผู้รับ · เทียบเกณฑ์ · บอกว่าชิ้นไหนช่วยลดได้เท่าไร</td>
+          <td><b>ค่าลดเสียงสามชิ้นยังเป็นค่าประมาณ</b> (ตัวเครื่อง ERV · silencer ตัวที่สอง · ห้องลดเสียง)
+            ใช้ดูแนวโน้มได้ <b>ใช้เซ็นแบบไม่ได้</b> ต้องขอข้อมูลผู้ผลิตมาพิมพ์ทับก่อน</td></tr>
+        <tr><td><b>4 · ERV Energy Saving</b><br><span style="color:var(--text-secondary)">ทั้งโปรเจค</span></td>
+          <td>ค่าไฟบาท/หน่วย · COP · ชั่วโมงต่อวัน · วันต่อปี · ราคา ERV ที่ติดตั้งจริง · ηt จากสเปกรุ่นที่จะใช้</td>
+          <td>ประหยัดบาท/ปี หักค่าไฟพัดลมที่เพิ่มแล้ว · คืนทุนกี่ปี · ลดขนาดแอร์ได้กี่ RT · แท็บสไลด์เสนอลูกค้า</td>
+          <td><b>เอาสภาวะออกแบบไปคิดค่าไฟ</b> จะได้ตัวเลขประหยัดสูงเกินจริงมาก — ค่าไฟต้องใช้อากาศภายนอก<b>เฉลี่ยทั้งปี</b> ·
+            และ<b>ใช้ ηt จากโบรชัวร์ทั่วไป</b> แทนสเปกรุ่นที่จะติดตั้งจริง</td></tr>
+        <tr><td><b>5 · รายงาน</b><br><span style="color:var(--text-secondary)">ปุ่มใน Hub</span></td>
+          <td>ทำขั้น 1–4 ให้ครบทุกห้องก่อน</td>
+          <td>ใบรายงาน A4 แนวนอน · เลือกได้ว่าจะเทียบทุกทางเลือกในใบเดียว · มีช่องลงชื่อ</td>
+          <td><b>พิมพ์จากหน้าอื่นแทนที่จะกดปุ่มรายงาน</b> จะได้ตารางทำงานที่ไม่ได้จัดหน้าไว้</td></tr>
+      </tbody>
+    </table>
+    <div class="fnote"><b>สิ่งที่เครื่องมือชุดนี้ไม่ได้ทำ</b> —
+    ไม่ได้คำนวณ heat load ของทั้งอาคาร · ไม่ได้ออกแบบท่อลมหรือเลือกพัดลม · ไม่ได้เลือกรุ่นเครื่องให้ ·
+    และ<b>ไม่ใช่เอกสารที่ใช้เซ็นแบบก่อสร้าง</b> โดยเฉพาะฝั่งเสียง ต้องให้วิศวกรอะคูสติกทวนสอบก่อน</div>
+    <div class="sh-foot"><span>เครื่องมือทั้งหมด · nchatupongtrakul-ops.github.io/erv-team-portal</span>
+      <span>คู่มือฉบับเต็ม · .../design-management-dashboard/guide/</span></div>
+  </div>
+</div>
+
+<div class="page" id="p-start">
 
   <div class="note"><b>ทุกตัวเป็นเว็บ เปิดจากมือถือได้ ไม่ต้องติดตั้งอะไร ไม่ต้องล็อกอิน</b><br>
   เข้าได้จากเมนู Tools ใน <a href="https://nchatupongtrakul-ops.github.io/erv-team-portal/">ERV Team Portal</a>
@@ -1211,6 +1435,11 @@ document.querySelectorAll('.tab').forEach(function(b){
     document.getElementById('p-' + b.dataset.p).classList.add('active');
     window.scrollTo(0,0);
   });
+});
+['fstamp','fstamp2'].forEach(function(id){
+  var el = document.getElementById(id);
+  if(el) el.textContent = 'ฉบับวันที่ ' + new Date().toLocaleDateString('th-TH',
+    { year:'numeric', month:'long', day:'numeric' });
 });
 document.getElementById('stamp').textContent = new Date().toLocaleDateString('th-TH',
   { year:'numeric', month:'short', day:'numeric' });
