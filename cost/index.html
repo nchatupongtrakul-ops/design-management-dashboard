@@ -151,6 +151,8 @@ table.dtable tfoot td{background:var(--surface); font-weight:700; border-bottom:
   <input class="rin" type="password" id="unlockPass" placeholder="รหัสผ่าน"
     autocomplete="current-password" style="max-width:260px">
   <button class="btn" id="unlockGo">เปิดดู</button>
+  <label style="display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer">
+    <input type="checkbox" id="unlockRemember" checked> จำรหัสไว้ในเครื่องนี้</label>
   <span id="unlockMsg" style="font-size:12px"></span>
 </div>
 
@@ -1629,36 +1631,72 @@ $('btnEnc').addEventListener('click', async function(){
   }
 });
 
-/* if a published copy sits next to this page, offer to unlock it */
-var ENVELOPE = null;
+/* ── opening the published copy ──
+   Published plain, the page just loads it. Published encrypted, the page
+   asks once and can keep the passphrase on this machine, so the second
+   visit is the same single click as the first was meant to be. Keeping it
+   is the viewer's choice and it is a passphrase, never the data. */
+var ENVELOPE = null, PASSKEY = 'coral.cost.pass';
 async function encProbe(){
+  /* encrypted is the default build, so look for it first and keep the
+     console quiet in the usual case */
+  var env = null;
   try {
     var r = await fetch('data.enc.json', { cache:'no-store' });
-    if(!r.ok) return;
-    var env = await r.json();
-    if(!env || env.format !== 'coral.enc') return;
+    if(r.ok) env = await r.json();
+  } catch(e){}
+  if(!env || env.format !== 'coral.enc'){
+    /* built without encryption - nothing to unlock, just show it */
+    try {
+      var rp = await fetch('data.json', { cache:'no-store' });
+      if(rp.ok){
+        var op = await rp.json();
+        if(op && op.db && op.db.projects) adoptPublished(op);
+      }
+    } catch(e2){}
+    return;
+  }
+  try {
     ENVELOPE = env;
     $('unlock').hidden = false;
     $('unlockWhen').textContent = env.builtAt ? String(env.builtAt).slice(0, 10) : '';
+    var saved = null;
+    try { saved = sessionStorage.getItem(PASSKEY) || localStorage.getItem(PASSKEY); } catch(e){}
+    if(saved){
+      $('unlockPass').value = saved;
+      $('unlockMsg').textContent = 'ใช้รหัสที่จำไว้ …';
+      await encUnlock(true);
+    }
   } catch(e){}
 }
-async function encUnlock(){
+function adoptPublished(o){
+  DB = o.db;
+  if(!DB.cats || !DB.cats.length)
+    DB.cats = CATS_DEFAULT.map(function(c){
+      return { code:c[0], name:c[1], group:c[2], driver:c[3] }; });
+  FROM_ENC = true;
+  $('unlock').hidden = true;
+  refresh();
+}
+async function encUnlock(quiet){
   var pass = $('unlockPass').value;
   if(!pass) return;
   $('unlockMsg').textContent = 'กำลังถอดรหัส …';
   try {
     var o = await decJson(ENVELOPE, pass);
     if(!o.db || !o.db.projects) throw new Error('ไฟล์ไม่ใช่ฐานข้อมูลของหน้านี้');
-    DB = o.db;
-    if(!DB.cats || !DB.cats.length)
-      DB.cats = CATS_DEFAULT.map(function(c){
-        return { code:c[0], name:c[1], group:c[2], driver:c[3] }; });
-    FROM_ENC = true;
-    $('unlock').hidden = true;
+    try {
+      if($('unlockRemember').checked) localStorage.setItem(PASSKEY, pass);
+      else localStorage.removeItem(PASSKEY);
+    } catch(e){}
     $('unlockPass').value = '';
-    refresh();
+    $('unlockMsg').textContent = '';
+    adoptPublished(o);
   } catch(e){
-    $('unlockMsg').innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
+    try { localStorage.removeItem(PASSKEY); } catch(e2){}
+    $('unlockMsg').innerHTML = '<span style="color:var(--red)">'
+      + (quiet ? 'รหัสที่จำไว้ใช้ไม่ได้แล้ว · ใส่รหัสใหม่' : esc(e.message)) + '</span>';
+    $('unlock').hidden = false;
   }
 }
 
