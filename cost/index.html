@@ -301,6 +301,8 @@ Lists           →  ใช้เป็นตัวเลือกในฟอ�
     <div class="eq" id="howBoq"></div>
   </div>
 
+  <div class="card" id="howReadme" hidden></div>
+
   <div class="card">
     <h3>กติกาที่ยกมาจากไฟล์ต้นฉบับ</h3>
     <div class="note warn" style="margin-bottom:10px"><b>เรื่อง basis ราคา — จุดที่พังง่ายที่สุด</b><br>
@@ -726,6 +728,21 @@ async function importCostDb(buf, mode){
                  basis:String(L[7] || 'BOQ price'), remark:String(L[8] == null ? '' : L[8]) });
     }
   }
+  /* The README sheet carries the team's own notes on what drives cost -
+     multipliers, rate bands, the reasoning behind the groupings. Those are
+     commercial knowledge and this page is served from a public repository,
+     so they are not written into it. They are read out of the file the
+     user imports and shown from there: on screen when you have the file,
+     nowhere at all when you do not. */
+  var rg = await wb.sheet('README'), readme = [];
+  if(rg){
+    for(var rr = 1; rr < rg.length && rr <= 200; rr++){
+      var t = rg[rr] && rg[rr][2];
+      readme.push(t == null ? '' : String(t));
+    }
+    while(readme.length && readme[readme.length - 1] === '') readme.pop();
+  }
+
   var lg = await wb.sheet('Lists'), lists = {}, cats = [];
   if(lg){
     var lh = lg[2] || [];
@@ -757,8 +774,10 @@ async function importCostDb(buf, mode){
   }
   if(Object.keys(lists).length) DB.lists = lists;
   if(cats.length) DB.cats = cats;
+  if(readme.length) DB.readme = readme;
   save(true);
-  return { projects: projects.length, boq: boq.length, lists: Object.keys(lists).length };
+  return { projects: projects.length, boq: boq.length, lists: Object.keys(lists).length,
+           readme: readme.length };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -1215,6 +1234,18 @@ function renderHow(){
    ['Working_Condition','T3','เงื่อนไขเวลาเข้าทำงานมีผลกับค่าแรง'],
    ['Year','T3','เอาไว้ปรับ price index ย้อนหลัง']
   ];
+  /* the notes out of the imported file, if there are any */
+  var rd = $('howReadme');
+  if(DB.readme && DB.readme.length){
+    rd.hidden = false;
+    rd.innerHTML = '<h3>บันทึกจากไฟล์ต้นฉบับ · แผ่น README</h3>'
+      + '<div class="hint" style="margin:0 0 10px">อ่านมาจากไฟล์ที่นำเข้า ไม่ได้เก็บอยู่ในหน้าเว็บ · '
+      + 'เครื่องที่ยังไม่ได้นำเข้าไฟล์จะไม่เห็นส่วนนี้</div>'
+      + '<div class="eq">' + esc(DB.readme.join('\n')) + '</div>';
+  } else {
+    rd.hidden = true;
+    rd.innerHTML = '';
+  }
   $('howDrivers').innerHTML = drivers.map(function(d){
     return '<tr><td class="mono">' + d[0] + '</td><td><span class="badge '
       + (d[1] === 'T1' ? 'bad' : d[1] === 'T2' ? 'na' : 'na') + '">' + d[1] + '</span></td>'
@@ -1239,7 +1270,7 @@ function refresh(){
   opts($('cType'), uniq('Building_Type'), $('cType').value);
   opts($('cScope'), uniq('Scope_Package'), $('cScope').value);
   opts($('rScope'), uniq('Scope_Package'), $('rScope').value);
-  renderList(); renderCat(); renderRate(); renderEstIn(); renderEstOut();
+  renderList(); renderCat(); renderRate(); renderEstIn(); renderEstOut(); renderHow();
   chip(true);
 }
 
@@ -1289,6 +1320,7 @@ hookDrop($('dropDb'), $('fileDb'), async function(f){
     refresh();
     $('dbHint').innerHTML = '<b>นำเข้าแล้ว</b> ' + r.projects + ' โปรเจค · '
       + r.boq + ' แถวหมวดต้นทุน · ' + r.lists + ' รายการ dropdown · '
+      + (r.readme ? 'อ่านบันทึกจากแผ่น README มาแสดงในแท็บวิธีใช้แล้ว · ' : '')
       + (mode === 'replace' ? 'แทนที่ของเดิม' : 'เพิ่มเฉพาะที่ยังไม่มี');
   } catch(e){
     $('dbHint').innerHTML = '<span style="color:var(--red)"><b>อ่านไฟล์ไม่สำเร็จ</b> '
