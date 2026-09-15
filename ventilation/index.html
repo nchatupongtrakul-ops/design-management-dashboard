@@ -221,6 +221,16 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .tabcount:empty { display:none; }
 .hubbar .qn{font-size:11px;color:#4A7FB5}
 .hubbar .warn{color:#8A5B12}
+.fromscn{margin-left:6px; font-size:10.5px; font-weight:500; color:#1B6FBF;
+  background:#EDF6FD; border:1px solid #BBDDF7; border-radius:4px; padding:0 5px}
+.fromscn[hidden]{display:none}
+.hubbar .cond{flex-basis:100%; display:flex; gap:8px; align-items:center}
+.hubbar .cond:empty{display:none}
+.hubbar .ovr{color:#8A5B12; background:#FDF8EF; border:1px solid #EBD9B4;
+  border-radius:4px; padding:1px 7px; font-size:11.5px}
+.hubbar .snap{border:1px solid #BBDDF7; background:#fff; color:#1B6FBF; border-radius:5px;
+  padding:2px 9px; font-family:inherit; font-size:11.5px; font-weight:600; cursor:pointer}
+.hubbar .snap:hover{background:#DBEEFC}
 .hubbar{
   background:#EDF6FD; border-bottom:1px solid #BBDDF7; padding:9px 32px;
   font-size:12.5px; color:#1B6FBF; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -379,7 +389,7 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
       </div>
       <div class="field">
         <div class="grid2">
-          <div><label class="flabel" for="co">CO₂ ภายนอก · ppm</label><input type="number" id="co" value="400" min="300" max="1000" step="10"></div>
+          <div><label class="flabel" for="co">CO₂ ภายนอก · ppm<span class="fromscn" id="coFrom" hidden>ของทางเลือก</span></label><input type="number" id="co" value="400" min="300" max="1000" step="10"></div>
           <div><label class="flabel" for="c0">CO₂ เริ่มต้น · ppm</label><input type="number" id="c0" value="400" min="300" max="3000" step="10"></div>
         </div>
       </div>
@@ -856,6 +866,7 @@ function csNewScenario(name){
     id: csUid(), name: name || 'ทางเลือกที่ 1', note: '', off: false,
     city: '',
     oaPk: { t:35, rh:60 },     /* design · sizing */
+    co2:  { oa:400 },          /* outdoor CO2 ppm · the floor indoor CO2 decays to */
     oaAv: { t:31, rh:70 },     /* annual average · energy */
     room: { t:25, rh:50 },     /* indoor */
     erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
@@ -893,11 +904,12 @@ function csCond(scn, rm){
     oaAvT: csNum(scn.oaAv.t,31), oaAvRh: csNum(scn.oaAv.rh,70),
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
+    oaCo: csNum(scn.co2 && scn.co2.oa, 400),
     over: []
   };
   var o = rm && rm.cond;
   if(o){
-    ['oaPkT','oaPkRh','rT','rRh','et','es'].forEach(function(k){
+    ['oaPkT','oaPkRh','rT','rRh','et','es','oaCo'].forEach(function(k){
       if(o[k] != null && isFinite(o[k]) && Math.abs(o[k] - c[k]) > 1e-9){
         c[k] = +o[k]; c.over.push(k);
       }
@@ -907,7 +919,8 @@ function csCond(scn, rm){
 }
 var CS_COND_TH = { oaPkT:'อุณหภูมิภายนอก', oaPkRh:'ความชื้นภายนอก',
                    rT:'อุณหภูมิห้อง', rRh:'ความชื้นห้อง',
-                   et:'ประสิทธิภาพรวม ηt', es:'ประสิทธิภาพสัมผัส ηs' };
+                   et:'ประสิทธิภาพรวม ηt', es:'ประสิทธิภาพสัมผัส ηs',
+                   oaCo:'CO₂ อากาศภายนอก' };
 
 /* ── migration ──
    v1 is left exactly where it is. If v2 ever has to be thrown away the old
@@ -988,6 +1001,33 @@ function csHeal(db){
       });
       if(!s.roi) s.roi = {};
       if(!Array.isArray(s.rooms)) s.rooms = [];
+
+      /* ── outdoor CO2 moved from the room up to the scenario ──
+         It was typed into every room in the CO2 tool, which let one
+         building hold several different outdoor concentrations without
+         anything saying so - the same shape of error as the two tools
+         once sizing at 38 °C and billing at 35 °C for one building.
+
+         The lift takes the first room's figure as the building's, and any
+         room that disagreed keeps its own as a VISIBLE override rather
+         than being quietly changed. The room copy is deleted, so the
+         field has exactly one owner from here on. */
+      if(!s.co2){
+        s.co2 = { oa:null };
+        s.rooms.forEach(function(r){
+          var k = r.vent && r.vent.keep;
+          if(!k || k.co == null) return;
+          var v = csNum(k.co, 400);
+          delete k.co;
+          if(s.co2.oa == null){ s.co2.oa = v; return; }
+          if(Math.abs(v - s.co2.oa) > 1e-9){
+            if(!r.cond) r.cond = {};
+            if(r.cond.oaCo == null) r.cond.oaCo = v;
+          }
+        });
+        if(s.co2.oa == null) s.co2.oa = 400;
+      }
+
       s.rooms.forEach(function(r){
         if(r.qty == null || !(csNum(r.qty) >= 1)) r.qty = 1;
         if(!r.cat) r.cat = 'AC';
@@ -1576,7 +1616,7 @@ var HUB = null;              /* { pid, sid, rid } when opened from the hub */
    One list, read by csKeepGet and written by csKeepSet. Adding an input
    means adding it here, once, and it is then both saved and restored. */
 var VENT_KEEP = [
-  'q', 'co', 'c0', 'dur', 'inf', 'base',
+  'q', 'c0', 'dur', 'inf', 'base',
   { k:'func', ids:['cat'],
               get:function(){ return +catSel.value; },
               set:function(v){ if(CATS[v]) catSel.value = v; } },
@@ -1592,6 +1632,7 @@ var VENT_KEEP = [
    is reported by csKeepAudit rather than silently lost. */
 var VENT_SKIP = [
   'w', 'l', 'h', 'pz',      /* the room's, owned by the hub */
+  'co',                     /* the scenario's, reaches the room as room.cond */
   'pznum', 'qnum',          /* mirrors of the sliders above them */
   'target',                 /* a what-if question, not a property of the room */
   'catSearch',              /* filters the dropdown, holds no value */
@@ -1608,7 +1649,8 @@ function hubBanner(hit, extra){
     + '<a href="../hub/?p=' + encodeURIComponent(hit.p.id)
     + '&s=' + encodeURIComponent(hit.s.id) + '">← กลับไปภาพรวมโปรเจค</a>'
     + (extra || '')
-    + '<span class="sv" id="hubSaved">ขนาดห้องและจำนวนคนดึงมาจากโปรเจค · ผลคำนวณบันทึกกลับอัตโนมัติ</span>';
+    + '<span class="sv" id="hubSaved">ขนาดห้องและจำนวนคนดึงมาจากโปรเจค · ผลคำนวณบันทึกกลับอัตโนมัติ</span>'
+    + '<span class="cond" id="hubCond"></span>';
 
   /* last, so the audit bar is not overwritten by the banner */
   csKeepAudit(VENT_KEEP, VENT_SKIP, 'Ventilation & CO₂');
@@ -1660,8 +1702,39 @@ function hubInit(){
     if(q > (parseFloat($('q').max)||0)) $('q').max = Math.ceil(q*1.15/1000)*1000;
     $('q').value = q; qTouched = true;
   }
+  /* Outdoor CO2 is a property of the site, not of the room, so it comes
+     from the scenario - after the keep list, which no longer carries it. */
+  $('co').value = csCond(hit.s, hit.r).oaCo;
+  var cf = $('coFrom'); if(cf) cf.hidden = false;
+
   hubBanner(hit, hit.r.cat === 'MV'
     ? ' · <span class="warn">ห้องนี้ตั้งไว้เป็นห้องระบายอากาศ ไม่มีแอร์</span>' : '');
+}
+
+/* Typing over the scenario's outdoor CO2 keeps it as a room override and
+   says so, rather than letting one building hold several different outdoor
+   concentrations with nothing on screen to show it. */
+var VENT_COND_FLD = [['co','oaCo']];
+function hubCondSync(hit){
+  var base = csCond(hit.s, null), over = {}, names = [];
+  /* overrides written by another tool stay put; this page only owns its own */
+  Object.keys(hit.r.cond || {}).forEach(function(k){ over[k] = hit.r.cond[k]; });
+  VENT_COND_FLD.forEach(function(f){
+    var v = nv(f[0]);
+    if(Math.abs(v - base[f[1]]) > 1e-9){ over[f[1]] = v; names.push(CS_COND_TH[f[1]]); }
+    else delete over[f[1]];
+  });
+  if(Object.keys(over).length) hit.r.cond = over; else delete hit.r.cond;
+  var el = $('hubCond');
+  if(!el) return;
+  if(!names.length){ el.innerHTML = ''; return; }
+  el.innerHTML = '<span class="ovr">ห้องนี้ตั้งค่าเองต่างจากทางเลือก · ' + names.join(' · ')
+    + '</span> <button class="snap" id="hubCondRst">ใช้ค่าของทางเลือก</button>';
+  $('hubCondRst').addEventListener('click', function(){
+    var b = csCond(hit.s, null);
+    VENT_COND_FLD.forEach(function(f){ $(f[0]).value = b[f[1]]; });
+    render();
+  });
 }
 
 /* called at the end of every render, so the hub is never stale */
@@ -1674,12 +1747,16 @@ function hubSave(s, rec, endCo2){
   /* the function is the room's, so a change here goes back to the room too */
   hit.r.func = +catSel.value; hit.r.law = +$('law').value; hit.r.act = +$('act').value;
   hit.r.cat = AC ? 'AC' : 'MV';
+  hubCondSync(hit);
   hit.r.vent = {
     q: Math.round(s.Q),
     rec: isFinite(rec) ? Math.round(rec) : null,
     co2: isFinite(endCo2) ? Math.round(endCo2) : null,
     ok: isFinite(rec) ? (s.Q + 0.5 >= rec) : null,
     cat: s.cat ? s.cat[1] : '',
+    /* the condition this answer was computed under, so the hub can say when
+       the scenario has moved on since */
+    co: nv('co'),
     at: new Date().toISOString()
   };
   /* every input the answer depends on, from the one list. Without these a

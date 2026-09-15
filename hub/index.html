@@ -816,6 +816,7 @@ function csNewScenario(name){
     id: csUid(), name: name || 'ทางเลือกที่ 1', note: '', off: false,
     city: '',
     oaPk: { t:35, rh:60 },     /* design · sizing */
+    co2:  { oa:400 },          /* outdoor CO2 ppm · the floor indoor CO2 decays to */
     oaAv: { t:31, rh:70 },     /* annual average · energy */
     room: { t:25, rh:50 },     /* indoor */
     erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
@@ -853,11 +854,12 @@ function csCond(scn, rm){
     oaAvT: csNum(scn.oaAv.t,31), oaAvRh: csNum(scn.oaAv.rh,70),
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
+    oaCo: csNum(scn.co2 && scn.co2.oa, 400),
     over: []
   };
   var o = rm && rm.cond;
   if(o){
-    ['oaPkT','oaPkRh','rT','rRh','et','es'].forEach(function(k){
+    ['oaPkT','oaPkRh','rT','rRh','et','es','oaCo'].forEach(function(k){
       if(o[k] != null && isFinite(o[k]) && Math.abs(o[k] - c[k]) > 1e-9){
         c[k] = +o[k]; c.over.push(k);
       }
@@ -867,7 +869,8 @@ function csCond(scn, rm){
 }
 var CS_COND_TH = { oaPkT:'อุณหภูมิภายนอก', oaPkRh:'ความชื้นภายนอก',
                    rT:'อุณหภูมิห้อง', rRh:'ความชื้นห้อง',
-                   et:'ประสิทธิภาพรวม ηt', es:'ประสิทธิภาพสัมผัส ηs' };
+                   et:'ประสิทธิภาพรวม ηt', es:'ประสิทธิภาพสัมผัส ηs',
+                   oaCo:'CO₂ อากาศภายนอก' };
 
 /* ── migration ──
    v1 is left exactly where it is. If v2 ever has to be thrown away the old
@@ -948,6 +951,33 @@ function csHeal(db){
       });
       if(!s.roi) s.roi = {};
       if(!Array.isArray(s.rooms)) s.rooms = [];
+
+      /* ── outdoor CO2 moved from the room up to the scenario ──
+         It was typed into every room in the CO2 tool, which let one
+         building hold several different outdoor concentrations without
+         anything saying so - the same shape of error as the two tools
+         once sizing at 38 °C and billing at 35 °C for one building.
+
+         The lift takes the first room's figure as the building's, and any
+         room that disagreed keeps its own as a VISIBLE override rather
+         than being quietly changed. The room copy is deleted, so the
+         field has exactly one owner from here on. */
+      if(!s.co2){
+        s.co2 = { oa:null };
+        s.rooms.forEach(function(r){
+          var k = r.vent && r.vent.keep;
+          if(!k || k.co == null) return;
+          var v = csNum(k.co, 400);
+          delete k.co;
+          if(s.co2.oa == null){ s.co2.oa = v; return; }
+          if(Math.abs(v - s.co2.oa) > 1e-9){
+            if(!r.cond) r.cond = {};
+            if(r.cond.oaCo == null) r.cond.oaCo = v;
+          }
+        });
+        if(s.co2.oa == null) s.co2.oa = 400;
+      }
+
       s.rooms.forEach(function(r){
         if(r.qty == null || !(csNum(r.qty) >= 1)) r.qty = 1;
         if(!r.cat) r.cat = 'AC';
@@ -1599,6 +1629,35 @@ function toolLink(tool, pid, sid, rid, label){
   return '<a class="cell-go" href="../' + tool + '/?p=' + encodeURIComponent(pid)
     + '&s=' + encodeURIComponent(sid) + '&r=' + encodeURIComponent(rid) + '">' + label + '</a>';
 }
+/* ── answers that no longer match their scenario ──
+   Conditions live on the scenario, but a stored answer was computed once,
+   under whatever the conditions were that day. Change the scenario and the
+   number does not follow - it sits there looking current. These two say so
+   wherever the number is shown; they never change anything. */
+function staleVent(s, rm){
+  if(!rm.vent || rm.vent.co == null || !isFinite(rm.vent.co)) return null;
+  var c = csCond(s, rm);
+  return Math.abs(csNum(rm.vent.co) - c.oaCo) > 1e-9
+    ? 'CO₂ อากาศภายนอก ตอนคำนวณ ' + fmt(csNum(rm.vent.co)) + ' ppm · ตอนนี้ ' + fmt(c.oaCo) + ' ppm'
+    : null;
+}
+var ERV_TRACE = [['toa','oaPkT'],['rhoa','oaPkRh'],['tr','rT'],['rhr','rRh'],['et','et'],['es','es']];
+function staleErv(s, rm){
+  if(!rm.erv) return null;
+  var c = csCond(s, rm), out = [];
+  ERV_TRACE.forEach(function(f){
+    var v = rm.erv[f[0]];
+    if(v == null || !isFinite(v)) return;
+    if(Math.abs(csNum(v) - c[f[1]]) > 1e-9)
+      out.push(CS_COND_TH[f[1]] + ' ' + fmt(csNum(v),1) + ' → ' + fmt(c[f[1]],1));
+  });
+  return out.length ? out.join(' · ') : null;
+}
+function staleTag(msg){
+  return msg ? ' <span class="badge na" title="' + esc(msg)
+    + '">คิดไว้ใต้เงื่อนไขเดิม</span>' : '';
+}
+
 function cell(v, pid, sid, rid, tool, fmtFn){
   return v
     ? '<div class="cell-has">' + fmtFn(v) + '<br>' + toolLink(tool,pid,sid,rid,'แก้ในเครื่องมือ →') + '</div>'
@@ -1766,6 +1825,9 @@ function renderScnCard(s){
       + '<div class="hint">ใช้คิด<b>ค่าไฟ</b></div>'
       + fld('sc_avT','อุณหภูมิ', s.oaAv.t, '0.1', '°C')
       + fld('sc_avR','ความชื้นสัมพัทธ์', s.oaAv.rh, '1', '%') + '</div>'
+    + '<div class="sgroup"><div class="sgh">CO₂ ของอากาศภายนอก</div>'
+      + '<div class="hint">ฐานที่ CO₂ ในห้องลดลงไปหา</div>'
+      + fld('sc_co','CO₂ ภายนอก', csNum(s.co2 && s.co2.oa, 400), '10', 'ppm') + '</div>'
     + '<div class="sgroup"><div class="sgh">ภายในห้อง</div>'
       + '<div class="hint">สภาวะที่ออกแบบให้ห้องอยู่</div>'
       + fld('sc_rT','อุณหภูมิ', s.room.t, '0.1', '°C')
@@ -1786,9 +1848,14 @@ function renderScnCard(s){
     + 'ค่าเฉลี่ยคือสภาพที่ระบบเดินอยู่จริงเกือบทั้งปี ใช้คิดค่าไฟ '
     + '<b>เอาค่าออกแบบไปคิดค่าไฟจะได้ตัวเลขประหยัดที่สูงเกินจริงมาก</b><br>'
     + 'คู่ 35 °C กับ 60 %RH ที่ตั้งไว้เป็น DB/RH ไม่ใช่ DB/MCWB ตาม ASHRAE '
-    + 'ซึ่งเผื่อหนักกว่าความจริง ถ้ามีข้อมูลภูมิอากาศของพื้นที่จริงให้ใส่ทับ</div>'
+    + 'ซึ่งเผื่อหนักกว่าความจริง ถ้ามีข้อมูลภูมิอากาศของพื้นที่จริงให้ใส่ทับ<br><br>'
+    + '<b>CO₂ ของอากาศภายนอก เป็นของทำเลที่ตั้ง ไม่ใช่ของห้อง</b> '
+    + 'อากาศทั่วไปอยู่ราว 400–420 ppm · ในเมืองหรือติดถนนใหญ่ขึ้นได้ถึง 450–500 · '
+    + 'ตัวเลขนี้เป็นพื้นที่ CO₂ ในห้องลดลงไปหา จะเติมลมเท่าไรก็ลงต่ำกว่านี้ไม่ได้ '
+    + '<b>ใส่สูงเกินจริงจะทำให้ต้องเติมลมมากเกินจำเป็น</b></div>'
     + '</div>';
   [['sc_pkT',s.oaPk,'t'],['sc_pkR',s.oaPk,'rh'],['sc_avT',s.oaAv,'t'],['sc_avR',s.oaAv,'rh'],
+   ['sc_co',s.co2,'oa'],
    ['sc_rT',s.room,'t'],['sc_rR',s.room,'rh'],['sc_et',s.erv,'et'],['sc_es',s.erv,'es'],
    ['sc_rate',s.bill,'rate'],['sc_cop',s.bill,'cop'],['sc_hpd',s.bill,'hpd'],['sc_dpy',s.bill,'dpy']
   ].forEach(function(x){
@@ -1985,13 +2052,15 @@ function renderRooms(p, s, r){
       + '<td>' + cell(rm.vent, p.id, s.id, rm.id, 'ventilation', function(v){
           return '<b>' + fmt(csNum(v.q)) + '</b> CMH · CO₂ <b>' + fmt(csNum(v.co2)) + '</b> ppm'
             + (v.ok === false ? ' <span class="badge bad">ลมไม่พอ</span>'
-               : v.ok === true ? ' <span class="badge ok">ผ่าน</span>' : ''); }) + '</td>'
+               : v.ok === true ? ' <span class="badge ok">ผ่าน</span>' : '')
+            + staleTag(staleVent(s, rm)); }) + '</td>'
       + '<td>' + (isMv
           ? '<div class="cell-none">ห้องระบายอากาศ ไม่มีภาระตกกับแอร์</div>'
           : cell(rm.erv, p.id, s.id, rm.id, 'ervload', function(v){
               return '<b>' + fmt(csNum(v.rt),2) + '</b> RT · อุณหภูมิ ' + fmt(csNum(v.dT),2) + ' °C'
                 + (v.ok === false ? ' <span class="badge bad">แอร์ไม่พอ</span>'
-                   : v.ok === true ? ' <span class="badge ok">รับไหว</span>' : ''); })) + '</td>'
+                   : v.ok === true ? ' <span class="badge ok">รับไหว</span>' : '')
+                + staleTag(staleErv(s, rm)); })) + '</td>'
       + '<td>' + cell(rm.ac, p.id, s.id, rm.id, 'acoustic', function(v){
           return '<b>' + fmt(csNum(v.dba),1) + '</b> dB(A) ที่ผู้รับ'; }) + '</td>'
       + '<td style="white-space:nowrap">'
@@ -2016,6 +2085,8 @@ function renderRooms(p, s, r){
     + '<b>ฟังก์ชันห้อง</b> ตัดสินอัตราลมและเพดาน CO₂ · เลือกที่นี่แล้วเครื่องมือ CO₂ รับไปใช้เลย '
     + 'ตัวเลข <b>ลมขั้นต่ำ</b> คิดจาก 62.1 กับกฎกระทรวงเท่านั้น '
     + '<b>ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้</b> ต้องเปิดเครื่องมือถึงจะได้ตัวเลขสุดท้าย · '
+    + '<b>ป้าย คิดไว้ใต้เงื่อนไขเดิม</b> แปลว่าผลนั้นคำนวณตอนที่ทางเลือกตั้งค่าไว้อีกอย่าง '
+    + 'ตัวเลขไม่ได้ผิด แต่ไม่ใช่ของเงื่อนไขชุดนี้ · เปิดเครื่องมือของห้องนั้นอีกครั้งแล้วมันคิดใหม่ให้เอง · '
     + '<b>จำนวน</b> คือห้องที่เหมือนกันทุกอย่าง ใส่ 20 แทนการสร้าง 20 แถว '
     + 'ผลคำนวณเก็บเป็นของห้องเดียว แล้วคูณตอนรวมยอด · '
     + '<b>ประเภท</b> ห้องระบายอากาศไม่มีแอร์ จึงไม่คิดภาระที่ตกกับแอร์<br>'
@@ -2095,6 +2166,7 @@ function repCond(s){
   return '<div class="rep-cond">'
     + box('อากาศภายนอก · สภาวะออกแบบ', fmt(c.oaPkT,1) + ' °C / ' + fmt(c.oaPkRh) + ' %RH')
     + box('อากาศภายนอก · เฉลี่ยทั้งปี', fmt(c.oaAvT,1) + ' °C / ' + fmt(c.oaAvRh) + ' %RH')
+    + box('CO₂ ของอากาศภายนอก', fmt(c.oaCo) + ' ppm')
     + box('ภายในห้อง', fmt(c.rT,1) + ' °C / ' + fmt(c.rRh) + ' %RH')
     + box('ประสิทธิภาพแกน ERV', 'ηt ' + fmt(c.et) + ' % · ηs ' + fmt(c.es) + ' %')
     + box('ค่าไฟและการใช้งาน', fmt(csNum(b.rate),2) + ' บาท/หน่วย · COP ' + fmt(csNum(b.cop),1)
@@ -2226,13 +2298,16 @@ function repFails(s){
         + (rm.ac.lim != null ? ' เกณฑ์ ' + fmt(csNum(rm.ac.lim),1) + ' dB(A)' : ''));
     if(!rm.vent && !rm.erv && !rm.ac)
       why.push('ยังไม่ได้คำนวณด้วยเครื่องมือใดเลย');
+    var sv = staleVent(s, rm), se = staleErv(s, rm);
+    if(sv) why.push('<b>คิดไว้ใต้เงื่อนไขเดิม</b> · ' + sv + ' · เปิดเครื่องมือ CO₂ อีกครั้งเพื่อคิดใหม่');
+    if(se) why.push('<b>คิดไว้ใต้เงื่อนไขเดิม</b> · ' + se + ' · เปิดเครื่องมือภาระอากาศนอกอีกครั้งเพื่อคิดใหม่');
     if(why.length)
       rows.push('<tr><td class="num">' + (j+1) + '</td>'
         + '<td><b>' + esc(rm.name) + '</b>' + (q > 1 ? ' <span class="sub">× ' + q + ' ห้อง</span>' : '') + '</td>'
         + '<td>' + why.join('<br>') + '</td></tr>');
   });
   if(!rows.length) return '';
-  return '<div class="rep-sec wide"><h3>ห้องที่ยังไม่ผ่านเกณฑ์ หรือยังไม่ได้คำนวณ'
+  return '<div class="rep-sec wide"><h3>ห้องที่ยังไม่ผ่านเกณฑ์ · ยังไม่ได้คำนวณ · หรือคิดไว้ใต้เงื่อนไขเดิม'
     + '<span class="n">' + rows.length + ' แถว</span></h3>'
     + '<table class="rtab"><thead><tr><th class="num" style="width:28px">#</th>'
     + '<th style="width:170px">ห้อง</th><th>เรื่องที่ต้องแก้</th></tr></thead>'
@@ -2319,6 +2394,8 @@ function repNotes(s){
     + 'ถ้าจริง ๆ ไม่ได้ใช้พร้อมกัน การเลือกเครื่องรวมตัวเดียวจากยอดนี้จะได้เครื่องใหญ่เกินไป</li>'
     + '<li><b>CO₂ และระดับเสียงบวกหรือเฉลี่ยไม่ได้</b> รายงานนี้จึงแสดงเป็นค่าสูงสุดและจำนวนห้องที่ไม่ผ่าน '
     + 'ค่าจริงของแต่ละห้องอยู่ในตารางห้อง</li>'
+    + '<li><b>CO₂ ของอากาศภายนอก ' + fmt(c.oaCo) + ' ppm</b> เป็นพื้นที่ CO₂ ในห้องลดลงไปหา '
+    + 'เป็นค่าของทำเลที่ตั้ง ไม่ใช่ของห้อง · ทั่วไป 400–420 ppm ในเมืองอาจถึง 450–500</li>'
     + '<li><b>ขนาดแอร์เดิมและลมจ่าย</b> เป็นค่าที่ผู้ใช้กรอกจากเครื่องที่ติดตั้งอยู่จริง ไม่ได้คำนวณจากภาระความร้อนของห้อง</li>'
     + '<li><b>ประสิทธิภาพแกน ηt ' + fmt(c.et) + ' % · ηs ' + fmt(c.es) + ' %</b> '
     + 'ต้องตรงกับสเปกของรุ่นที่จะติดตั้งจริง ตัวเลขประหยัดทั้งหมดขึ้นกับค่านี้โดยตรง</li>'

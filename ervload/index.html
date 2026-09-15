@@ -1105,6 +1105,7 @@ function csNewScenario(name){
     id: csUid(), name: name || 'ทางเลือกที่ 1', note: '', off: false,
     city: '',
     oaPk: { t:35, rh:60 },     /* design · sizing */
+    co2:  { oa:400 },          /* outdoor CO2 ppm · the floor indoor CO2 decays to */
     oaAv: { t:31, rh:70 },     /* annual average · energy */
     room: { t:25, rh:50 },     /* indoor */
     erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
@@ -1142,11 +1143,12 @@ function csCond(scn, rm){
     oaAvT: csNum(scn.oaAv.t,31), oaAvRh: csNum(scn.oaAv.rh,70),
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
+    oaCo: csNum(scn.co2 && scn.co2.oa, 400),
     over: []
   };
   var o = rm && rm.cond;
   if(o){
-    ['oaPkT','oaPkRh','rT','rRh','et','es'].forEach(function(k){
+    ['oaPkT','oaPkRh','rT','rRh','et','es','oaCo'].forEach(function(k){
       if(o[k] != null && isFinite(o[k]) && Math.abs(o[k] - c[k]) > 1e-9){
         c[k] = +o[k]; c.over.push(k);
       }
@@ -1156,7 +1158,8 @@ function csCond(scn, rm){
 }
 var CS_COND_TH = { oaPkT:'อุณหภูมิภายนอก', oaPkRh:'ความชื้นภายนอก',
                    rT:'อุณหภูมิห้อง', rRh:'ความชื้นห้อง',
-                   et:'ประสิทธิภาพรวม ηt', es:'ประสิทธิภาพสัมผัส ηs' };
+                   et:'ประสิทธิภาพรวม ηt', es:'ประสิทธิภาพสัมผัส ηs',
+                   oaCo:'CO₂ อากาศภายนอก' };
 
 /* ── migration ──
    v1 is left exactly where it is. If v2 ever has to be thrown away the old
@@ -1237,6 +1240,33 @@ function csHeal(db){
       });
       if(!s.roi) s.roi = {};
       if(!Array.isArray(s.rooms)) s.rooms = [];
+
+      /* ── outdoor CO2 moved from the room up to the scenario ──
+         It was typed into every room in the CO2 tool, which let one
+         building hold several different outdoor concentrations without
+         anything saying so - the same shape of error as the two tools
+         once sizing at 38 °C and billing at 35 °C for one building.
+
+         The lift takes the first room's figure as the building's, and any
+         room that disagreed keeps its own as a VISIBLE override rather
+         than being quietly changed. The room copy is deleted, so the
+         field has exactly one owner from here on. */
+      if(!s.co2){
+        s.co2 = { oa:null };
+        s.rooms.forEach(function(r){
+          var k = r.vent && r.vent.keep;
+          if(!k || k.co == null) return;
+          var v = csNum(k.co, 400);
+          delete k.co;
+          if(s.co2.oa == null){ s.co2.oa = v; return; }
+          if(Math.abs(v - s.co2.oa) > 1e-9){
+            if(!r.cond) r.cond = {};
+            if(r.cond.oaCo == null) r.cond.oaCo = v;
+          }
+        });
+        if(s.co2.oa == null) s.co2.oa = 400;
+      }
+
       s.rooms.forEach(function(r){
         if(r.qty == null || !(csNum(r.qty) >= 1)) r.qty = 1;
         if(!r.cat) r.cat = 'AC';
