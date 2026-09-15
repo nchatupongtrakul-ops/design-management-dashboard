@@ -99,6 +99,10 @@ table.dtable tfoot td{background:var(--surface); font-weight:700; border-bottom:
   margin-top:7px}
 .legend span{display:inline-flex; align-items:center; gap:5px}
 .legend i{width:9px; height:9px; border-radius:2px; display:inline-block}
+.unlockbar{background:#EDF6FD; border-bottom:1px solid #BBDDF7; padding:12px 32px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:13px; color:#1B6FBF}
+.unlockbar b{color:#14477F}
+.unlockbar[hidden]{display:none}
 .footer{text-align:center; padding:26px; color:var(--gray); font-size:12px}
 @media screen and (max-width:900px){
   .page{padding:16px} .header{padding:12px 16px} .tabs{padding:0 16px; top:61px}
@@ -135,6 +139,19 @@ table.dtable tfoot td{background:var(--surface); font-weight:700; border-bottom:
   <button class="tab" data-p="est">ประมาณราคา</button>
   <button class="tab" data-p="io">นำเข้า · BOQ · เทมเพลต</button>
   <button class="tab" data-p="how">วิธีใช้และกติกา</button>
+</div>
+
+<div class="unlockbar" id="unlock" hidden>
+  <div>
+    <b>หน้านี้มีข้อมูลที่เผยแพร่ไว้ให้ทีม</b>
+    <span id="unlockWhen" class="mono" style="color:var(--text-secondary)"></span><br>
+    <span style="color:var(--text-secondary)">ใส่รหัสผ่านเพื่อถอดรหัส · ข้อมูลถูกถอดในเบราว์เซอร์นี้
+    และไม่ถูกเก็บลงเครื่อง</span>
+  </div>
+  <input class="rin" type="password" id="unlockPass" placeholder="รหัสผ่าน"
+    autocomplete="current-password" style="max-width:260px">
+  <button class="btn" id="unlockGo">เปิดดู</button>
+  <span id="unlockMsg" style="font-size:12px"></span>
 </div>
 
 <!-- ══════════ PROJECTS ══════════ -->
@@ -260,7 +277,36 @@ table.dtable tfoot td{background:var(--surface); font-weight:700; border-bottom:
   </div>
 
   <div class="card">
-    <h3>4 · สำรองและส่งต่อ</h3>
+    <h3>4 · เผยแพร่ให้ทีมเปิดดูได้ · เข้ารหัส</h3>
+    <div class="note"><b>เปิดลิงก์แล้วใส่รหัส ไม่ต้องนำเข้าไฟล์เอง</b>
+    ปุ่มนี้สร้างไฟล์ <span class="mono">data.enc.json</span> ที่เข้ารหัสแล้ว เอาไปวางในโฟลเดอร์
+    <span class="mono">cost/</span> ของ repo แล้ว push · หน้านี้จะถามรหัสเองเมื่อเจอไฟล์<br>
+    <b>รหัสผ่านไม่ถูกส่งไปไหนทั้งสิ้น</b> เข้ารหัสและถอดรหัสเกิดในเบราว์เซอร์เท่านั้น</div>
+    <div class="grid2">
+      <div class="fld"><label>ใส่อะไรลงไปในไฟล์</label>
+        <select class="rin" id="encMode">
+          <option value="anon">ปกปิดชื่อ — ตัวเลขครบ แต่ไม่มีชื่อโปรเจค ลูกค้า จังหวัด (แนะนำ)</option>
+          <option value="full">ทั้งฐาน — รวมชื่อโปรเจคและลูกค้า</option>
+        </select></div>
+      <div class="fld"><label>รหัสผ่าน</label>
+        <input class="rin" type="password" id="encPass" autocomplete="new-password"
+          placeholder="วลี 4-5 คำ ยาว ๆ"></div>
+      <div class="fld"><label>พิมพ์รหัสผ่านอีกครั้ง</label>
+        <input class="rin" type="password" id="encPass2" autocomplete="new-password"></div>
+      <div class="fld"><label>&nbsp;</label>
+        <button class="btn" id="btnEnc">สร้างไฟล์เข้ารหัส</button></div>
+    </div>
+    <div class="hint" id="encHint">รหัสสั้นเดาออกได้ในไม่กี่นาที · ใช้วลีที่ยาวและไม่ซ้ำกับรหัสอื่น
+    · ส่งรหัสให้ทีมคนละทางกับลิงก์</div>
+    <div class="note warn" style="margin-bottom:0"><b>สิ่งที่วิธีนี้ทำไม่ได้</b>
+    รหัสเดียวใช้ร่วมกันทั้งทีม ไม่มีบัญชีรายคน ไม่รู้ว่าใครเปิดเมื่อไร ·
+    <b>คนที่เคยโหลดไฟล์เก็บไว้ ยังถอดได้ด้วยรหัสเดิมตลอดไป</b>
+    เปลี่ยนรหัสต้องสร้างไฟล์ใหม่และ push ใหม่ ·
+    ถ้าต้องการล็อกอินรายคนจริง ๆ ให้วางไฟล์บน SharePoint แล้วใช้ปุ่มเชื่อมไฟล์แทน</div>
+  </div>
+
+  <div class="card">
+    <h3>5 · สำรองและส่งต่อ</h3>
     <div class="filterbar">
       <button class="btn ghost" id="btnExpJson">สำรอง JSON</button>
       <button class="btn ghost" id="btnImpJson">คืนค่า JSON</button>
@@ -572,10 +618,73 @@ async function xlsxWrite(sheets){
   return await zipMake(parts);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   PUBLISHING A COPY THE TEAM CAN OPEN, WITHOUT PUBLISHING THE DATA
+
+   GitHub Pages serves every file to anyone who knows its URL, so a login
+   screen written in JavaScript protects nothing: the data file sits next
+   to it and can be fetched directly. The lock has to be on the data.
+
+   So the file that gets committed is ciphertext. AES-256-GCM, key from a
+   passphrase through PBKDF2-SHA256 at 310,000 iterations, random salt and
+   IV per build. Anyone may download it; without the passphrase it is
+   noise. GCM also authenticates, so a wrong passphrase fails loudly
+   rather than returning plausible rubbish.
+
+   The passphrase is never sent anywhere, because there is nowhere to send
+   it - encryption and decryption both happen in the browser holding it.
+
+   What this does not give you: one shared passphrase, no per-person
+   accounts, no way to tell who opened it, and no revocation - somebody
+   who kept an old copy of the file can still read it with the old
+   passphrase forever. Rotating means re-encrypting and republishing.
+   ═══════════════════════════════════════════════════════════════════════ */
+var ENC_ITERS = 310000;
+function b64enc(u8){
+  var s = '';
+  for(var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+  return btoa(s);
+}
+function b64dec(str){
+  var s = atob(str), u8 = new Uint8Array(s.length);
+  for(var i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i);
+  return u8;
+}
+async function encKey(pass, salt, iters){
+  var base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass),
+    'PBKDF2', false, ['deriveKey']);
+  return await crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt:salt, iterations:iters, hash:'SHA-256' },
+    base, { name:'AES-GCM', length:256 }, false, ['encrypt', 'decrypt']);
+}
+async function encJson(obj, pass){
+  var salt = crypto.getRandomValues(new Uint8Array(16));
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var key = await encKey(pass, salt, ENC_ITERS);
+  var data = new TextEncoder().encode(JSON.stringify(obj));
+  var ct = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv:iv }, key, data));
+  return { format:'coral.enc', v:1, alg:'AES-256-GCM',
+           kdf:{ name:'PBKDF2', hash:'SHA-256', iters:ENC_ITERS, salt:b64enc(salt) },
+           iv:b64enc(iv), ct:b64enc(ct), builtAt:new Date().toISOString() };
+}
+async function decJson(env, pass){
+  if(!env || env.format !== 'coral.enc') throw new Error('ไม่ใช่ไฟล์เข้ารหัสของหน้านี้');
+  var key = await encKey(pass, b64dec(env.kdf.salt), env.kdf.iters || ENC_ITERS);
+  var plain;
+  try {
+    plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv:b64dec(env.iv) }, key, b64dec(env.ct));
+  } catch(e){ throw new Error('รหัสผ่านไม่ถูกต้อง'); }
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
 /* ═══════════ the data this page holds ═══════════ */
 var KEY = 'coral.cost.v1';
 var DB = { v:1, lists:{}, cats:[], projects:[], boq:[], savedAt:null };
 var DIRTY = false;
+/* data that arrived by unlocking the published copy is held in memory only:
+   writing somebody else's client list into the browser of whoever opened
+   the link is not a decision this page gets to make for them */
+var FROM_ENC = false;
 
 var PCOLS = ['Project_ID','Project_Name','Client','Building_Type','Building_Subtype','Grade',
  'Region','Province','Year','Work_Nature','Scope_Package','Working_Condition','Served_Area_sqm',
@@ -620,6 +729,7 @@ function load(){
   if(!DB.lists) DB.lists = {};
 }
 function save(flush){
+  if(FROM_ENC){ DIRTY = false; chip(true); return true; }   /* read-only session */
   DB.savedAt = new Date().toISOString();
   var ok = true;
   try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e){ ok = false; }
@@ -635,6 +745,7 @@ function chip(ok){
   el.className = 'savechip' + (DIRTY ? ' warn' : (n ? ' on' : ''));
   el.innerHTML = '<span class="d"></span>' + (
     !n ? 'ยังไม่มีข้อมูล'
+    : FROM_ENC ? n + ' โปรเจค · เปิดจากไฟล์เข้ารหัส ไม่ได้เก็บในเครื่องนี้'
     : DIRTY ? 'มีการแก้ที่ยังไม่บันทึก'
     : (ok === false ? 'บันทึกลงเครื่องไม่ได้'
       : n + ' โปรเจค · ' + (FH ? 'ลงไฟล์ ' + FNAME : 'ในเครื่องนี้')));
@@ -1478,6 +1589,79 @@ $('btnTpl').addEventListener('click', async function(){
   dl(blob, 'BOQ template (Coral ERV).xlsx');
 });
 
+/* the copy that goes online - anonymised unless asked otherwise */
+function encPayload(mode){
+  var db = JSON.parse(JSON.stringify(DB));
+  if(mode === 'anon'){
+    db.projects.forEach(function(p, i){
+      p.Project_Name = 'โปรเจคที่ ' + (i + 1);
+      p.Client = ''; p.Province = ''; p.Notes = '';
+    });
+    delete db.readme;          /* the team's own commercial notes stay at home */
+    db.anon = true;
+  }
+  return { format:'coral.cost', v:1, mode:mode, savedAt:new Date().toISOString(), db:db };
+}
+$('btnEnc').addEventListener('click', async function(){
+  var p1 = $('encPass').value, p2 = $('encPass2').value;
+  if(!DB.projects.length){ window.alert('ยังไม่มีข้อมูลให้เผยแพร่ นำเข้าไฟล์ก่อน'); return; }
+  if(p1.length < 12){
+    $('encHint').innerHTML = '<span style="color:var(--red)"><b>รหัสสั้นเกินไป</b> '
+      + 'อย่างน้อย 12 ตัวอักษร และควรเป็นวลีหลายคำ</span>'; return;
+  }
+  if(p1 !== p2){
+    $('encHint').innerHTML = '<span style="color:var(--red)">รหัสสองช่องไม่ตรงกัน</span>'; return;
+  }
+  $('encHint').textContent = 'กำลังเข้ารหัส …';
+  try {
+    var mode = $('encMode').value;
+    var env = await encJson(encPayload(mode), p1);
+    dl(new Blob([JSON.stringify(env)], { type:'application/json' }), 'data.enc.json');
+    $('encPass').value = ''; $('encPass2').value = '';
+    $('encHint').innerHTML = '<b>สร้างแล้ว</b> เอาไฟล์ <span class="mono">data.enc.json</span> '
+      + 'ไปวางในโฟลเดอร์ <span class="mono">cost/</span> ของ repo แล้ว commit และ push · '
+      + (mode === 'anon' ? 'โหมดปกปิดชื่อ ไม่มีชื่อโปรเจคหรือลูกค้าอยู่ในไฟล์'
+                         : '<span style="color:var(--red)">โหมดทั้งฐาน มีชื่อลูกค้าอยู่ในไฟล์ '
+                           + 'ความปลอดภัยขึ้นกับรหัสผ่านล้วน ๆ</span>');
+  } catch(e){
+    $('encHint').innerHTML = '<span style="color:var(--red)">เข้ารหัสไม่สำเร็จ · '
+      + esc(e.message) + '</span>';
+  }
+});
+
+/* if a published copy sits next to this page, offer to unlock it */
+var ENVELOPE = null;
+async function encProbe(){
+  try {
+    var r = await fetch('data.enc.json', { cache:'no-store' });
+    if(!r.ok) return;
+    var env = await r.json();
+    if(!env || env.format !== 'coral.enc') return;
+    ENVELOPE = env;
+    $('unlock').hidden = false;
+    $('unlockWhen').textContent = env.builtAt ? String(env.builtAt).slice(0, 10) : '';
+  } catch(e){}
+}
+async function encUnlock(){
+  var pass = $('unlockPass').value;
+  if(!pass) return;
+  $('unlockMsg').textContent = 'กำลังถอดรหัส …';
+  try {
+    var o = await decJson(ENVELOPE, pass);
+    if(!o.db || !o.db.projects) throw new Error('ไฟล์ไม่ใช่ฐานข้อมูลของหน้านี้');
+    DB = o.db;
+    if(!DB.cats || !DB.cats.length)
+      DB.cats = CATS_DEFAULT.map(function(c){
+        return { code:c[0], name:c[1], group:c[2], driver:c[3] }; });
+    FROM_ENC = true;
+    $('unlock').hidden = true;
+    $('unlockPass').value = '';
+    refresh();
+  } catch(e){
+    $('unlockMsg').innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
+  }
+}
+
 $('btnExpJson').addEventListener('click', function(){
   dl(new Blob([JSON.stringify({ format:'coral.cost', v:1,
     savedAt:new Date().toISOString(), db:DB }, null, 1)], { type:'application/json' }),
@@ -1554,10 +1738,14 @@ window.addEventListener('beforeunload', function(e){
   if(DIRTY){ e.preventDefault(); e.returnValue = ''; }
 });
 
+$('unlockGo').addEventListener('click', encUnlock);
+$('unlockPass').addEventListener('keydown', function(e){ if(e.key === 'Enter') encUnlock(); });
+
 load();
 renderHow();
 refresh();
 fileInit();
+if(!DB.projects.length) encProbe();
 })();
 </script>
 </body>
