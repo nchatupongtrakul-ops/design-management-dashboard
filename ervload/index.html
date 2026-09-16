@@ -87,7 +87,9 @@ body {
 .kpi-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
 .kpi-note { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
 
-.hubbar .qn{font-size:11px;color:#4A7FB5}
+.hubbar #oaFrom{margin:2px 0 10px}
+#oaFrom a{color:var(--blue)}
+.qn{font-size:11px;color:#4A7FB5}
 .hubbar .cond{flex-basis:100%; display:flex; gap:8px; align-items:center}
 .hubbar .cond:empty{display:none}
 .hubbar .ovr{color:#8A5B12; background:#FDF8EF; border:1px solid #EBD9B4;
@@ -453,7 +455,8 @@ table.dtable td.st{white-space:nowrap}
           <span class="chip" id="oaAch"></span>
         </div>
       </div>
-      <div class="slider-wrap">
+      <div class="hint" id="oaFrom" hidden></div>
+      <div class="slider-wrap" id="oaWrap">
         <input type="range" id="oa" min="0" max="12000" step="50" value="3000">
         <div class="ticks"><span>0</span><span id="tk1"></span><span id="tk2"></span><span id="tk3"></span><span id="tkm">12,000</span></div>
       </div>
@@ -1895,6 +1898,49 @@ var HUB = null;              /* { pid, sid, rid } when opened from the hub */
 
 function esc0(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+/* Walk the slider to a value instead of snapping to it. The point is to
+   be seen: the number is not one you chose, it arrived from the CO2
+   tool, and watching the handle travel says that without a sentence. */
+var SLIDING = false;
+/* Walk the handle to a value instead of snapping to it, so the figure is
+   seen to arrive from the CO2 tool rather than just being there.
+
+   The value is applied first and is correct from that moment: the
+   movement is decoration replayed from where the handle was, and nothing
+   depends on it finishing. Driven by a timer rather than
+   requestAnimationFrame, which is suspended in a background tab - that
+   suspension used to leave the slider unset and the write-back held. */
+function slideOa(q){
+  var el = $('oa');
+  var from = parseFloat(el.value) || 0;
+  setOa(q);                              /* correct now, whatever follows */
+  var to = parseFloat(el.value) || 0;    /* after any step/max clamping */
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(still || Math.abs(to - from) < 1){ render(); return; }
+
+  var ms = 520, t0 = Date.now(), timer = null, done = false;
+  function land(){
+    if(done) return;
+    done = true;
+    if(timer) clearInterval(timer);
+    SLIDING = false;
+    setOa(to); render();                 /* lands on the figure, saves once */
+  }
+  SLIDING = true;                        /* hold the write while it moves */
+  el.value = from;
+  timer = setInterval(function(){
+    try {
+      var k = Math.min(1, (Date.now() - t0) / ms);
+      var e = 1 - Math.pow(1 - k, 3);    /* ease out, so it settles */
+      el.value = Math.round(from + (to - from) * e);
+      render();
+      if(k >= 1) land();
+    } catch(err){ land(); }
+  }, 16);
+  /* whatever happens to the timer - throttled, suspended, thrown out of -
+     the handle is on the number a moment later */
+  setTimeout(land, ms + 400);
+}
 function setOa(q){
   var el = $('oa');
   if(q > parseFloat(el.max)) el.max = Math.ceil(q*1.15/1000)*1000;
@@ -1959,10 +2005,11 @@ function hubInit(){
      designs. Dragging the slider is a what-if until the room is opened
      again. */
   var q = HUB.ventQ || (e && e.oa ? csNum(e.oa) : 0);
-  if(q) setOa(q);
+  /* with a room behind us the slider travels there instead, below */
+  if(q && !HUB.ventQ) setOa(q);
   if(e && e.keep){
     csKeepSet(LOAD_KEEP, e.keep);
-    if(q) setOa(q);                  /* applied last, so the decision holds */
+    if(q && !HUB.ventQ) setOa(q);
   } else if(e){
     /* a room saved before the keep list existed */
     if(e.loadnow != null && isFinite(e.loadnow)) $('loadnow').value = e.loadnow;
@@ -1984,14 +2031,24 @@ function hubInit(){
         : ' · <span class="warn">ห้องนี้ยังไม่ได้ใส่ขนาดแอร์เดิมที่ Hub กำลังใช้ค่าตัวอย่างอยู่</span>')
     + (HUB.ventQ
         ? ' · <b>ลม ' + fmt(HUB.ventQ) + ' CMH ตามที่ CO₂ คำนวณไว้</b>'
-          + ' <span class="qn">ลากสไลเดอร์ดูผลที่ลมอื่นได้ '
-          + 'เปิดห้องนี้อีกครั้งจะกลับมาที่ค่านี้</span>'
-          + ' <button class="snap" id="hubSnap">กลับไปที่ ' + fmt(HUB.ventQ) + ' CMH</button>'
         : ' · <span class="warn">ห้องนี้ยังไม่ได้คำนวณ CO₂ ปริมาณลมจึงยังไม่ผูกกับเกณฑ์ใด</span>')
     + '<span class="sv" id="hubSaved">ผลคำนวณบันทึกกลับอัตโนมัติ</span>'
     + '<span class="cond" id="hubCond"></span>';
-  var snap = $('hubSnap');
-  if(snap) snap.addEventListener('click', function(){ setOa(HUB.ventQ); render(); });
+  /* the airflow comes from the CO2 answer, and the slider goes there by
+     itself rather than waiting to be dragged */
+  if(HUB.ventQ){
+    /* the slide itself waits for boot to finish · see the bottom of the file */
+    HUB.slideTo = HUB.ventQ;
+    var from = $('oaFrom');
+    from.hidden = false;
+    from.innerHTML = 'สไลเดอร์<b>เลื่อนไปเองตามที่เครื่องมือ CO₂ คำนวณไว้</b> · '
+      + 'จะแก้ปริมาณลม ให้แก้ที่นั่น · '
+      + '<a href="../ventilation/?p=' + encodeURIComponent(hit.p.id)
+      + '&s=' + encodeURIComponent(hit.s.id)
+      + '&r=' + encodeURIComponent(rm.id) + '">เปิดเครื่องมือ CO₂ →</a> · '
+      + 'อยากดูว่าลมอื่นจะเป็นอย่างไร ดูกราฟ '
+      + '<b>ถ้าเปลี่ยนปริมาณลม ERV</b> ด้านล่าง';
+  }
   /* last, so the audit bar is not overwritten by the banner above */
   csKeepAudit(LOAD_KEEP, LOAD_SKIP, 'ERV Load Impact');
 }
@@ -2020,7 +2077,8 @@ function hubCondSync(hit){
 
 /* called at the end of every render, so the hub is never stale */
 function hubSave(m){
-  if(!HUB) return;
+  if(!HUB || SLIDING) return;
+
   var db = csRead();
   var hit = csFind(db, HUB.pid, HUB.sid, HUB.rid); if(!hit) return;
   hit.r.h = nv('ht');
@@ -2887,6 +2945,9 @@ window.addEventListener('resize', function(){
   });
 });
 render();
+/* last of all: with a room behind the page, walk the slider to the airflow
+   the CO2 tool decided, so it is seen to arrive rather than just be there */
+if(HUB && HUB.slideTo) slideOa(HUB.slideTo);
 })();
 
 </script>
