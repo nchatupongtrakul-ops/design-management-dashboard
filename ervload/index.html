@@ -1895,9 +1895,6 @@ var HUB = null;              /* { pid, sid, rid } when opened from the hub */
 
 function esc0(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-/* true once someone sets the airflow here to something other than what
-   the CO2 tool decided · until then this page follows that answer */
-var OA_MANUAL = false;
 function setOa(q){
   var el = $('oa');
   if(q > parseFloat(el.max)) el.max = Math.ceil(q*1.15/1000)*1000;
@@ -1919,7 +1916,7 @@ var COND_FLD = [['toa','oaPkT'], ['rhoa','oaPkRh'], ['tr','rT'], ['rhr','rRh'],
    belong to the scenario and reach the room as an override through
    csCond/hubCondSync; everything else the answer needs is. */
 var LOAD_KEEP = [
-  'oa', 'loadnow',
+  'loadnow',
   { k:'mode', get:function(){ return MODE; },
     set:function(v){ setBar('modebar','m', v); } },
   { k:'dens', get:function(){ return DENS; },
@@ -1928,6 +1925,9 @@ var LOAD_KEEP = [
 /* Deliberately not kept here, and why. */
 var LOAD_SKIP = [
   'area', 'ht', 'cap', 'qac',              /* the room's, owned by the hub */
+  /* the airflow is the CO2 tool's answer, held on the room as vent.q ·
+     keeping a second copy here is what made this page outrank it */
+  'oa',
   'toa', 'rhoa', 'tr', 'rhr', 'et', 'es'   /* the scenario's, kept as room.cond */
 ];
 
@@ -1953,13 +1953,12 @@ function hubInit(){
   var cnd = csCond(hit.s, rm);
   COND_FLD.forEach(function(f){ $(f[0]).value = cnd[f[1]]; });
 
-  /* Airflow: the CO2 tool's answer leads. Only a figure somebody set here
-     on purpose outranks it - otherwise a stale number from an earlier
-     visit, or the slider's own starting value, would quietly win and the
-     two pages would describe different designs. */
-  OA_MANUAL = !!(e && e.oaManual);
-  var q = (OA_MANUAL && e && e.oa) ? csNum(e.oa)
-        : (HUB.ventQ || (e && e.oa ? csNum(e.oa) : 0));
+  /* Airflow: always what the CO2 tool decided. Nothing kept here
+     outranks it - not a figure from an earlier visit, not the slider's
+     own starting value - so the two pages cannot describe different
+     designs. Dragging the slider is a what-if until the room is opened
+     again. */
+  var q = HUB.ventQ || (e && e.oa ? csNum(e.oa) : 0);
   if(q) setOa(q);
   if(e && e.keep){
     csKeepSet(LOAD_KEEP, e.keep);
@@ -1971,7 +1970,6 @@ function hubInit(){
     if(e.dens) setBar('densbar','d', e.dens);
   }
 
-  var diff = (HUB.ventQ && q && Math.abs(q - HUB.ventQ) > 0.5);
   var bar = $('hubBar');
   bar.hidden = false;
   bar.innerHTML = 'กำลังทำห้อง <b>' + esc0(rm.name || 'ไม่ได้ตั้งชื่อ') + '</b>'
@@ -1985,17 +1983,15 @@ function hubInit(){
         : csNum(rm.cap) > 0 ? ''
         : ' · <span class="warn">ห้องนี้ยังไม่ได้ใส่ขนาดแอร์เดิมที่ Hub กำลังใช้ค่าตัวอย่างอยู่</span>')
     + (HUB.ventQ
-        ? (diff
-            ? ' · <span class="warn">ตั้งลมเองไว้ ' + fmt(q) + ' CMH · CO₂ คำนวณได้ '
-              + fmt(HUB.ventQ) + ' CMH</span> <button class="snap" id="hubSnap">ใช้ค่าจาก CO₂</button>'
-            : ' · ลม ' + fmt(HUB.ventQ) + ' CMH ตามที่ CO₂ คำนวณไว้')
+        ? ' · <b>ลม ' + fmt(HUB.ventQ) + ' CMH ตามที่ CO₂ คำนวณไว้</b>'
+          + ' <span class="qn">ลากสไลเดอร์ดูผลที่ลมอื่นได้ '
+          + 'เปิดห้องนี้อีกครั้งจะกลับมาที่ค่านี้</span>'
+          + ' <button class="snap" id="hubSnap">กลับไปที่ ' + fmt(HUB.ventQ) + ' CMH</button>'
         : ' · <span class="warn">ห้องนี้ยังไม่ได้คำนวณ CO₂ ปริมาณลมจึงยังไม่ผูกกับเกณฑ์ใด</span>')
     + '<span class="sv" id="hubSaved">ผลคำนวณบันทึกกลับอัตโนมัติ</span>'
     + '<span class="cond" id="hubCond"></span>';
   var snap = $('hubSnap');
-  if(snap) snap.addEventListener('click', function(){
-    OA_MANUAL = false; setOa(HUB.ventQ); render();
-  });
+  if(snap) snap.addEventListener('click', function(){ setOa(HUB.ventQ); render(); });
   /* last, so the audit bar is not overwritten by the banner above */
   csKeepAudit(LOAD_KEEP, LOAD_SKIP, 'ERV Load Impact');
 }
@@ -2034,8 +2030,7 @@ function hubSave(m){
     rt: m.qt/RTW, dT: m.dT, dRH: (m.RHr2 - m.RHr)*100,
     ok: m.covered, deficitRt: m.deficitW/RTW, spareRt: m.spareW/RTW,
     /* read by the hub and by the other pages */
-    oa: m.Q, oaManual: OA_MANUAL,
-    qac: m.Qac, cap: m.cap, tsa: m.Tsa, rhsa: m.RHsa*100,
+    oa: m.Q, qac: m.Qac, cap: m.cap, tsa: m.Tsa, rhsa: m.RHsa*100,
     /* the conditions, so a figure can be traced back to what produced it */
     toa: nv('toa'), rhoa: nv('rhoa'), tr: nv('tr'), rhr: nv('rhr'),
     et: nv('et'), es: nv('es'),
@@ -2820,10 +2815,6 @@ $('modebar').addEventListener('click', function(e){
   this.querySelectorAll('.modecard').forEach(function(x){ x.classList.toggle('active', x===t); });
   render();
 });
-/* moving the airflow here is a decision about this room, so it stops the
-   CO2 answer being applied over it on the next visit */
-$('oa').addEventListener('input', function(){ OA_MANUAL = true; });
-
 ['toa','rhoa','tr','rhr','et','es','cap','qac','area','ht','loadnow','oa'].forEach(function(id){
   $(id).addEventListener('input', render);
 });
@@ -2831,7 +2822,6 @@ document.querySelectorAll('.stepbtn').forEach(function(b){
   b.addEventListener('click', function(){
     var s = $('oa');
     s.value = Math.max(+s.min, Math.min(+s.max, +s.value + (+b.dataset.step)));
-    OA_MANUAL = true;
     render();
   });
 });
