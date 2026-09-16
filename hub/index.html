@@ -683,6 +683,7 @@ tr.gov td{background:#EDF6FD !important}
         <h3>ห้องในโปรเจคนี้</h3>
         <div class="flowmeta">
           <label class="colopt"><input type="checkbox" id="colTag"> แสดงรหัส/ชั้น/ระบบ/โซน</label>
+          <label class="colopt" title="แอร์แยกส่วนขายเป็น BTU/ชม. · เก็บเป็น RT เหมือนเดิม แค่เปลี่ยนหน่วยที่กรอก"><input type="checkbox" id="colBtu"> แอร์เดิมเป็น BTU</label>
           <label class="colopt">จัดกลุ่มตาม
             <select class="rin" id="groupBy" style="width:96px">
               <option value="">ไม่จัดกลุ่ม</option>
@@ -1881,6 +1882,27 @@ function kpi(v,u,label,note){
 
 /* ═══════════ PROJECT DETAIL ═══════════ */
 var SHOWTAG = false, GROUPBY = '';
+/* 1 ton of refrigeration = 12,000 BTU/h, by definition. cap is stored in
+   RT; CAPBTU only changes the unit it is typed and shown in. */
+var BTU_PER_RT = 12000;
+var CAPBTU = false;
+try { CAPBTU = localStorage.getItem('coral.hub.capbtu') === '1'; } catch(e){}
+function capOut(rt){                    /* stored -> what the box shows */
+  var v = csNum(rt);
+  return CAPBTU ? Math.round(v * BTU_PER_RT) : v;
+}
+function capIn(v){                      /* what was typed -> stored */
+  var n = csNum(v);
+  return CAPBTU ? n / BTU_PER_RT : n;
+}
+function capUnit(){ return CAPBTU ? 'BTU/ชม.' : 'RT'; }
+/* a total, in whichever unit is on, with the other one in brackets */
+function capBoth(rt){
+  if(!(csNum(rt) > 0)) return null;
+  return CAPBTU
+    ? fmt(csNum(rt) * BTU_PER_RT) + ' BTU/ชม. (' + fmt(csNum(rt), 1) + ' RT)'
+    : fmt(csNum(rt), 1) + ' RT';
+}
 try { SHOWTAG = localStorage.getItem('coral.hub.showtag') === '1';
       GROUPBY = localStorage.getItem('coral.hub.groupby') || ''; } catch(e){}
 
@@ -2195,7 +2217,8 @@ function setField(rm, key, val){
     rm[key] = String(val).trim(); return true;
   }
   if(key === 'a' || key === 'h' || key === 'pz' || key === 'cap' || key === 'qac'){
-    rm[key] = csNum(val);
+    /* pasted into a column showing BTU, so read it as BTU */
+    rm[key] = (key === 'cap') ? capIn(val) : csNum(val);
     /* a headcount somebody typed is a fact about the room, not a default */
     if(key === 'pz') rm.pzAuto = false;
     return true;
@@ -2229,7 +2252,7 @@ function renderRooms(p, s, r){
     + '<th class="num">สูง<div class="thsub">ม.</div></th>'
     + '<th class="num">คน</th><th class="num">จำนวน<div class="thsub">ห้องซ้ำ</div></th>'
     + '<th>ประเภท</th>'
-    + '<th class="num">แอร์เดิม<div class="thsub">RT · ลมจ่าย CMH</div></th>'
+    + '<th class="num">แอร์เดิม<div class="thsub">' + capUnit() + ' · ลมจ่าย CMH</div></th>'
     + '<th>CO₂ และลมที่ต้องเติม</th><th>ภาระที่ตกกับแอร์</th><th>เสียงที่รั่วออก</th><th></th></tr>';
 
   var last = null, out = [];
@@ -2268,7 +2291,8 @@ function renderRooms(p, s, r){
       + '<td><div class="ac2">'
         + (isMv
             ? '<span class="cell-none">ไม่มีแอร์</span>'
-            : '<input class="rin" type="number" step="0.5" min="0" data-f="cap" data-col="'+pcol('cap')+'" data-j="'+j+'" value="'+csNum(rm.cap)+'">'
+            : '<input class="rin" type="number" step="' + (CAPBTU ? '1000' : '0.5') + '" min="0" '
+              + 'data-f="cap" data-col="'+pcol('cap')+'" data-j="'+j+'" value="'+capOut(rm.cap)+'">'
               + '<span>·</span>'
               + '<input class="rin" type="number" step="100" min="0" data-f="qac" data-col="'+pcol('qac')+'" data-j="'+j+'" value="'+csNum(rm.qac)+'">')
         + '</div></td>'
@@ -2310,7 +2334,10 @@ function renderRooms(p, s, r){
       + '(คนต่อ 100 ตร.ม. ที่มาตรฐานให้ออกแบบเมื่อยังไม่รู้จำนวนจริง) · '
       + '<b>พอพิมพ์จำนวนคนจริงลงไป มันจะหยุดเติมให้ทันที</b> และไม่แก้ค่าที่พิมพ์อีกเลย</li>'
     + '<li><b>ประเภท</b> ห้องระบายอากาศไม่มีแอร์ จึงไม่คิดภาระที่ตกกับแอร์</li>'
-    + '<li><b>แอร์เดิม</b> ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ให้รวม RT และลมจ่ายเป็นก้อนเดียว</li>'
+    + '<li><b>แอร์เดิม</b> ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ให้รวมขนาดและลมจ่ายเป็นก้อนเดียว · '
+      + 'ติ๊ก <b>แอร์เดิมเป็น BTU</b> เพื่อกรอกเป็น BTU/ชม. อย่างที่ติดมากับเครื่อง '
+      + '(12,000 BTU/ชม. = 1 RT) · <b>ค่าที่เก็บเป็น RT เสมอ</b> '
+      + 'สลับหน่วยไปมาได้ไม่มีอะไรเพี้ยน · เป็นการตั้งของแต่ละเครื่อง ไม่ได้ติดไปกับโปรเจค</li>'
     + '<li><b>ป้าย <span class="badge na">คิดไว้ใต้เงื่อนไขเดิม</span></b> '
       + 'แปลว่าผลนั้นคำนวณตอนที่ทางเลือกตั้งค่าไว้อีกอย่าง ตัวเลขไม่ได้ผิดแต่ไม่ใช่ของเงื่อนไขชุดนี้ · '
       + 'เปิดเครื่องมือของห้องนั้นอีกครั้งแล้วมันคิดใหม่ให้เอง</li>'
@@ -2327,7 +2354,7 @@ function renderFoot(s, r){
       + '<td class="num"><b>' + fmt(r.area,1) + '</b></td>'
       + '<td class="num"><b>' + fmt(r.people) + '</b></td>'
       + '<td></td><td></td>'
-      + '<td class="num"><b>' + (r.cap > 0 ? fmt(r.cap,1) + ' RT' : '—') + '</b></td>'
+      + '<td class="num"><b>' + (r.cap > 0 ? fmt(capOut(r.cap), CAPBTU ? 0 : 1) + ' ' + capUnit() : '—') + '</b></td>'
       + '<td><b>' + (r.done.vent ? fmt(r.cmh) + ' CMH' : '—') + '</b></td>'
       + '<td><b>' + (r.done.erv ? fmt(r.rt,2) + ' RT' : '—') + '</b></td>'
       + '<td colspan="2"></td></tr>'
@@ -2346,7 +2373,7 @@ function renderRoll(r, s){
     + rowr('จำนวนห้องจริง', fmt(r.rooms) + ' ห้อง', 'นับ Q\'ty แล้ว · บวกได้')
     + rowr('พื้นที่รวม', fmt(r.area,1) + ' ตร.ม.', 'บวกได้ · คูณ Q\'ty แล้ว')
     + rowr('จำนวนคนรวม', fmt(r.people) + ' คน', 'บวกได้ · คูณ Q\'ty แล้ว')
-    + rowr('ขนาดแอร์เดิมรวม', r.cap > 0 ? fmt(r.cap,1) + ' RT' : 'ยังไม่ใส่',
+    + rowr('ขนาดแอร์เดิมรวม', capBoth(r.cap) || 'ยังไม่ใส่',
            r.noCap ? 'ยังไม่ใส่ ' + r.noCap + ' จาก ' + r.acRows + ' แถวปรับอากาศ'
                    : 'ใส่ครบทุกแถวปรับอากาศ · ห้องระบายอากาศไม่นับ')
     + rowr('ลมบริสุทธิ์รวม', r.done.vent ? fmt(r.cmh) + ' CMH' : 'ยังไม่ครบ',
@@ -2445,7 +2472,7 @@ function repSchedHead(){
     + '<th rowspan="2">ห้อง</th>'
     + '<th rowspan="2">ฟังก์ชัน · ประเภท</th>'
     + '<th colspan="4" class="ctr">ขนาดและผู้ใช้</th>'
-    + '<th rowspan="2" class="num">แอร์เดิม<br>RT</th>'
+    + '<th rowspan="2" class="num">แอร์เดิม<br>' + capUnit() + '</th>'
     + '<th colspan="3" class="ctr">ลมบริสุทธิ์และ CO₂</th>'
     + '<th colspan="3" class="ctr">ภาระที่ตกกับแอร์</th>'
     + '<th colspan="2" class="ctr">เสียงที่รั่วออก</th>'
@@ -2476,7 +2503,7 @@ function repRoomRow(s, rm, j){
     + '<td class="num">' + fmt(csNum(rm.pz)) + '</td>'
     + '<td class="num">' + q + '</td>'
     + '<td class="num">' + (isMv ? repNone('ไม่มีแอร์')
-        : (csNum(rm.cap) > 0 ? fmt(csNum(rm.cap),1) : repNone('ยังไม่ใส่'))) + '</td>'
+        : (csNum(rm.cap) > 0 ? fmt(capOut(rm.cap), CAPBTU ? 0 : 1) : repNone('ยังไม่ใส่'))) + '</td>'
     + '<td class="num">' + (v ? '<b>' + fmt(csNum(v.q)) + '</b>'
         + '<div class="sub">ขั้นต่ำ ' + fmt(Math.ceil(f.min/100)*100) + '</div>'
         + (q > 1 ? '<div class="sub">รวม ' + fmt(csNum(v.q)*q) + '</div>' : '')
@@ -2516,7 +2543,7 @@ function repSched(s, r){
     + '<td class="num">' + fmt(r.area,1) + '</td>'
     + '<td class="num">' + fmt(r.people) + '</td>'
     + '<td class="num">' + fmt(r.rooms) + '</td>'
-    + '<td class="num">' + (r.cap > 0 ? fmt(r.cap,1) : '—') + '</td>'
+    + '<td class="num">' + (r.cap > 0 ? fmt(capOut(r.cap), CAPBTU ? 0 : 1) : '—') + '</td>'
     + '<td class="num">' + (r.done.vent ? fmt(r.cmh) : '—') + '</td>'
     + '<td colspan="2" class="num">' + (r.worstCo2 !== null ? 'สูงสุด ' + fmt(r.worstCo2) : '') + '</td>'
     + '<td class="num">' + (r.done.erv ? fmt(r.rt,2) : '—') + '</td>'
@@ -2575,7 +2602,7 @@ function repTotals(r, s){
     + row('ภาระอากาศภายนอกรวม', r.done.erv ? fmt(r.rt,2) + ' RT' : 'ยังไม่ครบ',
         r.done.erv < r.acRows ? 'คำนวณแล้ว ' + r.done.erv + ' จาก ' + r.acRows + ' แถวปรับอากาศ'
                               : 'ครบทุกแถวปรับอากาศ')
-    + row('ขนาดแอร์เดิมรวม', r.cap > 0 ? fmt(r.cap,1) + ' RT' : 'ยังไม่ใส่',
+    + row('ขนาดแอร์เดิมรวม', capBoth(r.cap) || 'ยังไม่ใส่',
         r.noCap ? 'ยังไม่ใส่ ' + r.noCap + ' จาก ' + r.acRows + ' แถวปรับอากาศ' : 'ใส่ครบทุกแถวปรับอากาศ')
     + row('ระดับ CO₂', r.worstCo2 !== null ? 'สูงสุด ' + fmt(r.worstCo2) + ' ppm' : 'ยังไม่คำนวณ',
         '<b>บวกหรือเฉลี่ยไม่ได้</b> รายงานเป็นห้องที่แย่ที่สุด ค่าจริงรายห้องอยู่ในตารางด้านบน')
@@ -2864,6 +2891,11 @@ $('rAdd').addEventListener('click', function(){
   s.rooms.push(csNewRoom('ห้องที่ ' + (s.rooms.length+1)));
   csTouch(curP()); saveDB(); renderDetail();
 });
+$('colBtu').addEventListener('change', function(){
+  CAPBTU = this.checked;
+  try { localStorage.setItem('coral.hub.capbtu', CAPBTU ? '1':'0'); } catch(e){}
+  renderRoomsOnly();
+});
 $('colTag').addEventListener('change', function(){
   SHOWTAG = this.checked;
   try { localStorage.setItem('coral.hub.showtag', SHOWTAG ? '1':'0'); } catch(e){}
@@ -2885,6 +2917,7 @@ $('roomBody').addEventListener('input', function(e){
            || f === 'zone' || f === 'cat') ? el.value : csNum(el.value);
   if(f === 'func' || f === 'law') rm[f] = parseInt(el.value, 10);
   if(f === 'qty') rm.qty = Math.max(1, Math.round(csNum(el.value,1)));
+  if(f === 'cap') rm.cap = capIn(el.value);
   /* a headcount somebody typed is a fact about the room, not a default,
      so the reference density stops filling it in */
   if(f === 'pz') rm.pzAuto = false;
@@ -3195,7 +3228,8 @@ $('pFile').addEventListener('change', function(){
       var h = L[0], ix = {};
       COLS.forEach(function(c){ var k = h.indexOf(c); if(k>=0) ix[c]=k; });
       /* not columns any more, but a sheet saved before the change has them */
-      ['กว้าง', 'ยาว'].forEach(function(c){ var k = h.indexOf(c); if(k>=0) ix[c]=k; });
+      ['กว้าง', 'ยาว', 'แอร์เดิม BTU'].forEach(function(c){
+        var k = h.indexOf(c); if(k>=0) ix[c]=k; });
       if(ix['โปรเจค'] === undefined || ix['ห้อง'] === undefined)
         throw new Error('ไม่พบคอลัมน์ โปรเจค หรือ ห้อง');
       function g(c, key){ return ix[key] === undefined ? '' : (c[ix[key]]||'').trim(); }
@@ -3221,6 +3255,9 @@ $('pFile').addEventListener('change', function(){
          ['cap','แอร์เดิม RT'],['qac','ลมแอร์ CMH']].forEach(function(x){
           if(ix[x[1]] !== undefined) rm[x[0]] = csNum(g(c,x[1]));
         });
+        /* a room datasheet written the Thai way gives the unit in BTU */
+        if(ix['แอร์เดิม BTU'] !== undefined)
+          rm.cap = csNum(g(c,'แอร์เดิม BTU')) / BTU_PER_RT;
         /* a sheet exported before the change still says width and length */
         if(ix['พื้นที่'] === undefined && ix['กว้าง'] !== undefined && ix['ยาว'] !== undefined)
           rm.a = csNum(g(c,'กว้าง')) * csNum(g(c,'ยาว'));
@@ -3511,6 +3548,7 @@ window.addEventListener('beforeunload', function(){ csFileFlush(); });
 DB = csRead();
 if(!DB.projects.length) DB.projects.push(csNewProject('โปรเจคที่ 1'));
 $('colTag').checked = SHOWTAG;
+$('colBtu').checked = CAPBTU;
 $('groupBy').value = GROUPBY;
 saveDB();
 renderList();

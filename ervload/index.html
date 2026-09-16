@@ -508,6 +508,7 @@ table.dtable td.st{white-space:nowrap}
     <div class="card">
       <h3>ระบบปรับอากาศเดิม</h3>
       <div class="field"><label class="flabel">ขนาดที่ติดตั้ง RT</label><input type="number" id="cap" value="75" step="0.5"></div>
+      <div class="hint" id="capHint"></div>
       <div class="field"><label class="flabel">ปริมาณลมหมุนเวียนของแอร์ CMH</label><input type="number" id="qac" value="37400" step="100"></div>
       <div class="hint" id="qacHint"></div>
     </div>
@@ -2642,6 +2643,10 @@ function render(){
   $('rState').textContent  = 'W = ' + m.Wr.toFixed(5)  + ' kg/kg · h = ' + fmt(m.hr,2)  + ' kJ/kg';
   $('effHint').textContent = 'ลมออกจากแกนที่ ' + fmt(m.Tsa,2) + ' °C · '
     + fmt(m.RHsa*100,1) + ' %RH · ' + fmt(m.hsa,2) + ' kJ/kg';
+  /* 12,000 BTU/h = 1 RT · the register can be typed in either */
+  $('capHint').textContent = m.cap > 0
+    ? '= ' + fmt(m.cap * 12000) + ' BTU/ชม.'
+    : '';
   $('qacHint').textContent = m.cap>0
     ? fmt(m.Qac/m.cap) + ' CMH ต่อ RT · ค่าที่ใช้กันทั่วไปอยู่ราว 500 ถึง 680'
     : 'ใส่ขนาดแอร์ก่อน';
