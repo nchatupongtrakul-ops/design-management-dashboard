@@ -2076,6 +2076,9 @@ function renderScnCard(s){
 var INSTALL_EVT = null;
 var INSTALLED = window.matchMedia('(display-mode: standalone)').matches
              || window.navigator.standalone === true;
+/* the portal embeds this page; Chrome never offers to install an iframe */
+var IN_FRAME = false;
+try { IN_FRAME = window.top !== window.self; } catch(e){ IN_FRAME = true; }
 window.addEventListener('beforeinstallprompt', function(e){
   e.preventDefault();          /* keep it, so our own button can fire it */
   INSTALL_EVT = e;
@@ -2085,6 +2088,26 @@ window.addEventListener('appinstalled', function(){
   INSTALL_EVT = null; INSTALLED = true;
   try { csFileTell(); } catch(err){}
 });
+/* Why the button is or is not there, in one line. Chrome decides when
+   beforeinstallprompt fires - after a click and about half a minute on
+   the page - so its absence is normal and has to be explained rather
+   than left as a gap. */
+function installLine(){
+  if(INSTALLED) return '';
+  if(IN_FRAME)
+    return '<div class="hint" style="margin-top:4px">'
+      + '<b>\u0e15\u0e34\u0e14\u0e15\u0e31\u0e49\u0e07\u0e40\u0e1b\u0e47\u0e19\u0e41\u0e2d\u0e1b\u0e41\u0e25\u0e49\u0e27 Chrome \u0e08\u0e30\u0e08\u0e33\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e42\u0e1f\u0e25\u0e40\u0e14\u0e2d\u0e23\u0e4c\u0e43\u0e2b\u0e49 \u0e44\u0e21\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e14\u0e2d\u0e19\u0e38\u0e0d\u0e32\u0e15\u0e2d\u0e35\u0e01</b> \u00b7 '
+      + '\u0e41\u0e15\u0e48\u0e15\u0e34\u0e14\u0e15\u0e31\u0e49\u0e07\u0e43\u0e19\u0e1e\u0e2d\u0e23\u0e4c\u0e17\u0e31\u0e25\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49 \u2014 \u0e01\u0e14 <b>Open full page</b> \u0e21\u0e38\u0e21\u0e02\u0e27\u0e32\u0e1a\u0e19\u0e01\u0e48\u0e2d\u0e19 \u0e41\u0e25\u0e49\u0e27\u0e04\u0e48\u0e2d\u0e22\u0e15\u0e34\u0e14\u0e15\u0e31\u0e49\u0e07</div>';
+  if(INSTALL_EVT)
+    return '<div class="hint" style="margin-top:4px">'
+      + '<b>\u0e44\u0e21\u0e48\u0e2d\u0e22\u0e32\u0e01\u0e01\u0e14\u0e17\u0e38\u0e01\u0e27\u0e31\u0e19 \u0e01\u0e14 \u0e15\u0e34\u0e14\u0e15\u0e31\u0e49\u0e07\u0e40\u0e1b\u0e47\u0e19\u0e41\u0e2d\u0e1b</b> \u0e04\u0e23\u0e31\u0e49\u0e07\u0e40\u0e14\u0e35\u0e22\u0e27 '
+      + '\u2014 Chrome \u0e08\u0e33\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e42\u0e1f\u0e25\u0e40\u0e14\u0e2d\u0e23\u0e4c\u0e43\u0e2b\u0e49\u0e16\u0e32\u0e27\u0e23\u0e40\u0e09\u0e1e\u0e32\u0e30\u0e41\u0e2d\u0e1b\u0e17\u0e35\u0e48\u0e15\u0e34\u0e14\u0e15\u0e31\u0e49\u0e07\u0e41\u0e25\u0e49\u0e27</div>';
+  return '<div class="hint" style="margin-top:4px">'
+    + '<b>\u0e15\u0e34\u0e14\u0e15\u0e31\u0e49\u0e07\u0e40\u0e1b\u0e47\u0e19\u0e41\u0e2d\u0e1b\u0e41\u0e25\u0e49\u0e27 Chrome \u0e08\u0e30\u0e40\u0e25\u0e34\u0e01\u0e16\u0e32\u0e21\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e42\u0e1f\u0e25\u0e40\u0e14\u0e2d\u0e23\u0e4c\u0e16\u0e32\u0e27\u0e23</b> \u00b7 '
+    + '\u0e15\u0e34\u0e14\u0e15\u0e31\u0e49\u0e07\u0e08\u0e32\u0e01 <b>\u0e44\u0e2d\u0e04\u0e2d\u0e19\u0e23\u0e39\u0e1b\u0e08\u0e2d\u0e21\u0e35\u0e25\u0e39\u0e01\u0e28\u0e23\u0e25\u0e07</b> \u0e17\u0e49\u0e32\u0e22\u0e0a\u0e48\u0e2d\u0e07\u0e17\u0e35\u0e48\u0e2d\u0e22\u0e39\u0e48\u0e02\u0e2d\u0e07 Chrome '
+    + '\u0e2b\u0e23\u0e37\u0e2d\u0e40\u0e21\u0e19\u0e39 <b>\u22ee \u2192 Cast, save and share \u2192 Install page as app</b><br>'
+    + '\u0e16\u0e49\u0e32\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35 \u0e43\u0e2b\u0e49\u0e43\u0e0a\u0e49\u0e2b\u0e19\u0e49\u0e32\u0e19\u0e35\u0e49\u0e2a\u0e31\u0e01\u0e04\u0e23\u0e39\u0e48\u0e01\u0e48\u0e2d\u0e19 Chrome \u0e08\u0e30\u0e40\u0e2a\u0e19\u0e2d\u0e40\u0e2d\u0e07\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e40\u0e2b\u0e47\u0e19\u0e27\u0e48\u0e32\u0e43\u0e0a\u0e49\u0e08\u0e23\u0e34\u0e07</div>';
+}
 function installBtn(){
   if(INSTALLED || !INSTALL_EVT) return '';
   return '<button class="btn ghost" id="fInstall" '
@@ -3364,11 +3387,7 @@ function fileRender(f){
     body = '<b style="color:#8A5B12">ต้องกดอนุญาตอีกครั้ง</b> '
          + '<span class="fname">' + esc(f.name) + '</span> · '
          + 'เบราว์เซอร์ลืมสิทธิ์หลังปิดโปรแกรม ระหว่างนี้บันทึกลงเครื่องอย่างเดียว ไม่มีอะไรหาย'
-         + (INSTALL_EVT && !INSTALLED
-             ? '<div class="hint" style="margin-top:4px">'
-               + '<b>ไม่อยากกดทุกวัน กด ติดตั้งเป็นแอป</b> ครั้งเดียว '
-               + '— Chrome จำสิทธิ์โฟลเดอร์ให้ถาวรเฉพาะแอปที่ติดตั้งแล้ว</div>'
-             : '');
+         + installLine();
     acts = '<button class="btn" id="fGrant">อนุญาตอีกครั้ง</button>'
          + installBtn()
          + '<button class="btn ghost" id="fUnlink">ยกเลิกการเชื่อม</button>';
