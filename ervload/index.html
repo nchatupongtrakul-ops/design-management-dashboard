@@ -1895,6 +1895,9 @@ var HUB = null;              /* { pid, sid, rid } when opened from the hub */
 
 function esc0(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+/* true once someone sets the airflow here to something other than what
+   the CO2 tool decided · until then this page follows that answer */
+var OA_MANUAL = false;
 function setOa(q){
   var el = $('oa');
   if(q > parseFloat(el.max)) el.max = Math.ceil(q*1.15/1000)*1000;
@@ -1950,12 +1953,17 @@ function hubInit(){
   var cnd = csCond(hit.s, rm);
   COND_FLD.forEach(function(f){ $(f[0]).value = cnd[f[1]]; });
 
-  /* airflow: what the CO2 tool decided, unless this tool was given another */
-  var q = (e && e.oa) ? csNum(e.oa) : HUB.ventQ;
+  /* Airflow: the CO2 tool's answer leads. Only a figure somebody set here
+     on purpose outranks it - otherwise a stale number from an earlier
+     visit, or the slider's own starting value, would quietly win and the
+     two pages would describe different designs. */
+  OA_MANUAL = !!(e && e.oaManual);
+  var q = (OA_MANUAL && e && e.oa) ? csNum(e.oa)
+        : (HUB.ventQ || (e && e.oa ? csNum(e.oa) : 0));
   if(q) setOa(q);
   if(e && e.keep){
     csKeepSet(LOAD_KEEP, e.keep);
-    if(q) setOa(q);                  /* the room's own airflow still wins */
+    if(q) setOa(q);                  /* applied last, so the decision holds */
   } else if(e){
     /* a room saved before the keep list existed */
     if(e.loadnow != null && isFinite(e.loadnow)) $('loadnow').value = e.loadnow;
@@ -1978,14 +1986,16 @@ function hubInit(){
         : ' · <span class="warn">ห้องนี้ยังไม่ได้ใส่ขนาดแอร์เดิมที่ Hub กำลังใช้ค่าตัวอย่างอยู่</span>')
     + (HUB.ventQ
         ? (diff
-            ? ' · <span class="warn">ลมที่ใช้ที่นี่ ' + fmt(q) + ' CMH ต่างจากที่ CO₂ คำนวณไว้ '
+            ? ' · <span class="warn">ตั้งลมเองไว้ ' + fmt(q) + ' CMH · CO₂ คำนวณได้ '
               + fmt(HUB.ventQ) + ' CMH</span> <button class="snap" id="hubSnap">ใช้ค่าจาก CO₂</button>'
             : ' · ลม ' + fmt(HUB.ventQ) + ' CMH ตามที่ CO₂ คำนวณไว้')
         : ' · <span class="warn">ห้องนี้ยังไม่ได้คำนวณ CO₂ ปริมาณลมจึงยังไม่ผูกกับเกณฑ์ใด</span>')
     + '<span class="sv" id="hubSaved">ผลคำนวณบันทึกกลับอัตโนมัติ</span>'
     + '<span class="cond" id="hubCond"></span>';
   var snap = $('hubSnap');
-  if(snap) snap.addEventListener('click', function(){ setOa(HUB.ventQ); render(); });
+  if(snap) snap.addEventListener('click', function(){
+    OA_MANUAL = false; setOa(HUB.ventQ); render();
+  });
   /* last, so the audit bar is not overwritten by the banner above */
   csKeepAudit(LOAD_KEEP, LOAD_SKIP, 'ERV Load Impact');
 }
@@ -2024,7 +2034,8 @@ function hubSave(m){
     rt: m.qt/RTW, dT: m.dT, dRH: (m.RHr2 - m.RHr)*100,
     ok: m.covered, deficitRt: m.deficitW/RTW, spareRt: m.spareW/RTW,
     /* read by the hub and by the other pages */
-    oa: m.Q, qac: m.Qac, cap: m.cap, tsa: m.Tsa, rhsa: m.RHsa*100,
+    oa: m.Q, oaManual: OA_MANUAL,
+    qac: m.Qac, cap: m.cap, tsa: m.Tsa, rhsa: m.RHsa*100,
     /* the conditions, so a figure can be traced back to what produced it */
     toa: nv('toa'), rhoa: nv('rhoa'), tr: nv('tr'), rhr: nv('rhr'),
     et: nv('et'), es: nv('es'),
@@ -2809,6 +2820,10 @@ $('modebar').addEventListener('click', function(e){
   this.querySelectorAll('.modecard').forEach(function(x){ x.classList.toggle('active', x===t); });
   render();
 });
+/* moving the airflow here is a decision about this room, so it stops the
+   CO2 answer being applied over it on the next visit */
+$('oa').addEventListener('input', function(){ OA_MANUAL = true; });
+
 ['toa','rhoa','tr','rhr','et','es','cap','qac','area','ht','loadnow','oa'].forEach(function(id){
   $(id).addEventListener('input', render);
 });
@@ -2816,6 +2831,7 @@ document.querySelectorAll('.stepbtn').forEach(function(b){
   b.addEventListener('click', function(){
     var s = $('oa');
     s.value = Math.max(+s.min, Math.min(+s.max, +s.value + (+b.dataset.step)));
+    OA_MANUAL = true;
     render();
   });
 });
