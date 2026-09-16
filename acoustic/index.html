@@ -1003,6 +1003,14 @@ function csNewScenario(name){
     city: '',
     oaPk: { t:35, rh:60 },     /* design · sizing */
     co2:  { oa:400 },          /* outdoor CO2 ppm · the floor indoor CO2 decays to */
+    /* ── which criteria this job is actually held to ──
+       A room is not failing LEED when nobody is chasing LEED. Judging
+       every room against every standard produced shortfalls against
+       things the project never agreed to, and worse, let one of them
+       become the governing figure and drive the airflow. So the project
+       says which ones count; the rest still compute and are shown, but
+       marked as not in use and kept out of the verdict. */
+    crit: { ash:true, law:true, leed:false, ceil:true, p1000:true },
     oaAv: { t:31, rh:70 },     /* annual average · energy */
     room: { t:25, rh:50 },     /* indoor */
     erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
@@ -1041,6 +1049,7 @@ function csCond(scn, rm){
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
     oaCo: csNum(scn.co2 && scn.co2.oa, 400),
+    crit: scn.crit || { ash:true, law:true, leed:false, ceil:true, p1000:true },
     over: []
   };
   var o = rm && rm.cond;
@@ -1057,6 +1066,14 @@ var CS_COND_TH = { oaPkT:'อุณหภูมิภายนอก', oaPkRh:'�
                    rT:'อุณหภูมิห้อง', rRh:'ความชื้นห้อง',
                    et:'ประสิทธิภาพรวม ηt', es:'ประสิทธิภาพสัมผัส ηs',
                    oaCo:'CO₂ อากาศภายนอก' };
+/* the criteria, in the order they are shown */
+var CS_CRIT = [
+  ['ash',   'ASHRAE 62.1 · Table 6-1',      'Rp ต่อคน + Ra ต่อพื้นที่'],
+  ['law',   'กฎกระทรวงฉบับที่ 39',           'เกณฑ์ที่กฎหมายไทยบังคับ'],
+  ['leed',  'LEED / WELL',                  'ASHRAE 62.1 × 1.3 · เลือกเมื่อโครงการทำ certification'],
+  ['ceil',  'เพดาน CO₂ ของ ASHRAE 62.1',    'ตามหมวดพื้นที่ · บางหมวดไม่มีเกณฑ์'],
+  ['p1000', 'เป้าหมาย 1,000 ppm',           'ตัวชี้วัดดั้งเดิม ไม่ใช่ข้อบังคับของมาตรฐานใด']
+];
 
 /* ── migration ──
    v1 is left exactly where it is. If v2 ever has to be thrown away the old
@@ -1130,7 +1147,7 @@ function csHeal(db){
     if(p.status == null) p.status = '';
     p.scenarios.forEach(function(s){
       var d = csNewScenario('x');
-      ['oaPk','oaAv','room','erv','bill'].forEach(function(g){
+      ['oaPk','oaAv','room','erv','bill','crit'].forEach(function(g){
         if(!s[g]) s[g] = d[g];
         else Object.keys(d[g]).forEach(function(k){
           if(s[g][k] == null) s[g][k] = d[g][k]; });
