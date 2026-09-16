@@ -1694,8 +1694,17 @@ async function encUnlock(quiet){
     adoptPublished(o);
   } catch(e){
     try { localStorage.removeItem(PASSKEY); } catch(e2){}
+    var wrong = /รหัสผ่านไม่ถูกต้อง/.test(e.message);
     $('unlockMsg').innerHTML = '<span style="color:var(--red)">'
-      + (quiet ? 'รหัสที่จำไว้ใช้ไม่ได้แล้ว · ใส่รหัสใหม่' : esc(e.message)) + '</span>';
+      + (quiet ? 'รหัสที่จำไว้ใช้ไม่ได้แล้ว · ใส่รหัสใหม่' : esc(e.message)) + '</span>'
+      /* there is no account to reset and no hint kept anywhere - the file
+         only opens with what was typed when it was built */
+      + (wrong ? '<div class="hint" style="margin-top:4px">'
+          + 'รหัสนี้คือรหัสที่ตั้งตอนอัปเดตด้วย '
+          + '<b>Sync Cost Database.bat</b> · ถ้าจำไม่ได้แล้ว '
+          + '<b>ต้องรันไฟล์นั้นใหม่เพื่อตั้งรหัสใหม่</b> '
+          + '· กู้คืนรหัสเก่าไม่ได้ ไม่มีที่ไหนเก็บไว้'
+          + '</div>' : '');
     $('unlock').hidden = false;
   }
 }
@@ -1776,7 +1785,10 @@ window.addEventListener('beforeunload', function(e){
   if(DIRTY){ e.preventDefault(); e.returnValue = ''; }
 });
 
-$('unlockGo').addEventListener('click', encUnlock);
+/* not encUnlock directly: the listener hands it the click Event, which
+   lands in quiet and makes every wrong password claim the remembered one
+   stopped working - when nothing was remembered at all */
+$('unlockGo').addEventListener('click', function(){ encUnlock(); });
 $('unlockPass').addEventListener('keydown', function(e){ if(e.key === 'Enter') encUnlock(); });
 
 load();

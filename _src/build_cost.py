@@ -57,6 +57,16 @@ SOURCE = (r'C:\Users\coral\OneDrive - Coral Life\Coral Life - BA - Solution Desi
           r'\1_Design Management\ERV_Project_Cost_Database.xlsx')
 
 ITERS = 310000
+MIN_PASS = 12
+
+# Somewhere that is neither the repo (public) nor OneDrive (shared, and
+# synced to a server). Plain text: this PC already holds the unencrypted
+# workbook that everything here comes from, so anyone who can read this
+# file could read that one instead. It buys convenience, not secrecy, and
+# it is opt-in.
+PASS_FILE = os.path.join(os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'),
+                         'Coral', 'cost-pass.txt')
+
 LOG = []
 
 
@@ -168,6 +178,67 @@ def encrypt(payload, passphrase):
             'builtAt': __import__('datetime').datetime.now().isoformat(timespec='seconds')}
 
 
+def decrypt(env, passphrase):
+    """The other half of encrypt(), used to check our own work."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    key = hashlib.pbkdf2_hmac('sha256', passphrase.encode('utf-8'),
+                              base64.b64decode(env['kdf']['salt']),
+                              env['kdf']['iters'], dklen=32)
+    raw = AESGCM(key).decrypt(base64.b64decode(env['iv']),
+                              base64.b64decode(env['ct']), None)
+    return json.loads(raw.decode('utf-8'))
+
+
+def read_saved_pass():
+    try:
+        pw = io.open(PASS_FILE, encoding='utf-8').read().strip()
+        return pw or None
+    except Exception:
+        return None
+
+
+def save_pass(pw):
+    try:
+        os.makedirs(os.path.dirname(PASS_FILE), exist_ok=True)
+        io.open(PASS_FILE, 'w', encoding='utf-8').write(pw)
+        return True
+    except Exception:
+        return False
+
+
+def ask_passphrase():
+    """Once, deliberately, and confirmed - or nobody can open the result."""
+    line = '\u2500' * 62
+    print('')
+    print('  ' + line)
+    print('  ตั้งรหัสผ่านของไฟล์ที่เผยแพร่')
+    print('')
+    print('    คนในทีมใช้รหัสนี้เปิดหน้าเว็บ '
+          '· อย่างน้อย %d ตัวอักษร' % MIN_PASS)
+    print('    พิมพ์แล้วจะไม่เห็นอะไรขึ้นเลย '
+          'ไม่มีแม้แต่ดอกจัน '
+          '— เป็นเรื่องปกติ พิมพ์ได้เลย')
+    print('    พิมพ์จนสุดแล้วกด Enter '
+          '· จะถามซ้ำอีกครั้งเพื่อกันพิมพ์ผิด')
+    print('  ' + line)
+    print('')
+    while True:
+        pw = getpass.getpass('  รหัสผ่าน: ')
+        if len(pw) < MIN_PASS:
+            print('  สั้นไป · พิมพ์มา %d ตัว '
+                  'ต้องอย่างน้อย %d · ลองใหม่อีกครั้ง'
+                  % (len(pw), MIN_PASS))
+            print('')
+            continue
+        again = getpass.getpass('  พิมพ์ซ้ำอีกครั้ง: ')
+        if pw != again:
+            print('  สองครั้งไม่ตรงกัน · เริ่มใหม่อีกครั้ง')
+            print('')
+            continue
+        print('  รับรหัสแล้ว · ยาว %d ตัวอักษร' % len(pw))
+        return pw
+
+
 def git(args, cwd):
     p = subprocess.run(['git'] + args, cwd=cwd, capture_output=True, text=True,
                        encoding='utf-8', errors='replace')
@@ -192,9 +263,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--push', action='store_true', help='ไม่ต้องถามก่อน push')
     ap.add_argument('--no-git', action='store_true', help='สร้างไฟล์อย่างเดียว')
+    ap.add_argument('--forget', action='store_true',
+                    help='ลืมรหัสที่จำไว้ในเครื่องนี้ แล้วถามใหม่')
     args = ap.parse_args()
 
     banner()
+
+    if args.forget:
+        if os.path.exists(PASS_FILE):
+            os.remove(PASS_FILE)
+            print('  ลืมรหัสที่จำไว้แล้ว · ครั้งนี้จะถามใหม่')
+        else:
+            print('  ไม่มีรหัสที่จำไว้อยู่แล้ว')
+        print('')
 
     if not os.path.exists(SOURCE):
         say('หาไฟล์ต้นทางไม่เจอ: %s' % SOURCE)
@@ -219,10 +300,20 @@ def main():
     plain_path = os.path.join(out_dir, 'data.json')
 
     if ENCRYPT:
-        pw = os.environ.get('CORAL_COST_PASS') or getpass.getpass('รหัสผ่านสำหรับไฟล์เผยแพร่: ')
-        if len(pw) < 12:
-            say('รหัสสั้นเกินไป ต้องอย่างน้อย 12 ตัวอักษร')
-            return 1
+        fresh = False
+        pw = os.environ.get('CORAL_COST_PASS')
+        if pw:
+            print('  ใช้รหัสจาก CORAL_COST_PASS')
+        else:
+            pw = read_saved_pass()
+            if pw:
+                print('  ใช้รหัสที่จำไว้ในเครื่องนี้ · '
+                      'จะเปลี่ยนรหัส สั่ง \'Sync Cost Database.bat\' --forget')
+                print('')
+        if not pw:
+            pw = ask_passphrase()
+            fresh = True
+
         body = encrypt(payload, pw)
         target, gone = enc_path, plain_path
     else:
@@ -235,6 +326,37 @@ def main():
     if os.path.exists(gone):
         os.remove(gone)
         say('ลบ %s ของโหมดเดิมออกแล้ว' % os.path.basename(gone))
+
+    if ENCRYPT:
+        # Open what we just wrote, with the passphrase we just took. A
+        # file that cannot be opened is worse than no file: it pushes
+        # cleanly and fails on somebody else's screen, days later.
+        try:
+            back = decrypt(json.loads(io.open(target, encoding='utf-8').read()), pw)
+            n = len(back.get('db', {}).get('projects', []))
+            if n != len(db.get('projects', [])):
+                raise ValueError('จำนวนโปรเจคที่ถอดกลับมาไม่ตรง')
+            say('✓ ตรวจแล้ว · เปิดไฟล์ด้วยรหัสนี้ได้จริง · '
+                'ข้อมูลครบ %d โปรเจค' % n)
+        except Exception as e:
+            say('✗ ไฟล์ที่เพิ่งเขียน เปิดกลับไม่ได้ · %s' % e)
+            say('ไม่ push และลบไฟล์ทิ้งแล้ว · ลองรันใหม่อีกครั้ง')
+            os.remove(target)
+            return 1
+
+        if fresh and not os.environ.get('CORAL_COST_PASS'):
+            print('\n'.join(LOG))
+            LOG[:] = []
+            print('')
+            ans = input('  จำรหัสนี้ไว้ในเครื่องนี้ไหม '
+                        'ครั้งต่อไปจะไม่ต้องพิมพ์อีก [y/N] ')
+            if ans.strip().lower() in ('y', 'yes'):
+                if save_pass(pw):
+                    say('จำรหัสไว้ที่ %s' % PASS_FILE)
+                    say('เก็บนอก OneDrive และนอก repo · '
+                        'เป็นของเครื่องนี้เครื่องเดียว')
+                else:
+                    say('จำไว้ไม่ได้ · เขียน %s ไม่สำเร็จ' % PASS_FILE)
 
     if args.no_git:
         return 0
