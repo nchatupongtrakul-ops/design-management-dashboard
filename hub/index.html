@@ -348,13 +348,20 @@ tr.gov td{background:#EDF6FD !important}
 /* six groups, three columns, two clean rows - and the fields run across
    each group rather than down it, which is what kept this card as tall as
    the screen for thirteen numbers */
-.sgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:stretch}
-.sgroup{border:1px solid var(--border); border-radius:7px; padding:11px 13px 12px;
+/* This card is a form, not a table. The page around it is allowed to be
+   as wide as the room table needs, but letting the form follow put a
+   96 px input in the middle of a 245 px track with the rest of it empty,
+   which is what made the card look like it was mostly air. The tracks and
+   the grid both get a ceiling; on a wide screen the card simply stops
+   rather than spreading. */
+.sgrid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px;
+  align-items:stretch; max-width:1020px}
+.sgroup{border:1px solid var(--border); border-radius:7px; padding:10px 12px 11px;
   background:var(--surface); display:flex; flex-direction:column}
 .sgh{font-size:12.5px; font-weight:600; margin-bottom:2px}
-.sgroup .hint{margin:0 0 9px}
-.sfields{display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
-  gap:9px 12px}
+.sgroup .hint{margin:0 0 7px}
+.sfields{display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,146px));
+  gap:8px 12px; justify-content:start}
 .sfields.two{grid-template-columns:repeat(2,1fr)}
 .sfld{min-width:0}
 .sfld .flabel{display:block; font-size:11.5px; color:var(--text-secondary); margin-bottom:3px;
