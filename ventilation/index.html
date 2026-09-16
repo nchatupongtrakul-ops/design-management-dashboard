@@ -1906,10 +1906,17 @@ function criteria(s){
   return out;
 }
 /* the airflow the ticked criteria between them demand */
-function recommended(s){
+/* What the criteria in force actually ask for. The verdict is measured
+   against this, the same number the criteria table and the governing
+   line on screen show - anything else and the page contradicts itself. */
+function required(s){
   var m=0; criteria(s).forEach(function(r){ if(r.use && isFinite(r.q) && r.q>m) m=r.q; });
-  return Math.ceil(m/100)*100;
+  return m;
 }
+/* What to suggest setting the fan to: the requirement, rounded up to
+   something you would actually dial in. A suggestion only - never a
+   threshold to judge a design by. */
+function recommended(s){ return Math.ceil(required(s)/100)*100; }
 
 /* ---------------------------------------------------------------
    REFERENCE LINES
@@ -2255,7 +2262,7 @@ function render(){
   var s = state();
   if(lastDur !== s.dur){ view = null; lastDur = s.dur; }
 
-  var rec = recommended(s);
+  var rec = recommended(s), req = required(s);
   /* widen the track BEFORE writing a value, otherwise the old max clips it */
   var sliderMax = Math.max(12000,
                            Math.ceil(rec*2.2/1000)*1000,
@@ -2306,7 +2313,9 @@ function render(){
     : 'ใส่ 0 ถ้าห้องยังไม่มีระบบระบายอากาศ · เส้นเทียบจะเป็นกรณีไม่มีระบบเลย';
 
   var end = at(s, s.dur, s.Q), ss = steady(s, s.Q);
-  hubSave(s, rec, end);
+  /* the verdict is measured against what is required, not the rounded
+     suggestion - see required() and recommended() */
+  hubSave(s, req, end);
   var ceil = s.cat[5]!=null ? s.Co + s.cat[5] : 1900;
   var cls = end < 1000 ? 'ok' : end < ceil ? 'warn' : 'bad';
   var tau = (s.Q + s.inf*s.V) > 0 ? s.V/(s.Q + s.inf*s.V)*60 : null;
@@ -2529,11 +2538,12 @@ function roomState(r){
 }
 function roomSummary(r){
   var st = roomState(r);
-  var rec = recommended(st);
-  return { st:st, rec:rec, co2:at(st, st.dur, st.Q),
+  var rec = recommended(st), req = required(st);
+  return { st:st, rec:rec, req:req, co2:at(st, st.dur, st.Q),
            lps: st.Pz>0 ? st.Q/3.6/st.Pz : 0,
            ach: st.V>0 ? st.Q/st.V : 0,
-           ok: st.Q + 0.5 >= rec };
+           /* judged against what is required, suggested separately */
+           ok: st.Q + 0.5 >= req };
 }
 function rkpi(v,u,label,note){
   return '<div class="kpi-card"><div class="kpi-value">' + v

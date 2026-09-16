@@ -2153,7 +2153,7 @@ function defFunc(){                       /* the tool's own starting point */
    actually governs can be higher, because CO2 can be the binding
    criterion, and working that out needs the tool's model - so this is
    labelled as a floor, never as the answer. */
-function funcRates(rm){
+function funcRates(rm, crit){
   var ac = rm.cat !== 'MV';
   var c = CATS[csNum(rm.func, defFunc())] || CATS[defFunc()];
   var arr = ac ? LAW_AC : LAW_NA;
@@ -2161,8 +2161,16 @@ function funcRates(rm){
   var A = csArea(rm), V = csVolume(rm), pz = csNum(rm.pz);
   var ash = (c[2] != null && c[3] != null) ? (c[2]*pz + c[3]*A)*3.6 : null;
   var thai = ac ? law[1]*A : law[1]*V;
+  /* only the criteria this project ticked · without them the register
+     quotes a figure from a standard the job is not being held to, and
+     disagrees with the CO2 tool, which does respect the ticks */
+  var use = crit || { ash:true, law:true, leed:false };
+  var min = 0;
+  if(use.ash  && ash)  min = Math.max(min, ash);
+  if(use.leed && ash)  min = Math.max(min, ash * 1.3);   /* LEED/WELL = 62.1 x 1.3 */
+  if(use.law)          min = Math.max(min, thai);
   return { c:c, law:law, ash:ash, thai:thai,
-           min: Math.max(ash || 0, thai),
+           min: min,
            density: c[4], ceil: c[5] };
 }
 /* the headcount ASHRAE 62.1 would design to for this category and area */
@@ -2184,7 +2192,7 @@ function syncAutoPz(s){
 }
 function funcCell(rm, j, cnd){
   var ac = rm.cat !== 'MV';
-  var f = funcRates(rm);
+  var f = funcRates(rm, cnd && cnd.crit);
   var suggest = densityPz(rm) || 0;
   return '<div class="fnwrap">'
     + '<select class="rin fnsel" data-f="func" data-col="'+pcol('func')+'" data-j="'+j+'">'
@@ -2194,8 +2202,11 @@ function funcCell(rm, j, cnd){
       + lawOptions(ac ? LAW_AC : LAW_NA, csNum(rm.law, 0)) + '</select>'
     + '<div class="fnhint">Rp ' + (f.c[2]==null?'—':f.c[2]) + ' · Ra ' + (f.c[3]==null?'—':f.c[3])
       + (f.ceil != null ? ' · เพดาน CO₂ +' + fmt(f.ceil) : ' · ไม่มีเกณฑ์ CO₂')
-      + '<br>ลมขั้นต่ำ <b>' + fmt(Math.ceil(f.min/100)*100) + '</b> CMH'
-      + '<span class="fnq" title="ตัวเลขนี้คิดจาก 62.1 กับกฎกระทรวงเท่านั้น '
+      + (f.min > 0
+          ? '<br>ลมขั้นต่ำ <b>' + fmt(Math.round(f.min)) + '</b> CMH'
+          : '<br>ไม่ได้ติ๊กเกณฑ์ปริมาณลมไว้')
+      + '<span class="fnq" title="คิดจากเกณฑ์ที่โปรเจคนี้ติ๊กไว้ เฉพาะส่วนที่คิดจากขนาดห้องกับจำนวนคนได้ '
+      + '· เกณฑ์ CO₂ ต้องใช้เส้นการลดลงของ CO₂ จึงคิดที่นี่ไม่ได้ '
       + 'ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้ · เปิดเครื่องมือเพื่อได้ตัวเลขสุดท้าย">?</span>'
       + (rm.pzAuto
           ? '<br><span class="fnauto" title="ความหนาแน่นอ้างอิงของหมวดนี้ตาม ASHRAE 62.1 '
@@ -2357,7 +2368,8 @@ function renderRooms(p, s, r){
     + '<li><b>พื้นที่</b> กรอกเป็น ตร.ม. ตรง ๆ ตามที่อ่านได้จากแบบ ไม่ต้องแตกเป็นกว้างคูณยาว · '
       + 'ห้องที่ไม่ได้เป็นสี่เหลี่ยมก็กรอกได้ · <b>ปริมาตร</b> ที่ใช้คิด ACH คือ พื้นที่ × สูง</li>'
     + '<li><b>ฟังก์ชันห้อง</b> ตัดสินอัตราลมและเพดาน CO₂ · เลือกที่นี่แล้วเครื่องมือ CO₂ รับไปใช้เลย</li>'
-    + '<li><b>ลมขั้นต่ำ</b> ที่แสดงไว้ คิดจาก ASHRAE 62.1 กับกฎกระทรวงเท่านั้น · '
+    + '<li><b>ลมขั้นต่ำ</b> ที่แสดงไว้ คิดจาก<b>เกณฑ์ที่โปรเจคนี้ติ๊กไว้</b> '
+      + 'เฉพาะส่วนที่คิดจากขนาดห้องกับจำนวนคน · '
       + '<b>ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้</b> ต้องเปิดเครื่องมือถึงจะได้ตัวเลขสุดท้าย</li>'
     + '<li><b>จำนวน</b> คือห้องที่เหมือนกันทุกอย่าง · ใส่ 20 แทนการสร้าง 20 แถว '
       + 'ผลคำนวณเก็บเป็นของห้องเดียว แล้วคูณตอนรวมยอด</li>'
@@ -2517,7 +2529,7 @@ function repSchedHead(){
 }
 function repRoomRow(s, rm, j){
   var q = Math.max(1, csNum(rm.qty,1)), isMv = rm.cat === 'MV';
-  var f = funcRates(rm), cnd = csCond(s, rm);
+  var cnd = csCond(s, rm), f = funcRates(rm, cnd.crit);
   var A = csArea(rm), v = rm.vent, e = rm.erv, a = rm.ac;
   var tag = [rm.tag, rm.level, rm.system, rm.zone].filter(function(x){ return x; }).join(' · ');
   return '<tr>'
