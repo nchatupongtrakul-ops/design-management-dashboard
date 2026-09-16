@@ -345,22 +345,38 @@ tr.gov td{background:#EDF6FD !important}
 .scntab .n{font-size:11px; color:var(--gray); font-variant-numeric:tabular-nums}
 .scntab.active .n{color:#4A7FB5}
 
-.sgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px}
-.sgroup{border:1px solid var(--border); border-radius:7px; padding:11px 12px; background:var(--surface)}
+/* six groups, three columns, two clean rows - and the fields run across
+   each group rather than down it, which is what kept this card as tall as
+   the screen for thirteen numbers */
+.sgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:stretch}
+.sgroup{border:1px solid var(--border); border-radius:7px; padding:11px 13px 12px;
+  background:var(--surface); display:flex; flex-direction:column}
 .sgh{font-size:12.5px; font-weight:600; margin-bottom:2px}
-.sgroup .hint{margin:0 0 8px}
-.sfld{margin-bottom:7px}
-.sfld:last-child{margin-bottom:0}
-.sfld .flabel{display:block; font-size:11.5px; color:var(--text-secondary); margin-bottom:3px}
+.sgroup .hint{margin:0 0 9px}
+.sfields{display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+  gap:9px 12px}
+.sfields.two{grid-template-columns:repeat(2,1fr)}
+.sfld{min-width:0}
+.sfld .flabel{display:block; font-size:11.5px; color:var(--text-secondary); margin-bottom:3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .sfld .numwrap{display:flex; align-items:center; gap:5px}
-.sfld input{width:82px; text-align:right}
-.sfld .u{font-size:11px; color:var(--gray)}
-.critgroup{grid-column:1 / -1}
-.critopt{display:flex; align-items:flex-start; gap:7px; cursor:pointer; margin-top:6px}
+.sfld input{width:100%; max-width:96px; text-align:right}
+.sfld .u{font-size:11px; color:var(--gray); flex:none}
+
+/* the checklist sits at the foot, across the full width, in columns */
+.critgroup{grid-column:1 / -1; background:#F7FBFF; border-color:#DCE9F6}
+.critlist{display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr));
+  gap:8px 18px; margin-top:4px}
+.critopt{display:flex; align-items:flex-start; gap:8px; cursor:pointer;
+  border:1px solid transparent; border-radius:6px; padding:5px 7px}
+.critopt:hover{background:#EDF6FD; border-color:#DCE9F6}
 .critopt input{margin-top:3px; flex:none}
 .critopt span{font-size:12px; line-height:1.4}
 .critopt b{font-weight:600; color:var(--text)}
-.critopt i{display:block; font-style:normal; font-size:10.5px; color:var(--text-secondary)}
+.critopt i{display:block; font-style:normal; font-size:10.5px; color:var(--text-secondary);
+  margin-top:1px}
+@media screen and (max-width:1050px){ .sgrid{grid-template-columns:repeat(2,1fr)} }
+@media screen and (max-width:680px){ .sgrid{grid-template-columns:1fr} }
 
 /* The room table has more columns than fit, so the browser takes the space
    it needs from whichever column will yield - and the ones that yield are
@@ -1844,49 +1860,49 @@ function renderScnBar(p){
 }
 function renderScnCard(s){
   function fld(id, lab, val, step, unit){
-    return '<div class="sfld"><label class="flabel" for="'+id+'">'+lab+'</label>'
+    return '<div class="sfld"><label class="flabel" for="'+id+'" title="'+esc(lab)+'">'+lab+'</label>'
       + '<span class="numwrap"><input class="rin" type="number" step="'+step+'" id="'+id+'" value="'+val+'">'
       + (unit ? '<span class="u">'+unit+'</span>' : '') + '</span></div>';
+  }
+  function grp(title, hint, fields, cls){
+    return '<div class="sgroup"><div class="sgh">' + title + '</div>'
+      + '<div class="hint">' + hint + '</div>'
+      + '<div class="sfields' + (cls ? ' ' + cls : '') + '">' + fields + '</div></div>';
   }
   $('scnCard').innerHTML =
       '<div class="card"><div class="card-title-row"><h3>เงื่อนไขของทางเลือกนี้</h3>'
     + '<div class="hint" style="margin:0">ห้องทุกห้องใช้ค่าชุดนี้ เว้นห้องที่ตั้งค่าเองไว้</div></div>'
     + '<div class="sgrid">'
-    + '<div class="sgroup"><div class="sgh">อากาศภายนอก · สภาวะออกแบบ</div>'
-      + '<div class="hint">ใช้คิด<b>ขนาดเครื่อง</b></div>'
-      + fld('sc_pkT','อุณหภูมิ', s.oaPk.t, '0.1', '°C')
-      + fld('sc_pkR','ความชื้นสัมพัทธ์', s.oaPk.rh, '1', '%') + '</div>'
-    + '<div class="sgroup"><div class="sgh">อากาศภายนอก · ค่าเฉลี่ยทั้งปี</div>'
-      + '<div class="hint">ใช้คิด<b>ค่าไฟ</b></div>'
-      + fld('sc_avT','อุณหภูมิ', s.oaAv.t, '0.1', '°C')
-      + fld('sc_avR','ความชื้นสัมพัทธ์', s.oaAv.rh, '1', '%') + '</div>'
+    + grp('อากาศภายนอก · สภาวะออกแบบ', 'ใช้คิด<b>ขนาดเครื่อง</b>',
+        fld('sc_pkT','อุณหภูมิ', s.oaPk.t, '0.1', '°C')
+      + fld('sc_pkR','ความชื้นสัมพัทธ์', s.oaPk.rh, '1', '%'))
+    + grp('อากาศภายนอก · ค่าเฉลี่ยทั้งปี', 'ใช้คิด<b>ค่าไฟ</b>',
+        fld('sc_avT','อุณหภูมิ', s.oaAv.t, '0.1', '°C')
+      + fld('sc_avR','ความชื้นสัมพัทธ์', s.oaAv.rh, '1', '%'))
+    + grp('ภายในห้อง', 'สภาวะที่ออกแบบให้ห้องอยู่',
+        fld('sc_rT','อุณหภูมิ', s.room.t, '0.1', '°C')
+      + fld('sc_rR','ความชื้นสัมพัทธ์', s.room.rh, '1', '%'))
+    + grp('CO₂ ของอากาศภายนอก', 'ฐานที่ CO₂ ในห้องลดลงไปหา',
+        fld('sc_co','CO₂ ภายนอก', csNum(s.co2 && s.co2.oa, 400), '10', 'ppm'))
+    + grp('ประสิทธิภาพแกน ERV', 'จากสเปกรุ่นที่จะใช้จริง',
+        fld('sc_et','ηt ประสิทธิภาพรวม', s.erv.et, '1', '%')
+      + fld('sc_es','ηs ประสิทธิภาพสัมผัส', s.erv.es, '1', '%'))
+    + grp('ค่าไฟและการใช้งาน', 'ใช้คิด ROI ของทั้งทางเลือก',
+        fld('sc_rate','ค่าไฟ', s.bill.rate, '0.01', 'บาท/หน่วย')
+      + fld('sc_cop','COP', s.bill.cop, '0.1', '')
+      + fld('sc_hpd','ชั่วโมงต่อวัน', s.bill.hpd, '0.5', 'ชม.')
+      + fld('sc_dpy','วันต่อปี', s.bill.dpy, '1', 'วัน'), 'two')
     + '<div class="sgroup critgroup"><div class="sgh">เกณฑ์ที่โครงการนี้ต้องผ่าน</div>'
-      + '<div class="hint">ติ๊กเฉพาะที่ตกลงกับลูกค้าจริง ๆ · เครื่องมือ CO₂ จะตัดสินผ่านไม่ผ่าน'
+      + '<div class="hint">ติ๊กเฉพาะที่ตกลงกับลูกค้าจริง ๆ · เครื่องมือ CO₂ ตัดสินผ่านไม่ผ่าน'
       + 'จากเกณฑ์ที่ติ๊กไว้เท่านั้น อันที่ไม่ได้ติ๊กยังคำนวณให้ดูแต่ไม่นับ</div>'
+      + '<div class="critlist">'
       + CS_CRIT.map(function(c){
           var on = !!(s.crit && s.crit[c[0]]);
           return '<label class="critopt"><input type="checkbox" data-crit="' + c[0] + '"'
             + (on ? ' checked' : '') + '><span><b>' + esc(c[1]) + '</b>'
             + '<i>' + esc(c[2]) + '</i></span></label>';
         }).join('')
-      + '</div>'
-    + '<div class="sgroup"><div class="sgh">CO₂ ของอากาศภายนอก</div>'
-      + '<div class="hint">ฐานที่ CO₂ ในห้องลดลงไปหา</div>'
-      + fld('sc_co','CO₂ ภายนอก', csNum(s.co2 && s.co2.oa, 400), '10', 'ppm') + '</div>'
-    + '<div class="sgroup"><div class="sgh">ภายในห้อง</div>'
-      + '<div class="hint">สภาวะที่ออกแบบให้ห้องอยู่</div>'
-      + fld('sc_rT','อุณหภูมิ', s.room.t, '0.1', '°C')
-      + fld('sc_rR','ความชื้นสัมพัทธ์', s.room.rh, '1', '%') + '</div>'
-    + '<div class="sgroup"><div class="sgh">ประสิทธิภาพแกน ERV</div>'
-      + '<div class="hint">จากสเปกรุ่นที่จะใช้จริง</div>'
-      + fld('sc_et','ηt ประสิทธิภาพรวม', s.erv.et, '1', '%')
-      + fld('sc_es','ηs ประสิทธิภาพสัมผัส', s.erv.es, '1', '%') + '</div>'
-    + '<div class="sgroup"><div class="sgh">ค่าไฟและการใช้งาน</div>'
-      + '<div class="hint">ใช้คิด ROI ของทั้งทางเลือก</div>'
-      + fld('sc_rate','ค่าไฟ', s.bill.rate, '0.01', 'บาท/หน่วย')
-      + fld('sc_cop','COP เครื่องทำความเย็น', s.bill.cop, '0.1', '')
-      + fld('sc_hpd','ชั่วโมงต่อวัน', s.bill.hpd, '0.5', 'ชม.')
-      + fld('sc_dpy','วันต่อปี', s.bill.dpy, '1', 'วัน') + '</div>'
+      + '</div></div>'
     + '</div>'
     + '<div class="note warn" style="margin:14px 0 0"><b>สภาวะออกแบบกับค่าเฉลี่ยไม่ใช่ตัวเดียวกัน</b> '
     + 'ค่าออกแบบคือวันที่ร้อนที่สุดที่ยอมให้เครื่องยังเอาอยู่ ใช้คิดขนาด · '
