@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Project Hub</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2383E2">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -324,6 +327,17 @@ tr.gov td{background:#EDF6FD !important}
 .p-off td{opacity:.5}
 .p-row td{border-top:1px solid var(--border)}
 .p-row .p-meta{font-size:11.5px; color:var(--text-secondary); margin-top:2px}
+/* editable, but quiet until it is pointed at - a row of boxes would read
+   like a form rather than a register */
+.p-nm, .p-cl{border:1px solid transparent; background:transparent; border-radius:5px;
+  padding:2px 5px; margin:-2px 0 -2px -5px; font-family:inherit; color:inherit;
+  text-overflow:ellipsis}
+.p-nm{font-size:14px; font-weight:700; width:210px}
+.p-cl{font-size:11.5px; width:120px}
+.p-nm:hover, .p-cl:hover{border-color:var(--border)}
+.p-nm:focus, .p-cl:focus{border-color:var(--blue); background:var(--card-bg);
+  outline:none; box-shadow:0 0 0 2px rgba(35,131,226,.15)}
+.p-cl::placeholder{color:var(--gray); opacity:.7}
 .s-row td{background:#FCFCFB}
 .s-row .s-name{padding-left:14px; color:var(--text-secondary); font-size:12.5px}
 .s-tagmain{font-size:10.5px; background:#EDF6FD; color:#1B6FBF; border-radius:20px;
@@ -460,6 +474,14 @@ tr.gov td{background:#EDF6FD !important}
 .dhead{background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow);
   padding:18px 20px; margin-bottom:20px}
 .dhead h2{font-size:21px; font-weight:700; color:var(--text); margin-bottom:3px}
+.dhead h2 input, .dhead .sub input{border:1px solid transparent; background:transparent;
+  border-radius:6px; font-family:inherit; font-size:inherit; font-weight:inherit;
+  color:inherit; padding:1px 6px; margin-left:-6px}
+.dhead h2 input{width:min(460px,100%)}
+.dhead .sub input{width:180px}
+.dhead h2 input:hover, .dhead .sub input:hover{border-color:var(--border)}
+.dhead h2 input:focus, .dhead .sub input:focus{border-color:var(--blue); outline:none;
+  background:var(--bg); box-shadow:0 0 0 2px rgba(35,131,226,.15)}
 .dhead .sub{font-size:13px; color:var(--text-secondary)}
 .dhead .back{font-size:12.5px; color:var(--blue); cursor:pointer; background:none; border:0;
   font-family:inherit; padding:0; margin-bottom:9px}
@@ -669,7 +691,6 @@ tr.gov td{background:#EDF6FD !important}
               <option value="zone">โซน</option>
             </select></label>
           <button class="btn" id="rAdd">+ เพิ่มห้อง</button>
-          <button class="btn ghost" id="pRen">แก้ชื่อโปรเจค/ลูกค้า</button>
         </div>
       </div>
       <div id="batchBar">
@@ -1795,9 +1816,12 @@ function renderList(){
     rows.push('<tr class="p-row ' + (p.off?'p-off':'') + '">'
       + '<td><button class="p-sw' + (p.off?'':' on') + '" data-tog="'+i+'">'
         + '<span class="d"></span>' + (p.off?'ปิด':'เปิด') + '</button></td>'
-      + '<td><b>' + esc(p.name) + '</b>'
-        + '<div class="p-meta">' + (p.client ? esc(p.client) + ' · ' : '')
-        + p.scenarios.length + ' ทางเลือก · แก้ล่าสุด ' + dstr(p.updatedAt) + '</div></td>'
+      + '<td><input class="p-nm" data-pn="'+i+'" value="' + esc(p.name) + '" '
+          + 'aria-label="ชื่อโปรเจค" spellcheck="false">'
+        + '<div class="p-meta">'
+          + '<input class="p-cl" data-pc="'+i+'" value="' + esc(p.client || '') + '" '
+          + 'placeholder="ชื่อลูกค้า" aria-label="ชื่อลูกค้า" spellcheck="false"> · '
+          + p.scenarios.length + ' ทางเลือก · แก้ล่าสุด ' + dstr(p.updatedAt) + '</div></td>'
       + '<td><select class="rin p-st" data-st="'+i+'">'
         + STATUS.map(function(s){ return '<option value="'+esc(s)+'"'
             + (s === (p.status||'') ? ' selected':'') + '>' + (s || '—') + '</option>'; }).join('')
@@ -1878,13 +1902,25 @@ function renderDetail(){
 
   $('detailHead').innerHTML = '<div class="dhead">'
     + '<button class="back" id="backList">← กลับไปรายการโปรเจค</button>'
-    + '<h2>' + esc(p.name) + '</h2>'
-    + '<div class="sub">' + (p.client ? 'ลูกค้า ' + esc(p.client) + ' · ' : '')
+    + '<h2><input id="dName" value="' + esc(p.name) + '" aria-label="ชื่อโปรเจค" '
+      + 'spellcheck="false"></h2>'
+    + '<div class="sub">ลูกค้า <input id="dClient" value="' + esc(p.client || '') + '" '
+      + 'placeholder="ยังไม่ได้ใส่" aria-label="ชื่อลูกค้า"> · '
     + (p.status ? esc(p.status) + ' · ' : '')
     + r.rows + ' แถวห้อง' + (r.rooms !== r.rows ? ' (' + r.rooms + ' ห้องจริง)' : '')
     + ' · พื้นที่รวม ' + fmt(r.area,1) + ' ตร.ม. · ' + fmt(r.people) + ' คน</div></div>';
   $('backList').addEventListener('click', function(){
     document.querySelector('.tab[data-p="list"]').click(); });
+  [['dName','name'],['dClient','client']].forEach(function(x){
+    $(x[0]).addEventListener('input', function(){
+      p[x[1]] = this.value; csTouch(p); saveDB();
+    });
+  });
+  $('dName').addEventListener('blur', function(){
+    if(this.value.trim()) return;
+    p.name = 'โปรเจคไม่มีชื่อ';
+    this.value = p.name; csTouch(p); saveDB();
+  });
 
   renderScnBar(p);
   renderScnCard(s);
@@ -2001,6 +2037,36 @@ function renderScnCard(s){
   });
 }
 
+
+/* ═══════════ installing this as an app ═══════════
+   Not cosmetic. Chrome drops the folder permission when the last tab of
+   the origin closes, and an installed app is the only thing it keeps the
+   permission for - so this is what stops "ต้องกดอนุญาตอีกครั้ง"
+   coming back every morning. */
+var INSTALL_EVT = null;
+var INSTALLED = window.matchMedia('(display-mode: standalone)').matches
+             || window.navigator.standalone === true;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();          /* keep it, so our own button can fire it */
+  INSTALL_EVT = e;
+  try { csFileTell(); } catch(err){}
+});
+window.addEventListener('appinstalled', function(){
+  INSTALL_EVT = null; INSTALLED = true;
+  try { csFileTell(); } catch(err){}
+});
+function installBtn(){
+  if(INSTALLED || !INSTALL_EVT) return '';
+  return '<button class="btn ghost" id="fInstall" '
+    + 'title="ติดตั้งแล้ว Chrome จะจำสิทธิ์โฟลเดอร์ไว้ถาวร ไม่ถามซ้ำทุกวัน">'
+    + 'ติดตั้งเป็นแอป</button>';
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest || !e.target.closest('#fInstall')) return;
+  if(!INSTALL_EVT) return;
+  INSTALL_EVT.prompt();
+  INSTALL_EVT.userChoice.then(function(){ INSTALL_EVT = null; csFileTell(); });
+});
 
 /* ═══════════ what a room is ═══════════
    Rate, occupant density and CO2 ceiling all follow from the function, so
@@ -2675,11 +2741,40 @@ $('listFilter').addEventListener('click', function(e){
   renderList();
 });
 $('pAdd').addEventListener('click', function(){
-  var nm = window.prompt('ชื่อโปรเจคใหม่', 'โปรเจคที่ ' + (DB.projects.length+1));
-  if(nm === null) return;
-  DB.projects.push(csNewProject((nm||'').trim() || ('โปรเจคที่ ' + (DB.projects.length+1))));
+  /* window.prompt is blocked in a sandboxed iframe, which is how the
+     portal embeds this page - there, asking for the name first meant no
+     project was ever created */
+  DB.projects.push(csNewProject('โปรเจคที่ ' + (DB.projects.length+1)));
   saveDB(); renderList();
+  var box = $('listBody').querySelector('[data-pn="' + (DB.projects.length-1) + '"]');
+  if(box){ box.focus(); box.select(); }
 });
+/* no re-render while typing, or the field being typed in loses the focus.
+   Nothing else on the row depends on these two. */
+$('listBody').addEventListener('input', function(e){
+  var el = e.target, i;
+  if(el.dataset.pn !== undefined){
+    i = +el.dataset.pn;
+    DB.projects[i].name = el.value;
+    csTouch(DB.projects[i]); saveDB(); return;
+  }
+  if(el.dataset.pc !== undefined){
+    i = +el.dataset.pc;
+    DB.projects[i].client = el.value;
+    csTouch(DB.projects[i]); saveDB();
+  }
+});
+/* a project with no name has no file name either, so it gets one back */
+$('listBody').addEventListener('blur', function(e){
+  var el = e.target;
+  if(el.dataset.pn === undefined) return;
+  var i = +el.dataset.pn;
+  if(!el.value.trim()){
+    DB.projects[i].name = 'โปรเจคที่ ' + (i + 1);
+    el.value = DB.projects[i].name;
+    csTouch(DB.projects[i]); saveDB();
+  }
+}, true);
 $('listBody').addEventListener('change', function(e){
   var el = e.target;
   if(el.dataset.st === undefined) return;
@@ -2768,15 +2863,6 @@ $('rAdd').addEventListener('click', function(){
   var s = curS(); if(!s) return;
   s.rooms.push(csNewRoom('ห้องที่ ' + (s.rooms.length+1)));
   csTouch(curP()); saveDB(); renderDetail();
-});
-$('pRen').addEventListener('click', function(){
-  var p = curP(); if(!p) return;
-  var nm = window.prompt('ชื่อโปรเจค', p.name);
-  if(nm === null) return;
-  p.name = (nm||'').trim() || p.name;
-  var cl = window.prompt('ชื่อลูกค้า (เว้นว่างได้)', p.client || '');
-  if(cl !== null) p.client = cl.trim();
-  csTouch(p); saveDB(); renderDetail(); renderList();
 });
 $('colTag').addEventListener('change', function(){
   SHOWTAG = this.checked;
@@ -3183,6 +3269,8 @@ document.querySelectorAll('.tab').forEach(function(b){
     $('p-'+b.dataset.p).classList.add('active');
     document.body.classList.remove('rep');
     if(b.dataset.p === 'detail') renderDetail();
+    /* the register shows names and totals the other pages can change */
+    if(b.dataset.p === 'list') renderList();
   });
 });
 $('stamp').textContent = new Date().toLocaleDateString('th-TH',
@@ -3225,12 +3313,19 @@ function fileRender(f){
          + (f.at ? ' · เขียนล่าสุด ' + new Date(f.at).toLocaleString('th-TH') : '');
     acts = '<button class="btn ghost" id="fSaveNow">บันทึกเดี๋ยวนี้</button>'
          + '<button class="btn ghost" id="fRe">อ่านใหม่จาก' + (f.kind === 'dir' ? 'โฟลเดอร์' : 'ไฟล์') + '</button>'
+         + installBtn()
          + '<button class="btn ghost" id="fUnlink">ยกเลิกการเชื่อม</button>';
   } else if(f.state === 'needsPermission'){
     body = '<b style="color:#8A5B12">ต้องกดอนุญาตอีกครั้ง</b> '
          + '<span class="fname">' + esc(f.name) + '</span> · '
-         + 'เบราว์เซอร์ลืมสิทธิ์หลังปิดโปรแกรม ระหว่างนี้บันทึกลงเครื่องอย่างเดียว ไม่มีอะไรหาย';
+         + 'เบราว์เซอร์ลืมสิทธิ์หลังปิดโปรแกรม ระหว่างนี้บันทึกลงเครื่องอย่างเดียว ไม่มีอะไรหาย'
+         + (INSTALL_EVT && !INSTALLED
+             ? '<div class="hint" style="margin-top:4px">'
+               + '<b>ไม่อยากกดทุกวัน กด ติดตั้งเป็นแอป</b> ครั้งเดียว '
+               + '— Chrome จำสิทธิ์โฟลเดอร์ให้ถาวรเฉพาะแอปที่ติดตั้งแล้ว</div>'
+             : '');
     acts = '<button class="btn" id="fGrant">อนุญาตอีกครั้ง</button>'
+         + installBtn()
          + '<button class="btn ghost" id="fUnlink">ยกเลิกการเชื่อม</button>';
   } else {
     body = '<b>ยังไม่ได้ผูกที่เก็บ</b> · ข้อมูลอยู่ในเบราว์เซอร์นี้เท่านั้น '
@@ -3247,6 +3342,9 @@ function fileRender(f){
       + 'จากนั้นกด <b>เชื่อมโฟลเดอร์ทีม</b> แล้วชี้ไปที่โฟลเดอร์นั้น<br>'
       + 'ระบบเก็บ <b>หนึ่งโปรเจคหนึ่งไฟล์</b> ชื่อไฟล์เป็นชื่อโปรเจค เปิดดูใน SharePoint ได้ · '
       + 'บันทึกครั้งหนึ่งเขียนเฉพาะโปรเจคที่เปลี่ยน<br>'
+      + '<b>เบื่อกดอนุญาตทุกวัน ให้กด ติดตั้งเป็นแอป</b> ครั้งเดียว — '
+      + 'Chrome ยอมจำสิทธิ์โฟลเดอร์ข้ามการปิดโปรแกรม '
+      + '<b>เฉพาะแอปที่ติดตั้งแล้ว</b>เท่านั้น · ติดตั้งใน portal ไม่ได้ ต้องเปิดหน้านี้ตรง ๆ (ปุ่ม <i>Open full page</i>)<br>'
       + '<b>ยังไม่ใช่การทำงานพร้อมกันเต็มรูปแบบ</b> คนละโปรเจคทำพร้อมกันได้สบาย '
       + 'แต่<b>ถ้าสองคนแก้โปรเจคเดียวกันพร้อมกัน คนที่บันทึกทีหลังจะทับ</b> '
       + 'และ OneDrive อาจสร้างไฟล์ชนกัน · ระบบจะตรวจเจอและบอกให้ตอนอ่าน';
