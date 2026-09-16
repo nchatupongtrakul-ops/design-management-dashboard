@@ -378,6 +378,32 @@ tr.gov td{background:#EDF6FD !important}
 @media screen and (max-width:1050px){ .sgrid{grid-template-columns:repeat(2,1fr)} }
 @media screen and (max-width:680px){ .sgrid{grid-template-columns:1fr} }
 
+/* ── making the room table fit the screen ──
+   Thirteen columns of which seven hold a number box, and every number box
+   was carrying a pair of spinner arrows nobody uses - a room's width is
+   typed, not nudged one at a time. Those arrows, the generous cell
+   padding and the wide dimension boxes were between them costing about a
+   third of the table, which is why the row ran past the edge and you
+   could not see one room at a glance.
+
+   The columns that hold words still get a floor, for the reason below. */
+/* every other page here is a reading width, but this one is a spreadsheet:
+   capping it at 1400 meant a wide screen still could not show one room in
+   one go, however much the columns were trimmed */
+#p-detail{max-width:1720px}
+#roomHead th, #roomBody td, #roomFoot td{padding:6px 7px}
+#roomBody input[type=number]::-webkit-outer-spin-button,
+#roomBody input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+#roomBody input[type=number]{-moz-appearance:textfield; appearance:textfield}
+#roomBody .dim3 input{width:42px}
+#roomBody .dim3{gap:3px}
+#roomBody .dim3 span{font-size:10px}
+#roomBody .ac2 input{width:48px}
+#roomBody .ac2{gap:3px}
+#roomBody input[data-f="pz"]{width:46px !important}
+#roomBody input[data-f="qty"]{width:44px !important}
+#roomBody .btn.ghost{padding:4px 8px; font-size:11.5px}
+
 /* The room table has more columns than fit, so the browser takes the space
    it needs from whichever column will yield - and the ones that yield are
    the ones holding words. Left alone it squeezed the name field to 29 px
@@ -430,7 +456,7 @@ tr.gov td{background:#EDF6FD !important}
 .dim3 input{width:56px; text-align:right}
 .dim3 span{color:var(--gray); font-size:11px}
 .thsub{font-weight:400; font-size:10.5px; color:var(--gray)}
-.fnwrap{min-width:210px; max-width:250px}
+.fnwrap{min-width:186px; max-width:205px}
 .fnsel{margin-bottom:3px; font-size:11.5px; padding:3px 5px}
 .fnhint{font-size:10.5px; color:var(--text-secondary); line-height:1.5;
   font-variant-numeric:tabular-nums}
@@ -2105,7 +2131,7 @@ function renderRooms(p, s, r){
     + '<th>ฟังก์ชันห้อง<div class="thsub">ตัดสินอัตราลมและเพดาน CO₂</div></th>'
     + (SHOWTAG ? '<th>รหัส</th><th>ชั้น</th><th>ระบบ</th><th>โซน</th>' : '')
     + '<th class="num">กว้าง × ยาว × สูง</th><th class="num">พื้นที่</th>'
-    + '<th class="num">คน</th><th class="num">จำนวน<div class="thsub">ห้องเหมือนกัน</div></th>'
+    + '<th class="num">คน</th><th class="num">จำนวน<div class="thsub">ห้องซ้ำ</div></th>'
     + '<th>ประเภท</th>'
     + '<th class="num">แอร์เดิม<div class="thsub">RT · ลมจ่าย CMH</div></th>'
     + '<th>CO₂ และลมที่ต้องเติม</th><th>ภาระที่ตกกับแอร์</th><th>เสียงที่รั่วออก</th><th></th></tr>';
