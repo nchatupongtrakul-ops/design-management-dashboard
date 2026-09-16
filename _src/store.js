@@ -54,7 +54,7 @@ function csNewRoom(name){
   return {
     id: csUid(), name: name || 'ห้อง', tag: '',
     level: '', system: '', zone: '',
-    w: 8, l: 10, h: 2.8, pz: 20,
+    a: 80, h: 2.8, pz: 20,
     /* true while the headcount is still the reference density talking.
        Typing a real number clears it; rooms made before this existed do
        not have it, so their numbers are left exactly as they are. */
@@ -77,6 +77,16 @@ function csNewProject(name){
 /* ── the conditions a room actually runs at ──
    A room field wins over the scenario only when the room carries one, so a
    room that was never touched follows its project for ever after. */
+/* the floor area of a room · rooms written before the area was typed
+   directly still carry the width and length it was worked out from */
+function csArea(rm){
+  if(!rm) return 0;
+  var a = csNum(rm.a, NaN);
+  if(isFinite(a) && a > 0) return a;
+  return csNum(rm.w) * csNum(rm.l);
+}
+function csVolume(rm){ return csArea(rm) * csNum(rm.h); }
+
 function csCond(scn, rm){
   var c = {
     oaPkT: csNum(scn.oaPk.t,35), oaPkRh: csNum(scn.oaPk.rh,60),
@@ -136,7 +146,8 @@ function csMigrate(old){
     sc.rooms = (p.rooms || []).map(function(rm){
       var nr = csNewRoom(rm.name);
       nr.id = rm.id;
-      ['w','l','h','pz','cap','qac'].forEach(function(k){ nr[k] = csNum(rm[k]); });
+      ['h','pz','cap','qac'].forEach(function(k){ nr[k] = csNum(rm[k]); });
+      nr.a = csNum(rm.w) * csNum(rm.l);
       nr.vent = rm.vent || null; nr.erv = rm.erv || null; nr.ac = rm.ac || null;
       /* the load tool used to keep a full copy of the conditions on every
          room; those become overrides so nothing silently changes value */
@@ -217,6 +228,12 @@ function csHeal(db){
       }
 
       s.rooms.forEach(function(r){
+        /* one-time lift: the area used to be a width and a length */
+        if(r.a == null && (r.w != null || r.l != null)){
+          r.a = csNum(r.w) * csNum(r.l);
+          delete r.w; delete r.l;
+        }
+        if(r.a == null) r.a = 0;
         if(r.qty == null || !(csNum(r.qty) >= 1)) r.qty = 1;
         if(!r.cat) r.cat = 'AC';
         if(r.tag == null) r.tag = '';
@@ -283,7 +300,7 @@ function csRoll(scn){
   (scn.rooms || []).forEach(function(rm){
     var q = Math.max(1, csNum(rm.qty, 1));
     r.rows++; r.rooms += q;
-    r.area   += csNum(rm.w)*csNum(rm.l)*q;
+    r.area   += csArea(rm)*q;
     r.people += csNum(rm.pz)*q;
     /* a ventilation-only room has no air conditioning, so neither its plant
        nor any load left on a previous pass belongs in these totals */

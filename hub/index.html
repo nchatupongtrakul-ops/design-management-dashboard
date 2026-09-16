@@ -329,6 +329,7 @@ tr.gov td{background:#EDF6FD !important}
 .s-tagmain{font-size:10.5px; background:#EDF6FD; color:#1B6FBF; border-radius:20px;
   padding:1px 7px; margin-left:5px; font-weight:600}
 .qn{font-size:11px; color:var(--gray); font-variant-numeric:tabular-nums}
+.qn:empty{display:none}
 .g-row td{background:var(--surface); font-size:12px}
 .p-st{width:96px; font-size:11.5px; padding:2px 5px}
 
@@ -411,9 +412,8 @@ tr.gov td{background:#EDF6FD !important}
 #roomBody input[type=number]::-webkit-outer-spin-button,
 #roomBody input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 #roomBody input[type=number]{-moz-appearance:textfield; appearance:textfield}
-#roomBody .dim3 input{width:42px}
-#roomBody .dim3{gap:3px}
-#roomBody .dim3 span{font-size:10px}
+#roomBody input[data-f="a"]{width:66px; text-align:right}
+#roomBody input[data-f="h"]{width:52px; text-align:right}
 #roomBody .ac2 input{width:48px}
 #roomBody .ac2{gap:3px}
 #roomBody input[data-f="pz"]{width:46px !important}
@@ -468,9 +468,6 @@ tr.gov td{background:#EDF6FD !important}
 .rin{width:100%; padding:4px 7px; border:1px solid var(--border); border-radius:5px;
   font-size:12.5px; font-family:inherit; background:var(--card-bg); color:var(--text);
   font-variant-numeric:tabular-nums}
-.dim3{display:flex; gap:4px; align-items:center}
-.dim3 input{width:56px; text-align:right}
-.dim3 span{color:var(--gray); font-size:11px}
 .thsub{font-weight:400; font-size:10.5px; color:var(--gray)}
 .fnwrap{min-width:186px; max-width:205px}
 .fnsel{margin-bottom:3px; font-size:11.5px; padding:3px 5px}
@@ -916,7 +913,7 @@ function csNewRoom(name){
   return {
     id: csUid(), name: name || 'ห้อง', tag: '',
     level: '', system: '', zone: '',
-    w: 8, l: 10, h: 2.8, pz: 20,
+    a: 80, h: 2.8, pz: 20,
     /* true while the headcount is still the reference density talking.
        Typing a real number clears it; rooms made before this existed do
        not have it, so their numbers are left exactly as they are. */
@@ -939,6 +936,16 @@ function csNewProject(name){
 /* ── the conditions a room actually runs at ──
    A room field wins over the scenario only when the room carries one, so a
    room that was never touched follows its project for ever after. */
+/* the floor area of a room · rooms written before the area was typed
+   directly still carry the width and length it was worked out from */
+function csArea(rm){
+  if(!rm) return 0;
+  var a = csNum(rm.a, NaN);
+  if(isFinite(a) && a > 0) return a;
+  return csNum(rm.w) * csNum(rm.l);
+}
+function csVolume(rm){ return csArea(rm) * csNum(rm.h); }
+
 function csCond(scn, rm){
   var c = {
     oaPkT: csNum(scn.oaPk.t,35), oaPkRh: csNum(scn.oaPk.rh,60),
@@ -998,7 +1005,8 @@ function csMigrate(old){
     sc.rooms = (p.rooms || []).map(function(rm){
       var nr = csNewRoom(rm.name);
       nr.id = rm.id;
-      ['w','l','h','pz','cap','qac'].forEach(function(k){ nr[k] = csNum(rm[k]); });
+      ['h','pz','cap','qac'].forEach(function(k){ nr[k] = csNum(rm[k]); });
+      nr.a = csNum(rm.w) * csNum(rm.l);
       nr.vent = rm.vent || null; nr.erv = rm.erv || null; nr.ac = rm.ac || null;
       /* the load tool used to keep a full copy of the conditions on every
          room; those become overrides so nothing silently changes value */
@@ -1079,6 +1087,12 @@ function csHeal(db){
       }
 
       s.rooms.forEach(function(r){
+        /* one-time lift: the area used to be a width and a length */
+        if(r.a == null && (r.w != null || r.l != null)){
+          r.a = csNum(r.w) * csNum(r.l);
+          delete r.w; delete r.l;
+        }
+        if(r.a == null) r.a = 0;
         if(r.qty == null || !(csNum(r.qty) >= 1)) r.qty = 1;
         if(!r.cat) r.cat = 'AC';
         if(r.tag == null) r.tag = '';
@@ -1145,7 +1159,7 @@ function csRoll(scn){
   (scn.rooms || []).forEach(function(rm){
     var q = Math.max(1, csNum(rm.qty, 1));
     r.rows++; r.rooms += q;
-    r.area   += csNum(rm.w)*csNum(rm.l)*q;
+    r.area   += csArea(rm)*q;
     r.people += csNum(rm.pz)*q;
     /* a ventilation-only room has no air conditioning, so neither its plant
        nor any load left on a previous pass belongs in these totals */
@@ -2025,7 +2039,7 @@ function funcRates(rm){
   var c = CATS[csNum(rm.func, defFunc())] || CATS[defFunc()];
   var arr = ac ? LAW_AC : LAW_NA;
   var law = arr[csNum(rm.law, 0)] || arr[0];
-  var A = csNum(rm.w)*csNum(rm.l), V = A*csNum(rm.h), pz = csNum(rm.pz);
+  var A = csArea(rm), V = csVolume(rm), pz = csNum(rm.pz);
   var ash = (c[2] != null && c[3] != null) ? (c[2]*pz + c[3]*A)*3.6 : null;
   var thai = ac ? law[1]*A : law[1]*V;
   return { c:c, law:law, ash:ash, thai:thai,
@@ -2034,7 +2048,7 @@ function funcRates(rm){
 }
 /* the headcount ASHRAE 62.1 would design to for this category and area */
 function densityPz(rm){
-  var f = funcRates(rm), A = csNum(rm.w) * csNum(rm.l);
+  var f = funcRates(rm), A = csArea(rm);
   if(!(f.density > 0) || !(A > 0)) return null;
   return Math.max(1, Math.round(f.density / 100 * A));
 }
@@ -2052,8 +2066,7 @@ function syncAutoPz(s){
 function funcCell(rm, j, cnd){
   var ac = rm.cat !== 'MV';
   var f = funcRates(rm);
-  var suggest = (f.density > 0 && csNum(rm.w)*csNum(rm.l) > 0)
-    ? Math.max(1, Math.round(f.density/100*csNum(rm.w)*csNum(rm.l))) : 0;
+  var suggest = densityPz(rm) || 0;
   return '<div class="fnwrap">'
     + '<select class="rin fnsel" data-f="func" data-col="'+pcol('func')+'" data-j="'+j+'">'
       + catOptions(csNum(rm.func, defFunc())) + '</select>'
@@ -2092,7 +2105,7 @@ var SEL = new Set(), SELANCHOR = null;
 function pasteCols(){
   var c = ['name','func'];
   if(SHOWTAG) c = c.concat(['tag','level','system','zone']);
-  return c.concat(['w','l','h','pz','qty','cat','cap','qac']);
+  return c.concat(['a','h','pz','qty','cat','cap','qac']);
 }
 function pcol(k){ return pasteCols().indexOf(k); }
 /* write one field on a room from a raw string · returns whether it stuck */
@@ -2115,7 +2128,7 @@ function setField(rm, key, val){
   if(key === 'name' || key === 'tag' || key === 'level' || key === 'system' || key === 'zone'){
     rm[key] = String(val).trim(); return true;
   }
-  if(key === 'w' || key === 'l' || key === 'h' || key === 'pz' || key === 'cap' || key === 'qac'){
+  if(key === 'a' || key === 'h' || key === 'pz' || key === 'cap' || key === 'qac'){
     rm[key] = csNum(val);
     /* a headcount somebody typed is a fact about the room, not a default */
     if(key === 'pz') rm.pzAuto = false;
@@ -2146,7 +2159,8 @@ function renderRooms(p, s, r){
     + '<th>ห้อง</th>'
     + '<th>ฟังก์ชันห้อง<div class="thsub">ตัดสินอัตราลมและเพดาน CO₂</div></th>'
     + (SHOWTAG ? '<th>รหัส</th><th>ชั้น</th><th>ระบบ</th><th>โซน</th>' : '')
-    + '<th class="num">กว้าง × ยาว × สูง</th><th class="num">พื้นที่</th>'
+    + '<th class="num">พื้นที่<div class="thsub">ตร.ม.</div></th>'
+    + '<th class="num">สูง<div class="thsub">ม.</div></th>'
     + '<th class="num">คน</th><th class="num">จำนวน<div class="thsub">ห้องซ้ำ</div></th>'
     + '<th>ประเภท</th>'
     + '<th class="num">แอร์เดิม<div class="thsub">RT · ลมจ่าย CMH</div></th>'
@@ -2179,12 +2193,9 @@ function renderRooms(p, s, r){
           + '<td><input class="rin" data-f="system" data-col="'+pcol('system')+'" data-j="'+j+'" value="'+esc(rm.system)+'" style="width:78px"></td>'
           + '<td><input class="rin" data-f="zone" data-col="'+pcol('zone')+'" data-j="'+j+'" value="'+esc(rm.zone)+'" style="width:70px"></td>'
           : '')
-      + '<td><div class="dim3">'
-        + '<input class="rin" type="number" step="0.1" data-f="w" data-col="'+pcol('w')+'" data-j="'+j+'" value="'+rm.w+'"><span>×</span>'
-        + '<input class="rin" type="number" step="0.1" data-f="l" data-col="'+pcol('l')+'" data-j="'+j+'" value="'+rm.l+'"><span>×</span>'
-        + '<input class="rin" type="number" step="0.1" data-f="h" data-col="'+pcol('h')+'" data-j="'+j+'" value="'+rm.h+'"></div></td>'
-      + '<td class="num">' + fmt(csNum(rm.w)*csNum(rm.l),1)
-        + (q > 1 ? '<div class="qn">รวม ' + fmt(csNum(rm.w)*csNum(rm.l)*q,1) + '</div>' : '') + '</td>'
+      + '<td><input class="rin num" type="number" step="0.1" min="0" data-f="a" data-col="'+pcol('a')+'" data-j="'+j+'" value="'+csArea(rm)+'">'
+        + '<div class="qn">' + (q > 1 ? 'รวม ' + fmt(csArea(rm)*q,1) + ' ตร.ม.' : '') + '</div></td>'
+      + '<td><input class="rin num" type="number" step="0.1" min="0" data-f="h" data-col="'+pcol('h')+'" data-j="'+j+'" value="'+csNum(rm.h)+'"></td>'
       + '<td><input class="rin" type="number" step="1" data-f="pz" data-col="'+pcol('pz')+'" data-j="'+j+'" value="'+rm.pz+'" style="width:58px"></td>'
       + '<td><input class="rin" type="number" step="1" min="1" data-f="qty" data-col="'+pcol('qty')+'" data-j="'+j+'" value="'+q+'" style="width:54px"></td>'
       + '<td>' + catSel(rm, j) + '</td>'
@@ -2217,20 +2228,13 @@ function renderRooms(p, s, r){
   $('roomBody').innerHTML = out.join('') || '<tr><td colspan="'+(cols+1)+'" '
       + 'style="text-align:center;color:var(--gray);padding:22px">ยังไม่มีห้อง กด เพิ่มห้อง เพื่อเริ่ม</td></tr>';
 
-  $('roomFoot').innerHTML = s.rooms.length
-    ? '<tr><td class="rsel"></td><td colspan="' + (SHOWTAG ? 7 : 3) + '"><b>รวม ' + r.rows + ' แถว · ' + r.rooms + ' ห้อง</b></td>'
-      + '<td class="num"><b>' + fmt(r.area,1) + '</b></td>'
-      + '<td class="num"><b>' + fmt(r.people) + '</b></td>'
-      + '<td></td><td></td>'
-      + '<td class="num"><b>' + (r.cap > 0 ? fmt(r.cap,1) + ' RT' : '—') + '</b></td>'
-      + '<td><b>' + (r.done.vent ? fmt(r.cmh) + ' CMH' : '—') + '</b></td>'
-      + '<td><b>' + (r.done.erv ? fmt(r.rt,2) + ' RT' : '—') + '</b></td>'
-      + '<td colspan="2"></td></tr>'
-    : '';
+  renderFoot(s, r);
   /* one topic per line - as a single paragraph this ran to six subjects
      strung together with middots and nobody read past the second */
   $('roomHint').innerHTML = '<ul class="hintlist">'
     + '<li>แก้ได้ในตารางโดยตรง เครื่องมือทุกตัวจะเห็นค่าเดียวกัน</li>'
+    + '<li><b>พื้นที่</b> กรอกเป็น ตร.ม. ตรง ๆ ตามที่อ่านได้จากแบบ ไม่ต้องแตกเป็นกว้างคูณยาว · '
+      + 'ห้องที่ไม่ได้เป็นสี่เหลี่ยมก็กรอกได้ · <b>ปริมาตร</b> ที่ใช้คิด ACH คือ พื้นที่ × สูง</li>'
     + '<li><b>ฟังก์ชันห้อง</b> ตัดสินอัตราลมและเพดาน CO₂ · เลือกที่นี่แล้วเครื่องมือ CO₂ รับไปใช้เลย</li>'
     + '<li><b>ลมขั้นต่ำ</b> ที่แสดงไว้ คิดจาก ASHRAE 62.1 กับกฎกระทรวงเท่านั้น · '
       + '<b>ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้</b> ต้องเปิดเครื่องมือถึงจะได้ตัวเลขสุดท้าย</li>'
@@ -2248,6 +2252,20 @@ function renderRooms(p, s, r){
       + 'แปลว่าห้องนั้นใช้เงื่อนไขต่างจากทางเลือก · กดที่ป้ายเพื่อกลับไปใช้ค่าของทางเลือก</li>'
     + '</ul>';
   syncBatchBar();
+}
+/* out on its own so that typing in a cell can refresh it without a
+   re-render, which would take the focus out of the field being typed in */
+function renderFoot(s, r){
+  $('roomFoot').innerHTML = s.rooms.length
+    ? '<tr><td class="rsel"></td><td colspan="' + (SHOWTAG ? 7 : 3) + '"><b>รวม ' + r.rows + ' แถว · ' + r.rooms + ' ห้อง</b></td>'
+      + '<td class="num"><b>' + fmt(r.area,1) + '</b></td>'
+      + '<td class="num"><b>' + fmt(r.people) + '</b></td>'
+      + '<td></td><td></td>'
+      + '<td class="num"><b>' + (r.cap > 0 ? fmt(r.cap,1) + ' RT' : '—') + '</b></td>'
+      + '<td><b>' + (r.done.vent ? fmt(r.cmh) + ' CMH' : '—') + '</b></td>'
+      + '<td><b>' + (r.done.erv ? fmt(r.rt,2) + ' RT' : '—') + '</b></td>'
+      + '<td colspan="2"></td></tr>'
+    : '';
 }
 function renderRoomsOnly(){
   var p = curP(), s = curS(); if(!p || !s) return;
@@ -2366,7 +2384,7 @@ function repSchedHead(){
     + '<th colspan="3" class="ctr">ภาระที่ตกกับแอร์</th>'
     + '<th colspan="2" class="ctr">เสียงที่รั่วออก</th>'
     + '</tr><tr>'
-    + '<th class="num">ก × ย × ส (ม.)</th><th class="num">พื้นที่<br>ตร.ม.</th>'
+    + '<th class="num">พื้นที่<br>ตร.ม.</th><th class="num">สูง<br>ม.</th>'
     + '<th class="num">คน</th><th class="num">จำนวน</th>'
     + '<th class="num">ลมออกแบบ<br>CMH</th><th class="num">CO₂<br>ppm</th><th>เกณฑ์</th>'
     + '<th class="num">ภาระ<br>RT</th><th class="num">ห้องร้อนขึ้น<br>°C</th><th>เกณฑ์</th>'
@@ -2376,7 +2394,7 @@ function repSchedHead(){
 function repRoomRow(s, rm, j){
   var q = Math.max(1, csNum(rm.qty,1)), isMv = rm.cat === 'MV';
   var f = funcRates(rm), cnd = csCond(s, rm);
-  var A = csNum(rm.w)*csNum(rm.l), v = rm.vent, e = rm.erv, a = rm.ac;
+  var A = csArea(rm), v = rm.vent, e = rm.erv, a = rm.ac;
   var tag = [rm.tag, rm.level, rm.system, rm.zone].filter(function(x){ return x; }).join(' · ');
   return '<tr>'
     + '<td class="num">' + (j+1) + '</td>'
@@ -2387,8 +2405,8 @@ function repRoomRow(s, rm, j){
     + '<td>' + esc(f.c[1]) + '<div class="sub">' + (isMv ? 'ระบายอากาศ' : 'ปรับอากาศ')
       + ' · Rp ' + (f.c[2]==null?'—':f.c[2]) + ' · Ra ' + (f.c[3]==null?'—':f.c[3])
       + (f.ceil != null ? ' · เพดาน CO₂ +' + fmt(f.ceil) : '') + '</div></td>'
-    + '<td class="num">' + fmt(csNum(rm.w),1) + ' × ' + fmt(csNum(rm.l),1) + ' × ' + fmt(csNum(rm.h),1) + '</td>'
     + '<td class="num">' + fmt(A,1) + (q > 1 ? '<div class="sub">รวม ' + fmt(A*q,1) + '</div>' : '') + '</td>'
+    + '<td class="num">' + fmt(csNum(rm.h),1) + '</td>'
     + '<td class="num">' + fmt(csNum(rm.pz)) + '</td>'
     + '<td class="num">' + q + '</td>'
     + '<td class="num">' + (isMv ? repNone('ไม่มีแอร์')
@@ -2787,14 +2805,21 @@ $('roomBody').addEventListener('input', function(e){
   /* and a room that is still on the reference follows its own area, which
      has to happen without a re-render or the field being typed in loses
      the focus mid-keystroke */
-  if(f === 'w' || f === 'l'){
+  if(f === 'a'){
     if(syncAutoPz(s)){
       var box = $('roomBody').querySelector('[data-f="pz"][data-j="' + el.dataset.j + '"]');
       if(box && document.activeElement !== box) box.value = rm.pz;
     }
   }
+  /* and the row's own total, for a room that repeats */
+  if(f === 'a' || f === 'qty'){
+    var acell = el.closest('tr').querySelector('[data-f="a"]');
+    var qn = acell && acell.parentNode.querySelector('.qn');
+    var q = Math.max(1, csNum(rm.qty, 1));
+    if(qn) qn.textContent = q > 1 ? 'รวม ' + fmt(csArea(rm) * q, 1) + ' ตร.ม.' : '';
+  }
   csTouch(curP()); saveDB();
-  renderRoll(roll(s), s);
+  var rr = roll(s); renderFoot(s, rr); renderRoll(rr, s);
 });
 $('roomBody').addEventListener('change', function(e){
   var el = e.target;
@@ -2857,6 +2882,7 @@ function batchValWrap(){
   if(f === 'func') h = '<select id="baVal">' + catOptions(defFunc()) + '</select>';
   else if(f === 'cat') h = '<select id="baVal"><option value="AC">ปรับอากาศ</option>'
     + '<option value="MV">ระบายอากาศ</option></select>';
+  else if(f === 'a') h = '<input id="baVal" type="number" step="0.1" min="0" value="80" style="width:80px">';
   else if(f === 'h') h = '<input id="baVal" type="number" step="0.1" value="2.8" style="width:80px">';
   else if(f === 'pz') h = '<input id="baVal" type="number" step="1" min="0" value="20" style="width:80px">';
   else if(f === 'qty') h = '<input id="baVal" type="number" step="1" min="1" value="1" style="width:80px">';
@@ -2868,7 +2894,8 @@ function refreshBatchFields(){
   var want = SHOWTAG ? '1' : '0';
   if(bf.dataset.tag === want && bf.options.length) return;
   var cur = bf.value;
-  var o = [['func','ฟังก์ชันห้อง'],['cat','ประเภท'],['h','สูง (ม.)'],['pz','จำนวนคน'],['qty','จำนวนห้อง']];
+  var o = [['func','ฟังก์ชันห้อง'],['cat','ประเภท'],['a','พื้นที่ (ตร.ม.)'],['h','สูง (ม.)'],
+           ['pz','จำนวนคน'],['qty','จำนวนห้อง']];
   if(SHOWTAG) o = o.concat([['level','ชั้น'],['system','ระบบ'],['zone','โซน'],['tag','รหัส']]);
   bf.innerHTML = o.map(function(x){ return '<option value="' + x[0] + '">' + x[1] + '</option>'; }).join('');
   bf.dataset.tag = want;
@@ -3034,11 +3061,11 @@ $('jFile').addEventListener('change', function(){
    calculation: it updates the rooms it can match and adds the ones it
    cannot, and deletes nothing. */
 var COLS = ['โปรเจค','ลูกค้า','สถานะ','ทางเลือก','ห้อง','รหัส','ชั้น','ระบบ','โซน',
-            'กว้าง','ยาว','สูง','จำนวนคน','จำนวนห้องเหมือนกัน','ประเภท',
+            'พื้นที่','สูง','จำนวนคน','จำนวนห้องเหมือนกัน','ประเภท',
             'แอร์เดิม RT','ลมแอร์ CMH',
             'ลมที่ต้องเติม CMH','CO2 ppm','ผ่านเกณฑ์ลม',
             'ภาระ RT','อุณหภูมิเปลี่ยน C','แอร์รับไหว','เสียง dBA'];
-var CSV_IN = 17;   /* columns up to here are inputs; the rest are results */
+var CSV_IN = 16;   /* columns up to here are inputs; the rest are results */
 function csvCell(s){ s = String(s==null?'':s);
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; }
 $('pExp').addEventListener('click', function(){
@@ -3049,7 +3076,7 @@ $('pExp').addEventListener('click', function(){
       s.rooms.forEach(function(rm){
         rows.push([p.name, p.client||'', p.off?'ปิด':'เปิด', s.name,
           rm.name, rm.tag||'', rm.level||'', rm.system||'', rm.zone||'',
-          rm.w, rm.l, rm.h, rm.pz, Math.max(1,csNum(rm.qty,1)),
+          csArea(rm), rm.h, rm.pz, Math.max(1,csNum(rm.qty,1)),
           rm.cat === 'MV' ? 'ระบายอากาศ' : 'ปรับอากาศ',
           csNum(rm.cap), csNum(rm.qac),
           rm.vent ? rm.vent.q : '', rm.vent ? Math.round(csNum(rm.vent.co2)) : '',
@@ -3081,6 +3108,8 @@ $('pFile').addEventListener('change', function(){
       if(L.length < 2) throw new Error('ไม่มีข้อมูลในไฟล์');
       var h = L[0], ix = {};
       COLS.forEach(function(c){ var k = h.indexOf(c); if(k>=0) ix[c]=k; });
+      /* not columns any more, but a sheet saved before the change has them */
+      ['กว้าง', 'ยาว'].forEach(function(c){ var k = h.indexOf(c); if(k>=0) ix[c]=k; });
       if(ix['โปรเจค'] === undefined || ix['ห้อง'] === undefined)
         throw new Error('ไม่พบคอลัมน์ โปรเจค หรือ ห้อง');
       function g(c, key){ return ix[key] === undefined ? '' : (c[ix[key]]||'').trim(); }
@@ -3102,10 +3131,14 @@ $('pFile').addEventListener('change', function(){
         if(!rm){ rm = csNewRoom(rn); s.rooms.push(rm); addR++; } else { updR++; }
         rm.tag = g(c,'รหัส'); rm.level = g(c,'ชั้น');
         rm.system = g(c,'ระบบ'); rm.zone = g(c,'โซน');
-        [['w','กว้าง'],['l','ยาว'],['h','สูง'],['pz','จำนวนคน'],
+        [['a','พื้นที่'],['h','สูง'],['pz','จำนวนคน'],
          ['cap','แอร์เดิม RT'],['qac','ลมแอร์ CMH']].forEach(function(x){
           if(ix[x[1]] !== undefined) rm[x[0]] = csNum(g(c,x[1]));
         });
+        /* a sheet exported before the change still says width and length */
+        if(ix['พื้นที่'] === undefined && ix['กว้าง'] !== undefined && ix['ยาว'] !== undefined)
+          rm.a = csNum(g(c,'กว้าง')) * csNum(g(c,'ยาว'));
+        if(ix['จำนวนคน'] !== undefined) rm.pzAuto = false;
         if(ix['จำนวนห้องเหมือนกัน'] !== undefined)
           rm.qty = Math.max(1, Math.round(csNum(g(c,'จำนวนห้องเหมือนกัน'),1)));
         if(ix['ประเภท'] !== undefined)

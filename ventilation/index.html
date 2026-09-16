@@ -351,11 +351,12 @@ tr.gov td { background: #EDF6FD !important; font-weight: 600; }
     <div class="card">
       <h3>ห้อง</h3>
       <div class="field">
-        <span class="flabel">ขนาด · เมตร</span>
-        <div class="grid3">
-          <div><input type="number" id="w" value="14" min="0.1" step="0.1" aria-label="กว้าง"><div class="hint">กว้าง</div></div>
-          <div><input type="number" id="l" value="21" min="0.1" step="0.1" aria-label="ยาว"><div class="hint">ยาว</div></div>
-          <div><input type="number" id="h" value="6" min="0.1" step="0.1" aria-label="สูง"><div class="hint">สูง</div></div>
+        <span class="flabel">ขนาดห้อง</span>
+        <div class="grid2">
+          <div><input type="number" id="area" value="294" min="0.1" step="0.1" aria-label="พื้นที่">
+            <div class="hint">พื้นที่ · ตร.ม.</div></div>
+          <div><input type="number" id="h" value="6" min="0.1" step="0.1" aria-label="สูง">
+            <div class="hint">ความสูงถึงฝ้า · ม.</div></div>
         </div>
         <div class="hint" id="dims"></div>
       </div>
@@ -893,7 +894,7 @@ function csNewRoom(name){
   return {
     id: csUid(), name: name || 'ห้อง', tag: '',
     level: '', system: '', zone: '',
-    w: 8, l: 10, h: 2.8, pz: 20,
+    a: 80, h: 2.8, pz: 20,
     /* true while the headcount is still the reference density talking.
        Typing a real number clears it; rooms made before this existed do
        not have it, so their numbers are left exactly as they are. */
@@ -916,6 +917,16 @@ function csNewProject(name){
 /* ── the conditions a room actually runs at ──
    A room field wins over the scenario only when the room carries one, so a
    room that was never touched follows its project for ever after. */
+/* the floor area of a room · rooms written before the area was typed
+   directly still carry the width and length it was worked out from */
+function csArea(rm){
+  if(!rm) return 0;
+  var a = csNum(rm.a, NaN);
+  if(isFinite(a) && a > 0) return a;
+  return csNum(rm.w) * csNum(rm.l);
+}
+function csVolume(rm){ return csArea(rm) * csNum(rm.h); }
+
 function csCond(scn, rm){
   var c = {
     oaPkT: csNum(scn.oaPk.t,35), oaPkRh: csNum(scn.oaPk.rh,60),
@@ -975,7 +986,8 @@ function csMigrate(old){
     sc.rooms = (p.rooms || []).map(function(rm){
       var nr = csNewRoom(rm.name);
       nr.id = rm.id;
-      ['w','l','h','pz','cap','qac'].forEach(function(k){ nr[k] = csNum(rm[k]); });
+      ['h','pz','cap','qac'].forEach(function(k){ nr[k] = csNum(rm[k]); });
+      nr.a = csNum(rm.w) * csNum(rm.l);
       nr.vent = rm.vent || null; nr.erv = rm.erv || null; nr.ac = rm.ac || null;
       /* the load tool used to keep a full copy of the conditions on every
          room; those become overrides so nothing silently changes value */
@@ -1056,6 +1068,12 @@ function csHeal(db){
       }
 
       s.rooms.forEach(function(r){
+        /* one-time lift: the area used to be a width and a length */
+        if(r.a == null && (r.w != null || r.l != null)){
+          r.a = csNum(r.w) * csNum(r.l);
+          delete r.w; delete r.l;
+        }
+        if(r.a == null) r.a = 0;
         if(r.qty == null || !(csNum(r.qty) >= 1)) r.qty = 1;
         if(!r.cat) r.cat = 'AC';
         if(r.tag == null) r.tag = '';
@@ -1122,7 +1140,7 @@ function csRoll(scn){
   (scn.rooms || []).forEach(function(rm){
     var q = Math.max(1, csNum(rm.qty, 1));
     r.rows++; r.rooms += q;
-    r.area   += csNum(rm.w)*csNum(rm.l)*q;
+    r.area   += csArea(rm)*q;
     r.people += csNum(rm.pz)*q;
     /* a ventilation-only room has no air conditioning, so neither its plant
        nor any load left on a previous pass belongs in these totals */
@@ -1658,7 +1676,7 @@ var VENT_KEEP = [
 /* Deliberately not kept, and why. Anything not in one list or the other
    is reported by csKeepAudit rather than silently lost. */
 var VENT_SKIP = [
-  'w', 'l', 'h', 'pz',      /* the room's, owned by the hub */
+  'area', 'h', 'pz',        /* the room's, owned by the hub */
   'co',                     /* the scenario's, reaches the room as room.cond */
   'pznum', 'qnum',          /* mirrors of the sliders above them */
   'target',                 /* a what-if question, not a property of the room */
@@ -1700,8 +1718,7 @@ function hubInit(){
   if(!hit) return;
   HUB = { pid:pid, sid:hit.s.id, rid:rid };
 
-  if(hit.r.w) $('w').value = hit.r.w;
-  if(hit.r.l) $('l').value = hit.r.l;
+  if(csArea(hit.r)) $('area').value = csArea(hit.r);
   if(hit.r.h) $('h').value = hit.r.h;
   if(hit.r.pz){
     var pz = Math.max(1, csNum(hit.r.pz));
@@ -1773,7 +1790,7 @@ function hubSave(s, rec, endCo2){
   var db = csRead();
   var hit = csFind(db, HUB.pid, HUB.sid, HUB.rid); if(!hit) return;
   /* geometry edited here flows back, so the two never disagree */
-  hit.r.w = nv('w'); hit.r.l = nv('l'); hit.r.h = nv('h');
+  hit.r.a = nv('area'); hit.r.h = nv('h');
   /* the headcount this page was driven with is a decision, so it stops the
      hub filling it from the reference density */
   if(csNum(hit.r.pz) !== csNum(s.Pz)){ hit.r.pz = s.Pz; hit.r.pzAuto = false; }
@@ -1835,7 +1852,7 @@ fillLaw();
 
 /* ---------------- model ---------------- */
 function state(){
-  var A = nv('w')*nv('l'), V = A*nv('h');
+  var A = nv('area'), V = A*nv('h');
   var lawArr = AC ? LAW_AC : LAW_NA;
   return {
     A:A, V:V,
@@ -2395,7 +2412,7 @@ function buildTables(filter){
 }
 
 /* ---------------- events ---------------- */
-['w','l','h','pz','co','c0','dur','inf','base','target'].forEach(function(id){
+['area','h','pz','co','c0','dur','inf','base','target'].forEach(function(id){
   $(id).addEventListener('input', render);
 });
 ['cat','act','law'].forEach(function(id){ $(id).addEventListener('change', render); });
@@ -2454,7 +2471,7 @@ $('usedens').addEventListener('click', function(){
   if(s.cat[4] != null && s.A > 0){ $('pz').value = Math.max(1, Math.round(s.cat[4]/100*s.A)); render(); }
 });
 $('resetBtn').addEventListener('click', function(){
-  $('w').value=14; $('l').value=21; $('h').value=6; $('pz').value=250;
+  $('area').value=294; $('h').value=6; $('pz').value=250;
   $('co').value=400; $('c0').value=400; $('dur').value=3; $('inf').value=0; $('base').value=0; $('target').value=1000;
   AC = 1;
   $('acmode').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.dataset.ac==='1'); });
@@ -2495,14 +2512,15 @@ function saveRooms(){
     'บันทึกลงเครื่องไม่ได้ · เบราว์เซอร์อาจปิดการเก็บข้อมูลไว้ รายการจะหายเมื่อปิดหน้า'; }
 }
 function currentRoom(){
-  return { w:nv('w'), l:nv('l'), h:nv('h'),
+  return { a:nv('area'), h:nv('h'),
            cat:+catSel.value, act:+actSel.value, law:+$('law').value, ac:AC,
            pz:Math.max(1,nv('pz')), q:Math.max(0,nv('q')),
            co:nv('co'), c0:nv('c0'), dur:Math.max(0.5,nv('dur')),
            inf:nv('inf'), base:Math.max(0,nv('base')) };
 }
 function roomState(r){
-  var A = r.w*r.l, V = A*r.h;
+  /* csArea covers the rooms saved here before the area replaced w x l */
+  var A = csArea(r), V = csVolume(r);
   var lawArr = r.ac ? LAW_AC : LAW_NA;
   var act = ACTS[r.act] || ACTS[0];
   return { A:A, V:V, cat:CATS[r.cat] || CATS[0], act:act,
@@ -2539,7 +2557,7 @@ function renderRooms(){
     if(!m.ok) nFail++;
     return '<tr' + (r.id===OPEN_ID ? ' style="background:#EDF6FD"' : '') + '>'
       + '<td><b>' + esc(r.name) + '</b><div class="hint" style="margin:2px 0 0">'
-        + fmt(r.w,1) + ' × ' + fmt(r.l,1) + ' × ' + fmt(r.h,1) + ' ม.</div></td>'
+        + fmt(csArea(r),1) + ' ตร.ม. · สูง ' + fmt(csNum(r.h),1) + ' ม.</div></td>'
       + '<td style="font-size:12px">' + esc(m.st.cat[1]) + '</td>'
       + '<td class="num">' + fmt(m.st.A,1) + '</td>'
       + '<td class="num">' + fmt(m.st.Pz) + '</td>'
@@ -2609,7 +2627,9 @@ $('roomBody').addEventListener('click', function(e){
     var r = null;
     ROOMS.forEach(function(x){ if(x.id === b.dataset.open) r = x; });
     if(!r) return;
-    $('w').value=r.w; $('l').value=r.l; $('h').value=r.h;
+    /* rooms saved here before the change still hold a width and a length */
+    $('area').value = (r.a != null) ? r.a : (csNum(r.w) * csNum(r.l));
+    $('h').value = r.h;
     catSel.value=r.cat; actSel.value=r.act;
     AC = r.ac;
     $('acmode').querySelectorAll('button').forEach(function(x){
@@ -2637,11 +2657,11 @@ $('clearRooms').addEventListener('click', function(){
 $('exportRooms').addEventListener('click', function(){
   if(!ROOMS.length) return;
   var TAB = String.fromCharCode(9), NL = String.fromCharCode(10);
-  var lines = [['ชื่อห้อง','หมวด','กว้าง','ยาว','สูง','พื้นที่','คน','ลมที่ตั้ง CMH',
+  var lines = [['ชื่อห้อง','หมวด','พื้นที่ ตร.ม.','สูง ม.','คน','ลมที่ตั้ง CMH',
                 'ค่าแนะนำ CMH','L/s ต่อคน','ACH','CO2 ปลายช่วง ppm','สถานะ'].join(TAB)];
   ROOMS.forEach(function(r){
     var m = roomSummary(r);
-    lines.push([r.name, m.st.cat[1], r.w, r.l, r.h, m.st.A.toFixed(1), m.st.Pz,
+    lines.push([r.name, m.st.cat[1], m.st.A.toFixed(1), r.h, m.st.Pz,
                 Math.round(m.st.Q), isFinite(m.rec)?Math.round(m.rec):'',
                 m.lps.toFixed(1), m.ach.toFixed(2),
                 isFinite(m.co2)?Math.round(m.co2):'', m.ok?'ผ่าน':'ลมไม่พอ'].join(TAB));
