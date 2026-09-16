@@ -457,7 +457,7 @@ table.dtable td.st{white-space:nowrap}
       </div>
       <div class="hint" id="oaFrom" hidden></div>
       <div class="slider-wrap" id="oaWrap">
-        <input type="range" id="oa" min="0" max="12000" step="50" value="3000">
+        <input type="range" id="oa" min="0" max="12000" step="1" value="3000" aria-label="ปริมาณลมภายนอก"><!-- step 1, same reason as the CO2 slider: the airflow arrives from there and must survive intact. At step 50 a room needing 90 CMH came in as 100, and 19 as 0. The +/- buttons still move in hundreds. -->
         <div class="ticks"><span>0</span><span id="tk1"></span><span id="tk2"></span><span id="tk3"></span><span id="tkm">12,000</span></div>
       </div>
       <div class="hint" id="oaHint"></div>
