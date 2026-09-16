@@ -22,6 +22,13 @@ be discovered.
 """
 import argparse, base64, getpass, hashlib, io, json, os, subprocess, sys
 
+# openpyxl warns about the data validation extension on every read of this
+# workbook. It is about a feature we do not use, it cannot be acted on, and
+# it prints above the banner where it reads like an error to whoever just
+# double-clicked the .bat.
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
+
 # the console is cp1252 until told otherwise, and every message here is Thai
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -167,11 +174,27 @@ def git(args, cwd):
     return p.returncode, (p.stdout or '') + (p.stderr or '')
 
 
+def banner():
+    print('')
+    print('  ══════════════════════════════════════════════════════════════')
+    print('    ERV COST DATABASE  ·  อัปเดตขึ้นเว็บ')
+    print('  ══════════════════════════════════════════════════════════════')
+    print('')
+    print('    อ่าน   %s' % os.path.basename(SOURCE))
+    print('    เขียน  cost/%s ใน repo แล้ว push'
+          % ('data.enc.json' if ENCRYPT else 'data.json'))
+    print('')
+    print('    ปิด Excel ก่อนถ้าเปิดไฟล์นี้ค้างไว้ · ใช้เวลาประมาณหนึ่งนาที')
+    print('')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--push', action='store_true', help='ไม่ต้องถามก่อน push')
     ap.add_argument('--no-git', action='store_true', help='สร้างไฟล์อย่างเดียว')
     args = ap.parse_args()
+
+    banner()
 
     if not os.path.exists(SOURCE):
         say('หาไฟล์ต้นทางไม่เจอ: %s' % SOURCE)
