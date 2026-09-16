@@ -356,7 +356,19 @@ tr.gov td{background:#EDF6FD !important}
 .sfld input{width:82px; text-align:right}
 .sfld .u{font-size:11px; color:var(--gray)}
 
-.ovr{margin-top:3px; font-size:10.5px; color:#8A5B12; background:#FDF8EF;
+/* The room table has more columns than fit, so the browser takes the space
+   it needs from whichever column will yield - and the ones that yield are
+   the ones holding words. Left alone it squeezed the name field to 29 px
+   and set this chip one character per line, a vertical orange stripe.
+   Both get a floor; the table scrolls sideways instead, which it was
+   already built to do. */
+.hintlist{margin:0; padding-left:17px; line-height:1.75}
+.hintlist li{margin-top:2px}
+.hintlist .badge, .hintlist .ovr{font-size:10.5px}
+#roomBody input[data-f="name"]{min-width:150px}
+#roomBody select[data-f="cat"]{min-width:104px}
+#roomBody select[data-f="law"]{min-width:150px}
+.ovr{margin-top:3px; font-size:10.5px; color:#8A5B12; background:#FDF8EF; white-space:nowrap;
   border:1px solid #EBD9B4; border-radius:4px; padding:1px 6px; cursor:pointer; display:inline-block}
 .ovr:hover{background:#F7EDD8}
 .colopt{display:inline-flex; align-items:center; gap:5px; font-size:12px;
@@ -2081,16 +2093,23 @@ function renderRooms(p, s, r){
       + '<td><b>' + (r.done.erv ? fmt(r.rt,2) + ' RT' : '—') + '</b></td>'
       + '<td colspan="2"></td></tr>'
     : '';
-  $('roomHint').innerHTML = 'แก้ได้ในตารางโดยตรง เครื่องมือทุกตัวจะเห็นค่าเดียวกัน · '
-    + '<b>ฟังก์ชันห้อง</b> ตัดสินอัตราลมและเพดาน CO₂ · เลือกที่นี่แล้วเครื่องมือ CO₂ รับไปใช้เลย '
-    + 'ตัวเลข <b>ลมขั้นต่ำ</b> คิดจาก 62.1 กับกฎกระทรวงเท่านั้น '
-    + '<b>ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้</b> ต้องเปิดเครื่องมือถึงจะได้ตัวเลขสุดท้าย · '
-    + '<b>ป้าย คิดไว้ใต้เงื่อนไขเดิม</b> แปลว่าผลนั้นคำนวณตอนที่ทางเลือกตั้งค่าไว้อีกอย่าง '
-    + 'ตัวเลขไม่ได้ผิด แต่ไม่ใช่ของเงื่อนไขชุดนี้ · เปิดเครื่องมือของห้องนั้นอีกครั้งแล้วมันคิดใหม่ให้เอง · '
-    + '<b>จำนวน</b> คือห้องที่เหมือนกันทุกอย่าง ใส่ 20 แทนการสร้าง 20 แถว '
-    + 'ผลคำนวณเก็บเป็นของห้องเดียว แล้วคูณตอนรวมยอด · '
-    + '<b>ประเภท</b> ห้องระบายอากาศไม่มีแอร์ จึงไม่คิดภาระที่ตกกับแอร์<br>'
-    + '<b>ช่องแอร์เดิม</b> ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ให้รวม RT และลมจ่ายเป็นก้อนเดียว';
+  /* one topic per line - as a single paragraph this ran to six subjects
+     strung together with middots and nobody read past the second */
+  $('roomHint').innerHTML = '<ul class="hintlist">'
+    + '<li>แก้ได้ในตารางโดยตรง เครื่องมือทุกตัวจะเห็นค่าเดียวกัน</li>'
+    + '<li><b>ฟังก์ชันห้อง</b> ตัดสินอัตราลมและเพดาน CO₂ · เลือกที่นี่แล้วเครื่องมือ CO₂ รับไปใช้เลย</li>'
+    + '<li><b>ลมขั้นต่ำ</b> ที่แสดงไว้ คิดจาก ASHRAE 62.1 กับกฎกระทรวงเท่านั้น · '
+      + '<b>ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้</b> ต้องเปิดเครื่องมือถึงจะได้ตัวเลขสุดท้าย</li>'
+    + '<li><b>จำนวน</b> คือห้องที่เหมือนกันทุกอย่าง · ใส่ 20 แทนการสร้าง 20 แถว '
+      + 'ผลคำนวณเก็บเป็นของห้องเดียว แล้วคูณตอนรวมยอด</li>'
+    + '<li><b>ประเภท</b> ห้องระบายอากาศไม่มีแอร์ จึงไม่คิดภาระที่ตกกับแอร์</li>'
+    + '<li><b>แอร์เดิม</b> ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ให้รวม RT และลมจ่ายเป็นก้อนเดียว</li>'
+    + '<li><b>ป้าย <span class="badge na">คิดไว้ใต้เงื่อนไขเดิม</span></b> '
+      + 'แปลว่าผลนั้นคำนวณตอนที่ทางเลือกตั้งค่าไว้อีกอย่าง ตัวเลขไม่ได้ผิดแต่ไม่ใช่ของเงื่อนไขชุดนี้ · '
+      + 'เปิดเครื่องมือของห้องนั้นอีกครั้งแล้วมันคิดใหม่ให้เอง</li>'
+    + '<li><b>ป้าย <span class="ovr" style="margin:0;cursor:default">ตั้งค่าเอง</span></b> '
+      + 'แปลว่าห้องนั้นใช้เงื่อนไขต่างจากทางเลือก · กดที่ป้ายเพื่อกลับไปใช้ค่าของทางเลือก</li>'
+    + '</ul>';
   syncBatchBar();
 }
 function renderRoomsOnly(){
