@@ -1664,22 +1664,18 @@ var HUB = null;              /* { pid, sid, rid } when opened from the hub */
    One list, read by csKeepGet and written by csKeepSet. Adding an input
    means adding it here, once, and it is then both saved and restored. */
 var VENT_KEEP = [
-  'q', 'c0', 'dur', 'inf', 'base',
-  { k:'func', ids:['cat'],
-              get:function(){ return +catSel.value; },
-              set:function(v){ if(CATS[v]) catSel.value = v; } },
-  { k:'act',  get:function(){ return +$('act').value; },
-              set:function(v){ if(ACTS[v]) $('act').value = v; } },
-  { k:'ac',   get:function(){ return AC; },
-              set:function(v){ hubSetAc(+v); } },
-  /* the law list is rebuilt by hubSetAc, so its index is written after */
-  { k:'law',  get:function(){ return +$('law').value; },
-              set:function(v){ if($('law').options[v]) $('law').value = v; } }
+  'q', 'c0', 'dur', 'inf', 'base'
 ];
 /* Deliberately not kept, and why. Anything not in one list or the other
    is reported by csKeepAudit rather than silently lost. */
 var VENT_SKIP = [
   'area', 'h', 'pz',        /* the room's, owned by the hub */
+  /* Also the room's, and this is the one that bit. They were kept here as
+     well as on the room, hubInit applied the kept copy after the room's,
+     and hubSave then wrote the stale one back - so changing the function
+     in the register and opening this page silently undid the change.
+     hubInit sets all four from the room; hubSave writes all four back. */
+  'cat', 'act', 'law',
   'co',                     /* the scenario's, reaches the room as room.cond */
   'pznum', 'qnum',          /* mirrors of the sliders above them */
   'target',                 /* a what-if question, not a property of the room */

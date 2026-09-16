@@ -1771,11 +1771,19 @@ function toolLink(tool, pid, sid, rid, label){
    number does not follow - it sits there looking current. These two say so
    wherever the number is shown; they never change anything. */
 function staleVent(s, rm){
-  if(!rm.vent || rm.vent.co == null || !isFinite(rm.vent.co)) return null;
-  var c = csCond(s, rm);
-  return Math.abs(csNum(rm.vent.co) - c.oaCo) > 1e-9
-    ? 'CO₂ อากาศภายนอก ตอนคำนวณ ' + fmt(csNum(rm.vent.co)) + ' ppm · ตอนนี้ ' + fmt(c.oaCo) + ' ppm'
-    : null;
+  if(!rm.vent) return null;
+  var out = [];
+  /* the function sets Rp, Ra and the CO2 ceiling, so it is most of the
+     answer · the tool records the category it used, under vent.cat */
+  var nowCat = (CATS[csNum(rm.func, defFunc())] || [])[1];
+  if(rm.vent.cat && nowCat && rm.vent.cat !== nowCat)
+    out.push('ฟังก์ชันห้อง ตอนคำนวณ ' + esc(rm.vent.cat) + ' · ตอนนี้ ' + esc(nowCat));
+  if(rm.vent.co != null && isFinite(rm.vent.co)){
+    var c = csCond(s, rm);
+    if(Math.abs(csNum(rm.vent.co) - c.oaCo) > 1e-9)
+      out.push('CO₂ อากาศภายนอก ตอนคำนวณ ' + fmt(csNum(rm.vent.co)) + ' ppm · ตอนนี้ ' + fmt(c.oaCo) + ' ppm');
+  }
+  return out.length ? out.join(' · ') : null;
 }
 var ERV_TRACE = [['toa','oaPkT'],['rhoa','oaPkRh'],['tr','rT'],['rhr','rRh'],['et','et'],['es','es']];
 function staleErv(s, rm){
