@@ -1971,6 +1971,10 @@ function csNewRoom(name){
     id: csUid(), name: name || 'ห้อง', tag: '',
     level: '', system: '', zone: '',
     w: 8, l: 10, h: 2.8, pz: 20,
+    /* true while the headcount is still the reference density talking.
+       Typing a real number clears it; rooms made before this existed do
+       not have it, so their numbers are left exactly as they are. */
+    pzAuto: true,
     qty: 1,                    /* how many identical rooms this row stands for */
     cat: 'AC',                 /* 'AC' air conditioned · 'MV' ventilation only */
     cap: 0, qac: 0,            /* existing plant, several units summed */

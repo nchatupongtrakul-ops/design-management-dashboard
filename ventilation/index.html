@@ -894,6 +894,10 @@ function csNewRoom(name){
     id: csUid(), name: name || 'ห้อง', tag: '',
     level: '', system: '', zone: '',
     w: 8, l: 10, h: 2.8, pz: 20,
+    /* true while the headcount is still the reference density talking.
+       Typing a real number clears it; rooms made before this existed do
+       not have it, so their numbers are left exactly as they are. */
+    pzAuto: true,
     qty: 1,                    /* how many identical rooms this row stands for */
     cat: 'AC',                 /* 'AC' air conditioned · 'MV' ventilation only */
     cap: 0, qac: 0,            /* existing plant, several units summed */
@@ -1769,7 +1773,10 @@ function hubSave(s, rec, endCo2){
   var db = csRead();
   var hit = csFind(db, HUB.pid, HUB.sid, HUB.rid); if(!hit) return;
   /* geometry edited here flows back, so the two never disagree */
-  hit.r.w = nv('w'); hit.r.l = nv('l'); hit.r.h = nv('h'); hit.r.pz = s.Pz;
+  hit.r.w = nv('w'); hit.r.l = nv('l'); hit.r.h = nv('h');
+  /* the headcount this page was driven with is a decision, so it stops the
+     hub filling it from the reference density */
+  if(csNum(hit.r.pz) !== csNum(s.Pz)){ hit.r.pz = s.Pz; hit.r.pzAuto = false; }
   /* the function is the room's, so a change here goes back to the room too */
   hit.r.func = +catSel.value; hit.r.law = +$('law').value; hit.r.act = +$('act').value;
   hit.r.cat = AC ? 'AC' : 'MV';

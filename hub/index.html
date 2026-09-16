@@ -441,6 +441,9 @@ tr.gov td{background:#EDF6FD !important}
 .fnsug{border:1px solid #BBDDF7; background:#EDF6FD; color:#1B6FBF; border-radius:4px;
   padding:1px 6px; font-family:inherit; font-size:10.5px; cursor:pointer; margin-top:3px}
 .fnsug:hover{background:#DBEEFC}
+.fnauto{display:inline-block; margin-top:3px; font-size:10px; color:#1B6FBF;
+  background:#EDF6FD; border:1px solid #BBDDF7; border-radius:4px; padding:1px 6px;
+  cursor:help}
 .ac2{display:flex; gap:4px; align-items:center; justify-content:flex-end}
 .ac2 input{width:56px; text-align:right}
 .ac2 span{color:var(--gray); font-size:11px}
@@ -872,6 +875,10 @@ function csNewRoom(name){
     id: csUid(), name: name || 'ห้อง', tag: '',
     level: '', system: '', zone: '',
     w: 8, l: 10, h: 2.8, pz: 20,
+    /* true while the headcount is still the reference density talking.
+       Typing a real number clears it; rooms made before this existed do
+       not have it, so their numbers are left exactly as they are. */
+    pzAuto: true,
     qty: 1,                    /* how many identical rooms this row stands for */
     cat: 'AC',                 /* 'AC' air conditioned · 'MV' ventilation only */
     cap: 0, qac: 0,            /* existing plant, several units summed */
@@ -1810,6 +1817,7 @@ function renderDetail(){
       if($(id)) $(id).innerHTML = ''; });
     return;
   }
+  if(syncAutoPz(s)){ csTouch(p); saveDB(); }
   var r = roll(s);
 
   $('detailHead').innerHTML = '<div class="dhead">'
@@ -1982,6 +1990,23 @@ function funcRates(rm){
            min: Math.max(ash || 0, thai),
            density: c[4], ceil: c[5] };
 }
+/* the headcount ASHRAE 62.1 would design to for this category and area */
+function densityPz(rm){
+  var f = funcRates(rm), A = csNum(rm.w) * csNum(rm.l);
+  if(!(f.density > 0) || !(A > 0)) return null;
+  return Math.max(1, Math.round(f.density / 100 * A));
+}
+/* keep the auto rooms in step before anything reads pz · returns whether
+   anything moved, so the caller knows to save */
+function syncAutoPz(s){
+  var moved = false;
+  (s.rooms || []).forEach(function(rm){
+    if(!rm.pzAuto) return;
+    var n = densityPz(rm);
+    if(n !== null && n !== csNum(rm.pz)){ rm.pz = n; moved = true; }
+  });
+  return moved;
+}
 function funcCell(rm, j, cnd){
   var ac = rm.cat !== 'MV';
   var f = funcRates(rm);
@@ -1998,10 +2023,14 @@ function funcCell(rm, j, cnd){
       + '<br>ลมขั้นต่ำ <b>' + fmt(Math.ceil(f.min/100)*100) + '</b> CMH'
       + '<span class="fnq" title="ตัวเลขนี้คิดจาก 62.1 กับกฎกระทรวงเท่านั้น '
       + 'ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้ · เปิดเครื่องมือเพื่อได้ตัวเลขสุดท้าย">?</span>'
-      + (suggest && suggest !== csNum(rm.pz)
-          ? '<br><button class="fnsug" data-sug="'+j+'" data-n="'+suggest+'">'
-            + 'ความหนาแน่นอ้างอิง ' + suggest + ' คน ↺</button>'
-          : '')
+      + (rm.pzAuto
+          ? '<br><span class="fnauto" title="ความหนาแน่นอ้างอิงของหมวดนี้ตาม ASHRAE 62.1 '
+            + 'คือ ' + fmt(f.density) + ' คนต่อ 100 ตร.ม. · ใส่จำนวนคนจริงทับได้เลย">'
+            + 'จำนวนคนมาจากความหนาแน่นอ้างอิง ' + fmt(f.density) + ' คน/100 ตร.ม.</span>'
+          : (suggest && suggest !== csNum(rm.pz)
+              ? '<br><button class="fnsug" data-sug="'+j+'" data-n="'+suggest+'">'
+                + 'กลับไปใช้ความหนาแน่นอ้างอิง ' + suggest + ' คน ↺</button>'
+              : ''))
     + '</div></div>';
 }
 
@@ -2045,7 +2074,10 @@ function setField(rm, key, val){
     rm[key] = String(val).trim(); return true;
   }
   if(key === 'w' || key === 'l' || key === 'h' || key === 'pz' || key === 'cap' || key === 'qac'){
-    rm[key] = csNum(val); return true;
+    rm[key] = csNum(val);
+    /* a headcount somebody typed is a fact about the room, not a default */
+    if(key === 'pz') rm.pzAuto = false;
+    return true;
   }
   return false;
 }
@@ -2162,6 +2194,9 @@ function renderRooms(p, s, r){
       + '<b>ถ้า CO₂ เป็นตัวคุม เกณฑ์จริงจะสูงกว่านี้</b> ต้องเปิดเครื่องมือถึงจะได้ตัวเลขสุดท้าย</li>'
     + '<li><b>จำนวน</b> คือห้องที่เหมือนกันทุกอย่าง · ใส่ 20 แทนการสร้าง 20 แถว '
       + 'ผลคำนวณเก็บเป็นของห้องเดียว แล้วคูณตอนรวมยอด</li>'
+    + '<li><b>จำนวนคน</b> เติมให้อัตโนมัติจาก<b>ความหนาแน่นอ้างอิง</b>ของหมวดนั้นตาม ASHRAE 62.1 '
+      + '(คนต่อ 100 ตร.ม. ที่มาตรฐานให้ออกแบบเมื่อยังไม่รู้จำนวนจริง) · '
+      + '<b>พอพิมพ์จำนวนคนจริงลงไป มันจะหยุดเติมให้ทันที</b> และไม่แก้ค่าที่พิมพ์อีกเลย</li>'
     + '<li><b>ประเภท</b> ห้องระบายอากาศไม่มีแอร์ จึงไม่คิดภาระที่ตกกับแอร์</li>'
     + '<li><b>แอร์เดิม</b> ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ให้รวม RT และลมจ่ายเป็นก้อนเดียว</li>'
     + '<li><b>ป้าย <span class="badge na">คิดไว้ใต้เงื่อนไขเดิม</span></b> '
@@ -2174,6 +2209,7 @@ function renderRooms(p, s, r){
 }
 function renderRoomsOnly(){
   var p = curP(), s = curS(); if(!p || !s) return;
+  if(syncAutoPz(s)){ csTouch(p); saveDB(); }
   renderRooms(p, s, roll(s)); renderRoll(roll(s), s);
 }
 
@@ -2703,6 +2739,18 @@ $('roomBody').addEventListener('input', function(e){
            || f === 'zone' || f === 'cat') ? el.value : csNum(el.value);
   if(f === 'func' || f === 'law') rm[f] = parseInt(el.value, 10);
   if(f === 'qty') rm.qty = Math.max(1, Math.round(csNum(el.value,1)));
+  /* a headcount somebody typed is a fact about the room, not a default,
+     so the reference density stops filling it in */
+  if(f === 'pz') rm.pzAuto = false;
+  /* and a room that is still on the reference follows its own area, which
+     has to happen without a re-render or the field being typed in loses
+     the focus mid-keystroke */
+  if(f === 'w' || f === 'l'){
+    if(syncAutoPz(s)){
+      var box = $('roomBody').querySelector('[data-f="pz"][data-j="' + el.dataset.j + '"]');
+      if(box && document.activeElement !== box) box.value = rm.pz;
+    }
+  }
   csTouch(curP()); saveDB();
   renderRoll(roll(s), s);
 });
@@ -2743,7 +2791,8 @@ $('roomBody').addEventListener('click', function(e){
   }
   var b = e.target.closest('button'); if(!b) return;
   if(b.dataset.sug !== undefined){
-    s.rooms[+b.dataset.sug].pz = +b.dataset.n;
+    var sr = s.rooms[+b.dataset.sug];
+    sr.pz = +b.dataset.n; sr.pzAuto = true;
     csTouch(curP()); saveDB(); renderRoomsOnly(); return;
   }
   if(b.dataset.rdup !== undefined){
