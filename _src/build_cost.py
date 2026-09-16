@@ -239,6 +239,12 @@ def ask_passphrase():
         return pw
 
 
+def yes(ans):
+    """A Thai keyboard leaves vowel marks in the line; only letters count."""
+    letters = ''.join(c for c in ans if c.isascii() and c.isalpha()).lower()
+    return letters in ('y', 'yes')
+
+
 def git(args, cwd):
     p = subprocess.run(['git'] + args, cwd=cwd, capture_output=True, text=True,
                        encoding='utf-8', errors='replace')
@@ -350,7 +356,7 @@ def main():
             print('')
             ans = input('  จำรหัสนี้ไว้ในเครื่องนี้ไหม '
                         'ครั้งต่อไปจะไม่ต้องพิมพ์อีก [y/N] ')
-            if ans.strip().lower() in ('y', 'yes'):
+            if yes(ans):
                 if save_pass(pw):
                     say('จำรหัสไว้ที่ %s' % PASS_FILE)
                     say('เก็บนอก OneDrive และนอก repo · '
@@ -361,10 +367,10 @@ def main():
     if args.no_git:
         return 0
 
-    code, out = git(['pull', '--rebase', '--quiet'], REPO)
-    if code != 0:
-        say('git pull ไม่ผ่าน · %s' % out.strip()[:400])
-        return 1
+    # Stage and commit before pulling. This script has just written into
+    # the working tree, so by this point it is always dirty, and a rebase
+    # onto a dirty tree is refused - which is what happened the first time
+    # the file existed already: everything worked except the last step.
     git(['add', 'cost'], REPO)
     code, out = git(['diff', '--cached', '--quiet'], REPO)
     if code == 0:
@@ -373,8 +379,9 @@ def main():
 
     if not args.push:
         print('\n'.join(LOG))
+        LOG[:] = []
         ans = input('\npush ขึ้นเว็บเลยไหม [y/N] ')
-        if ans.strip().lower() not in ('y', 'yes'):
+        if not yes(ans):
             git(['restore', '--staged', 'cost'], REPO)
             say('ยกเลิกแล้ว · ไฟล์ยังอยู่ในเครื่อง ไม่ได้ push')
             return 0
@@ -383,9 +390,19 @@ def main():
     if code != 0:
         say('commit ไม่ผ่าน · %s' % out.strip()[:400])
         return 1
+
+    # now the tree is clean, so anything the dashboard team pushed in the
+    # meantime rebases underneath this commit
+    code, out = git(['pull', '--rebase', '--quiet'], REPO)
+    if code != 0:
+        say('git pull ไม่ผ่าน · %s' % out.strip()[:400])
+        say('commit อยู่ในเครื่องแล้ว · แก้แล้วสั่ง git push ได้เลย ไม่ต้อง build ใหม่')
+        return 1
+
     code, out = git(['push', '--quiet'], REPO)
     if code != 0:
         say('push ไม่ผ่าน · %s' % out.strip()[:400])
+        say('commit อยู่ในเครื่องแล้ว · สั่ง git push อีกครั้งได้เลย ไม่ต้อง build ใหม่')
         return 1
     say('push แล้ว · เว็บจะอัปเดตในประมาณหนึ่งนาที')
     say('https://nchatupongtrakul-ops.github.io/design-management-dashboard/cost/')
