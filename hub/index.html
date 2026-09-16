@@ -344,6 +344,14 @@ tr.gov td{background:#EDF6FD !important}
   padding:1px 7px; margin-left:5px; font-weight:600}
 .qn{font-size:11px; color:var(--gray); font-variant-numeric:tabular-nums}
 .qn:empty{display:none}
+/* the unit is chosen where the number is typed, so it lives in the header */
+.unitsw{display:inline-flex; border:1px solid var(--border); border-radius:5px;
+  overflow:hidden; vertical-align:middle}
+.unitsw button{border:0; background:var(--card-bg); color:var(--text-secondary);
+  font:inherit; font-size:10.5px; line-height:1; padding:2px 6px; cursor:pointer}
+.unitsw button + button{border-left:1px solid var(--border)}
+.unitsw button:hover{background:var(--surface); color:var(--text)}
+.unitsw button.on{background:var(--blue); color:#fff; cursor:default}
 .g-row td{background:var(--surface); font-size:12px}
 .p-st{width:96px; font-size:11.5px; padding:2px 5px}
 
@@ -683,7 +691,6 @@ tr.gov td{background:#EDF6FD !important}
         <h3>ห้องในโปรเจคนี้</h3>
         <div class="flowmeta">
           <label class="colopt"><input type="checkbox" id="colTag"> แสดงรหัส/ชั้น/ระบบ/โซน</label>
-          <label class="colopt" title="แอร์แยกส่วนขายเป็น BTU/ชม. · เก็บเป็น RT เหมือนเดิม แค่เปลี่ยนหน่วยที่กรอก"><input type="checkbox" id="colBtu"> แอร์เดิมเป็น BTU</label>
           <label class="colopt">จัดกลุ่มตาม
             <select class="rin" id="groupBy" style="width:96px">
               <option value="">ไม่จัดกลุ่ม</option>
@@ -2294,7 +2301,11 @@ function renderRooms(p, s, r){
     + '<th class="num">สูง<div class="thsub">ม.</div></th>'
     + '<th class="num">คน</th><th class="num">จำนวน<div class="thsub">ห้องซ้ำ</div></th>'
     + '<th>ประเภท</th>'
-    + '<th class="num">แอร์เดิม<div class="thsub">' + capUnit() + ' · ลมจ่าย CMH</div></th>'
+    + '<th class="num">แอร์เดิม<div class="thsub">'
+      + '<span class="unitsw" title="หน่วยที่กรอกและแสดง · เก็บเป็น RT เสมอ · 12,000 BTU/ชม. = 1 RT">'
+        + '<button data-capunit="rt"' + (CAPBTU ? '' : ' class="on"') + '>RT</button>'
+        + '<button data-capunit="btu"' + (CAPBTU ? ' class="on"' : '') + '>BTU</button>'
+      + '</span> · ลมจ่าย CMH</div></th>'
     + '<th>CO₂ และลมที่ต้องเติม</th><th>ภาระที่ตกกับแอร์</th><th>เสียงที่รั่วออก</th><th></th></tr>';
 
   var last = null, out = [];
@@ -2378,7 +2389,7 @@ function renderRooms(p, s, r){
       + '<b>พอพิมพ์จำนวนคนจริงลงไป มันจะหยุดเติมให้ทันที</b> และไม่แก้ค่าที่พิมพ์อีกเลย</li>'
     + '<li><b>ประเภท</b> ห้องระบายอากาศไม่มีแอร์ จึงไม่คิดภาระที่ตกกับแอร์</li>'
     + '<li><b>แอร์เดิม</b> ห้องหนึ่งมีแอร์กี่ชุดก็ได้ ให้รวมขนาดและลมจ่ายเป็นก้อนเดียว · '
-      + 'ติ๊ก <b>แอร์เดิมเป็น BTU</b> เพื่อกรอกเป็น BTU/ชม. อย่างที่ติดมากับเครื่อง '
+      + 'กด <b>RT / BTU</b> บนหัวคอลัมน์เพื่อสลับหน่วยที่กรอก · เลือก BTU แล้วกรอกตามที่ติดมากับเครื่องได้เลย '
       + '(12,000 BTU/ชม. = 1 RT) · <b>ค่าที่เก็บเป็น RT เสมอ</b> '
       + 'สลับหน่วยไปมาได้ไม่มีอะไรเพี้ยน · เป็นการตั้งของแต่ละเครื่อง ไม่ได้ติดไปกับโปรเจค</li>'
     + '<li><b>ป้าย <span class="badge na">คิดไว้ใต้เงื่อนไขเดิม</span></b> '
@@ -2934,9 +2945,13 @@ $('rAdd').addEventListener('click', function(){
   s.rooms.push(csNewRoom('ห้องที่ ' + (s.rooms.length+1)));
   csTouch(curP()); saveDB(); renderDetail();
 });
-$('colBtu').addEventListener('change', function(){
-  CAPBTU = this.checked;
-  try { localStorage.setItem('coral.hub.capbtu', CAPBTU ? '1':'0'); } catch(e){}
+/* delegated: renderRooms rebuilds the header every time */
+$('roomHead').addEventListener('click', function(e){
+  var b = e.target.closest('[data-capunit]'); if(!b) return;
+  var want = b.dataset.capunit === 'btu';
+  if(want === CAPBTU) return;
+  CAPBTU = want;
+  try { localStorage.setItem('coral.hub.capbtu', CAPBTU ? '1':'0'); } catch(e2){}
   renderRoomsOnly();
 });
 $('colTag').addEventListener('change', function(){
@@ -3587,7 +3602,6 @@ window.addEventListener('beforeunload', function(){ csFileFlush(); });
 DB = csRead();
 if(!DB.projects.length) DB.projects.push(csNewProject('โปรเจคที่ 1'));
 $('colTag').checked = SHOWTAG;
-$('colBtu').checked = CAPBTU;
 $('groupBy').value = GROUPBY;
 saveDB();
 renderList();
