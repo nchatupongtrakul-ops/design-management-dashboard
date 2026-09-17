@@ -340,10 +340,26 @@ tr.gov td{background:#EDF6FD !important}
 .p-cl::placeholder{color:var(--gray); opacity:.7}
 .s-row td{background:#FCFCFB}
 .s-row .s-name{padding-left:14px; color:var(--text-secondary); font-size:12.5px}
+.s-nm{border:1px solid transparent; background:transparent; border-radius:5px;
+  padding:2px 5px; margin:-2px 0; font-family:inherit; font-size:13px; color:inherit;
+  width:190px; text-overflow:ellipsis}
+.s-nm:hover{border-color:var(--border)}
+.s-nm:focus{border-color:var(--blue); background:var(--card-bg); outline:none;
+  box-shadow:0 0 0 2px rgba(35,131,226,.15)}
 .s-tagmain{font-size:10.5px; background:#EDF6FD; color:#1B6FBF; border-radius:20px;
   padding:1px 7px; margin-left:5px; font-weight:600}
 .qn{font-size:11px; color:var(--gray); font-variant-numeric:tabular-nums}
 .qn:empty{display:none}
+/* our own confirm · the portal's iframe blocks the browser's */
+.askback{position:fixed; inset:0; background:rgba(15,23,32,.38); z-index:9000;
+  display:flex; align-items:center; justify-content:center; padding:20px}
+.askbox{background:var(--card-bg); border-radius:10px; box-shadow:0 18px 50px rgba(0,0,0,.28);
+  max-width:460px; width:100%; padding:20px 22px 16px}
+.askbox h4{font-size:15.5px; font-weight:700; color:var(--text); margin:0 0 7px}
+.askbox .d{font-size:13px; color:var(--text-secondary); line-height:1.6; white-space:pre-line}
+.askbox .row{display:flex; gap:8px; justify-content:flex-end; margin-top:18px}
+.askbox .danger{background:var(--red); color:#fff; border:none}
+.askbox .danger:hover{filter:brightness(.94)}
 /* the unit is chosen where the number is typed, so it lives in the header */
 .unitsw{display:inline-flex; border:1px solid var(--border); border-radius:5px;
   overflow:hidden; vertical-align:middle}
@@ -1852,7 +1868,9 @@ function renderList(){
       var r = roll(s);
       rows.push('<tr class="s-row ' + (p.off?'p-off':'') + '">'
         + '<td></td>'
-        + '<td class="s-name">↳ ' + esc(s.name)
+        + '<td class="s-name">↳ '
+          + '<input class="s-nm" data-sn="'+i+'|'+j+'" value="' + esc(s.name) + '" '
+          + 'aria-label="ชื่อทางเลือก" spellcheck="false">'
           + (j === 0 ? ' <span class="s-tagmain">หลัก</span>' : '') + '</td>'
         + '<td class="num">' + r.rows + (r.rooms !== r.rows ? ' <span class="qn">(' + r.rooms + ')</span>' : '') + '</td>'
         + '<td class="num">' + fmt(r.area,1) + '</td>'
@@ -1863,7 +1881,10 @@ function renderList(){
         + '<td class="num">' + payText(r.roi) + '</td>'
         + '<td>' + fillBar(r) + '</td>'
         + '<td style="white-space:nowrap">'
-          + '<button class="btn ghost" data-go="'+i+'|'+j+'">เปิดดู</button></td>'
+          + '<button class="btn ghost" data-go="'+i+'|'+j+'">เปิดดู</button> '
+          + '<button class="btn ghost" data-srep="'+i+'|'+j+'" '
+            + 'title="รายงานของทางเลือกนี้ พร้อมห้องทุกห้อง · สั่งพิมก์หรือบันทึกเป็น PDF ได้">รายงาน</button> '
+          + '<button class="btn ghost" data-sdel="'+i+'|'+j+'">ลบ</button></td>'
         + '</tr>');
     });
   });
@@ -1988,7 +2009,7 @@ function renderScnBar(p){
     + '<div class="scnbar-act">'
       + '<button class="btn ghost" id="sAdd">+ ทางเลือก</button>'
       + '<button class="btn ghost" id="sDup">คัดลอกทางเลือก</button>'
-      + '<button class="btn ghost" id="sRen">เปลี่ยนชื่อ</button>'
+      + '<button class="btn ghost" id="sRen" title="ชื่อทางเลือกพิมพ์ทับได้ในแท็บรายการโปรเจค">เปลี่ยนชื่อ</button>'
       + '<button class="btn ghost" id="sDel">ลบทางเลือก</button>'
     + '</div></div>'
     + '<div class="hint" style="margin-top:6px">ทางเลือกคือ<b>ชุดเงื่อนไขออกแบบหนึ่งชุดของอาคารเดียวกัน</b> '
@@ -2288,6 +2309,65 @@ function groupKey(rm){
   if(GROUPBY === 'zone')   return rm.zone   || 'ไม่ได้ระบุโซน';
   return null;
 }
+/* Promise-based, because the browser's blocking confirm() is not
+   available to us inside the portal's iframe. Resolves false on Escape,
+   on the backdrop, and on cancel. */
+function askConfirm(title, detail, okLabel){
+  return new Promise(function(resolve){
+    var back = document.createElement('div');
+    back.className = 'askback';
+    back.innerHTML = '<div class="askbox" role="dialog" aria-modal="true">'
+      + '<h4></h4><div class="d"></div>'
+      + '<div class="row">'
+        + '<button class="btn ghost" data-ask="no">\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01</button>'
+        + '<button class="btn danger" data-ask="yes"></button>'
+      + '</div></div>';
+    back.querySelector('h4').textContent = title;
+    back.querySelector('.d').textContent = detail || '';
+    back.querySelector('[data-ask="yes"]').textContent = okLabel || '\u0e25\u0e1a';
+    function done(v){
+      document.removeEventListener('keydown', onKey, true);
+      back.remove();
+      resolve(v);
+    }
+    function onKey(e){
+      if(e.key === 'Escape'){ e.stopPropagation(); done(false); }
+    }
+    back.addEventListener('click', function(e){
+      if(e.target === back) return done(false);
+      var b = e.target.closest('[data-ask]');
+      if(b) done(b.dataset.ask === 'yes');
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(back);
+    back.querySelector('[data-ask="yes"]').focus();
+  });
+}
+
+/* Deleting a scenario happens from the bar on the project page and from
+   the register, so it lives in one place. */
+function delScenario(pi, si){
+  var p = DB.projects[pi]; if(!p) return;
+  var sc = p.scenarios[si]; if(!sc) return;
+  if(p.scenarios.length <= 1){
+    askConfirm('\u0e25\u0e1a\u0e17\u0e32\u0e07\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e19\u0e35\u0e49\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49',
+      '\u0e42\u0e1b\u0e23\u0e40\u0e08\u0e04\u0e15\u0e49\u0e2d\u0e07\u0e21\u0e35\u0e2d\u0e22\u0e48\u0e32\u0e07\u0e19\u0e49\u0e2d\u0e22\u0e2b\u0e19\u0e36\u0e48\u0e07\u0e17\u0e32\u0e07\u0e40\u0e25\u0e37\u0e2d\u0e01 \u00b7 '
+      + '\u0e16\u0e49\u0e32\u0e08\u0e30\u0e25\u0e1a\u0e17\u0e31\u0e49\u0e07\u0e42\u0e1b\u0e23\u0e40\u0e08\u0e04 \u0e43\u0e2b\u0e49\u0e43\u0e0a\u0e49\u0e1b\u0e38\u0e48\u0e21 \u0e25\u0e1a \u0e17\u0e35\u0e48\u0e41\u0e16\u0e27\u0e42\u0e1b\u0e23\u0e40\u0e08\u0e04\u0e41\u0e17\u0e19',
+      '\u0e40\u0e02\u0e49\u0e32\u0e43\u0e08\u0e41\u0e25\u0e49\u0e27');
+    return;
+  }
+  askConfirm('\u0e25\u0e1a\u0e17\u0e32\u0e07\u0e40\u0e25\u0e37\u0e2d\u0e01 ' + (sc.name || ''),
+    '\u0e2b\u0e49\u0e2d\u0e07 ' + sc.rooms.length + ' \u0e41\u0e16\u0e27\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e1c\u0e25\u0e04\u0e33\u0e19\u0e27\u0e13\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14\u0e08\u0e30\u0e2b\u0e32\u0e22\u0e44\u0e1b\u0e14\u0e49\u0e27\u0e22 \u00b7 \u0e01\u0e39\u0e49\u0e04\u0e37\u0e19\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49')
+  .then(function(ok){
+    if(!ok) return;
+    p.scenarios.splice(si, 1);
+    if(CUR === pi && CURS >= p.scenarios.length) CURS = Math.max(0, p.scenarios.length - 1);
+    csTouch(p); saveDB();
+    renderList();
+    if($('p-detail').classList.contains('active')) renderDetail();
+  });
+}
+
 var NCOL = 0;
 function renderRooms(p, s, r){
   var cols = 10 + (SHOWTAG ? 4 : 0);
@@ -2842,18 +2922,36 @@ $('listBody').addEventListener('input', function(e){
   if(el.dataset.pc !== undefined){
     i = +el.dataset.pc;
     DB.projects[i].client = el.value;
-    csTouch(DB.projects[i]); saveDB();
+    csTouch(DB.projects[i]); saveDB(); return;
+  }
+  if(el.dataset.sn !== undefined){
+    var q = el.dataset.sn.split('|'), pp = DB.projects[+q[0]];
+    if(pp && pp.scenarios[+q[1]]){
+      pp.scenarios[+q[1]].name = el.value;
+      csTouch(pp); saveDB();
+    }
   }
 });
 /* a project with no name has no file name either, so it gets one back */
 $('listBody').addEventListener('blur', function(e){
   var el = e.target;
-  if(el.dataset.pn === undefined) return;
-  var i = +el.dataset.pn;
-  if(!el.value.trim()){
-    DB.projects[i].name = 'โปรเจคที่ ' + (i + 1);
-    el.value = DB.projects[i].name;
-    csTouch(DB.projects[i]); saveDB();
+  if(el.dataset.pn !== undefined){
+    var i = +el.dataset.pn;
+    if(!el.value.trim()){
+      DB.projects[i].name = 'โปรเจคที่ ' + (i + 1);
+      el.value = DB.projects[i].name;
+      csTouch(DB.projects[i]); saveDB();
+    }
+    return;
+  }
+  if(el.dataset.sn !== undefined){
+    var q = el.dataset.sn.split('|'), pp = DB.projects[+q[0]];
+    var sc = pp && pp.scenarios[+q[1]];
+    if(sc && !el.value.trim()){
+      sc.name = 'ทางเลือกที่ ' + (+q[1] + 1);
+      el.value = sc.name;
+      csTouch(pp); saveDB();
+    }
   }
 }, true);
 $('listBody').addEventListener('change', function(e){
@@ -2874,13 +2972,27 @@ $('listBody').addEventListener('click', function(e){
     CUR = +q[0]; CURS = +q[1];
     document.querySelector('.tab[data-p="detail"]').click(); return;
   }
+  /* straight from the register to this scenario's report */
+  if(b.dataset.srep !== undefined){
+    var qr = b.dataset.srep.split('|');
+    CUR = +qr[0]; CURS = +qr[1];
+    $('repAll').checked = false;
+    openReport(); return;
+  }
+  if(b.dataset.sdel !== undefined){
+    var qd = b.dataset.sdel.split('|');
+    delScenario(+qd[0], +qd[1]); return;
+  }
   if(b.dataset.sadd !== undefined){
     i = +b.dataset.sadd; var p = DB.projects[i];
-    var nm = window.prompt('ชื่อทางเลือกใหม่', 'ทางเลือกที่ ' + (p.scenarios.length+1));
-    if(nm === null) return;
-    var ns = csNewScenario((nm||'').trim() || ('ทางเลือกที่ ' + (p.scenarios.length+1)));
+    /* no dialog: it is made straight away and named in the row, because
+       window.prompt does nothing inside the portal's iframe */
+    var ns = csNewScenario('ทางเลือกที่ ' + (p.scenarios.length+1));
     ns.rooms = [];
-    p.scenarios.push(ns); csTouch(p); saveDB(); renderList(); return;
+    p.scenarios.push(ns); csTouch(p); saveDB(); renderList();
+    var nb = $('listBody').querySelector('[data-sn="' + i + '|' + (p.scenarios.length-1) + '"]');
+    if(nb){ nb.focus(); nb.select(); }
+    return;
   }
   if(b.dataset.cp !== undefined){
     i = +b.dataset.cp;
@@ -2896,13 +3008,16 @@ $('listBody').addEventListener('click', function(e){
   if(b.dataset.rm !== undefined){
     i = +b.dataset.rm; var pr = DB.projects[i];
     var nr = pr.scenarios.reduce(function(a,s){ return a + s.rooms.length; }, 0);
-    if(!window.confirm('ลบ ' + pr.name + ' ใช่หรือไม่' + String.fromCharCode(10)
-        + 'จะลบทางเลือกทั้ง ' + pr.scenarios.length + ' ชุด และห้องรวม ' + nr
-        + ' แถว พร้อมผล CO₂ ภาระแอร์ และเสียงไปด้วย' + String.fromCharCode(10)
-        + 'ถ้าแค่ไม่อยากเห็น ให้กดปิดแทน')) return;
-    DB.projects.splice(i,1);
-    if(CUR === i){ CUR = null; CURS = null; }
-    saveDB(); renderList(); renderDetail();
+    askConfirm('ลบ ' + (pr.name || '') + ' ทั้งโปรเจค',
+      'ทางเลือก ' + pr.scenarios.length + ' ชุด ห้องรวม ' + nr
+      + ' แถว พร้อมผล CO₂ ภาระแอร์ และเสียง จะหายทั้งหมด'
+      + '\nถ้าแค่ไม่อยากเห็นในรายการ ให้กด ปิด แทน')
+    .then(function(ok){
+      if(!ok) return;
+      DB.projects.splice(i,1);
+      if(CUR === i){ CUR = null; CURS = null; }
+      saveDB(); renderList(); renderDetail();
+    });
   }
 });
 
@@ -2911,9 +3026,8 @@ $('scnBar').addEventListener('click', function(e){
   var p = curP(); if(!p) return;
   if(b.dataset.scn !== undefined){ CURS = +b.dataset.scn; renderDetail(); return; }
   if(b.id === 'sAdd'){
-    var nm = window.prompt('ชื่อทางเลือกใหม่', 'ทางเลือกที่ ' + (p.scenarios.length+1));
-    if(nm === null) return;
-    var ns = csNewScenario((nm||'').trim() || ('ทางเลือกที่ ' + (p.scenarios.length+1)));
+    /* named on the spot in the register, not in a dialog the portal blocks */
+    var ns = csNewScenario('ทางเลือกที่ ' + (p.scenarios.length+1));
     ns.rooms = [];
     p.scenarios.push(ns); CURS = p.scenarios.length-1;
     csTouch(p); saveDB(); renderDetail(); return;
@@ -2926,18 +3040,16 @@ $('scnBar').addEventListener('click', function(e){
     csTouch(p); saveDB(); renderDetail(); return;
   }
   if(b.id === 'sRen'){
-    var n2 = window.prompt('ชื่อทางเลือก', curS().name);
-    if(n2 === null) return;
-    curS().name = (n2||'').trim() || curS().name;
-    csTouch(p); saveDB(); renderDetail(); return;
+    /* the name is a field in the register · go there and put the cursor in it */
+    var want = CURS;
+    document.querySelector('.tab[data-p="list"]').click();
+    setTimeout(function(){
+      var box = $('listBody').querySelector('[data-sn="' + CUR + '|' + want + '"]');
+      if(box){ box.scrollIntoView({block:'center'}); box.focus(); box.select(); }
+    }, 60);
+    return;
   }
-  if(b.id === 'sDel'){
-    if(p.scenarios.length <= 1){ window.alert('เหลือทางเลือกเดียว ลบไม่ได้'); return; }
-    if(!window.confirm('ลบทางเลือก ' + curS().name + ' ใช่หรือไม่' + String.fromCharCode(10)
-      + 'จะลบห้อง ' + curS().rooms.length + ' แถวพร้อมผลคำนวณไปด้วย')) return;
-    p.scenarios.splice(CURS,1); CURS = Math.max(0, CURS-1);
-    csTouch(p); saveDB(); renderDetail();
-  }
+  if(b.id === 'sDel'){ delScenario(CUR, CURS); }
 });
 
 $('rAdd').addEventListener('click', function(){
@@ -3030,7 +3142,7 @@ $('roomBody').addEventListener('click', function(e){
   var rst = e.target.closest('[data-rst]');
   if(rst){
     var rr = s.rooms[+rst.dataset.rst];
-    if(!window.confirm('ให้ห้อง ' + (rr.name||'นี้') + ' กลับไปใช้เงื่อนไขของทางเลือกทั้งหมดใช่หรือไม่')) return;
+    /* nothing is lost here, so it asks once and gets on with it */
     delete rr.cond; csTouch(curP()); saveDB(); renderRoomsOnly(); return;
   }
   var b = e.target.closest('button'); if(!b) return;
@@ -3046,10 +3158,14 @@ $('roomBody').addEventListener('click', function(e){
     csTouch(curP()); saveDB(); renderDetail(); return;
   }
   if(b.dataset.rdel !== undefined){
-    var rm = s.rooms[+b.dataset.rdel];
-    if(!window.confirm('ลบห้อง ' + (rm.name||'') + ' ใช่หรือไม่ · ผลคำนวณของห้องนี้จะหายไปด้วย')) return;
-    s.rooms.splice(+b.dataset.rdel,1);
-    csTouch(curP()); saveDB(); renderDetail();
+    var ri = +b.dataset.rdel, rm = s.rooms[ri];
+    askConfirm('ลบห้อง ' + (rm.name || ''),
+      'ผลคำนวณ CO₂ ภาระแอร์ และเสียงของห้องนี้จะหายไปด้วย')
+    .then(function(ok){
+      if(!ok) return;
+      s.rooms.splice(ri, 1);
+      csTouch(curP()); saveDB(); renderDetail();
+    });
   }
 });
 
@@ -3112,9 +3228,13 @@ $('baDup').addEventListener('click', function(){
 $('baDel').addEventListener('click', function(){
   var s = curS(); if(!s || !SEL.size) return;
   var rooms = 0; SEL.forEach(function(j){ if(s.rooms[j]) rooms += Math.max(1, csNum(s.rooms[j].qty, 1)); });
-  if(!window.confirm('ลบ ' + SEL.size + ' แถว (' + rooms + ' ห้อง) พร้อมผลคำนวณ ใช่หรือไม่')) return;
-  Array.from(SEL).sort(function(a,b){ return b - a; }).forEach(function(j){ s.rooms.splice(j, 1); });
-  csTouch(curP()); saveDB(); renderDetail();
+  askConfirm('ลบ ' + SEL.size + ' แถว',
+    'นับเป็นห้องจริง ' + rooms + ' ห้อง · ผลคำนวณของทุกแถวจะหายไปด้วย')
+  .then(function(ok){
+    if(!ok) return;
+    Array.from(SEL).sort(function(a,b){ return b - a; }).forEach(function(j){ s.rooms.splice(j, 1); });
+    csTouch(curP()); saveDB(); renderDetail();
+  });
 });
 
 /* ═══════════ Excel-style copy / paste ═══════════ */
