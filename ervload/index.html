@@ -291,13 +291,6 @@ tfoot td{background:var(--surface); font-weight:600}
 
 <style>
 .statedot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:middle;flex:none}
-.modebar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.modecard{flex:1;min-width:220px;border:1px solid var(--border);border-radius:8px;padding:11px 14px;
-  cursor:pointer;background:var(--card-bg);transition:.15s;text-align:left;font-family:inherit}
-.modecard:hover{border-color:var(--gray)}
-.modecard.active{border-color:var(--text);box-shadow:0 0 0 1px var(--text)}
-.modecard .t{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
-.modecard .d{font-size:11.5px;color:var(--gray);line-height:1.45}
 .delta{font-variant-numeric:tabular-nums;font-weight:600}
 .delta.up{color:var(--red)} .delta.dn{color:#2E7D32}
 .srcline{font-size:11.5px;color:var(--gray);margin-top:6px;line-height:1.5}
@@ -525,18 +518,16 @@ table.dtable td.st{white-space:nowrap}
       <div class="hint">ตัวเลขนี้เป็นตัวชี้ขาดว่าห้องจะร้อนขึ้นจริงหรือไม่ ถ้าไม่ทราบให้ใส่ 85% เป็นค่ากลาง</div>
     </div>
     <div class="card">
-      <h3>ลม ERV เข้าห้องทางไหน</h3>
-      <div class="modebar" id="modebar" style="flex-direction:column">
-        <button class="modecard active" data-m="return">
-          <div class="t">ต่อเข้าท่อลมกลับของแอร์</div>
-          <div class="d">คอยล์ของแอร์รับภาระนี้ก่อนถึงห้อง ถ้ากำลังยังพอ ห้องแทบไม่เปลี่ยน</div>
-        </button>
-        <button class="modecard" data-m="room">
-          <div class="t">จ่ายเข้าห้องโดยตรง</div>
-          <div class="d">ภาระตกในห้อง มีแต่ลมหมุนเวียนของแอร์เท่านั้นที่ดึงออกได้</div>
-        </button>
+      <h3>คิดแบบจ่ายเข้าห้องโดยตรงเสมอ</h3>
+      <div class="hint" id="modeHint" style="margin-top:0"></div>
+      <div class="note" style="margin-top:12px">
+        หน้านี้<b>ไม่ถามว่าต่อท่อลมทางไหน</b> เพราะทางเดินท่อ
+        <b>ไม่ได้เปลี่ยนภาระที่แอร์ต้องรับ และไม่ได้เปลี่ยนว่าแอร์รับไหวหรือไม่</b>
+        · ต่างแค่ตอนแอร์รับไม่ไหวแล้วห้องจะเพี้ยนไปเท่าไร<br>
+        จึงคิดที่<b>กรณีหนักสุด</b> คือจ่ายเข้าห้องตรง มีแต่ลมหมุนเวียนของแอร์ที่พาความร้อนกลับไปที่คอยล์ ·
+        <b>ถ้าต่อเข้า chamber ของแอร์ ห้องจะเพี้ยนน้อยกว่านี้ ไม่มากกว่า</b>
+        ผ่านตัวเลขนี้ได้ ก็ผ่านทั้งสองแบบ
       </div>
-      <div class="hint" id="modeHint"></div>
     </div>
   </div>
 
@@ -1950,7 +1941,7 @@ function setBar(barId, key, val){
   var bar = $(barId); if(!bar) return;
   bar.querySelectorAll('button').forEach(function(b){
     b.classList.toggle('active', b.dataset[key] === val);
-    if(b.dataset[key] === val){ if(key === 'm') MODE = val; else DENS = val; }
+    if(b.dataset[key] === val) DENS = val;   /* the only bar left */
   });
 }
 /* the six condition inputs, and which scenario field each one mirrors */
@@ -1963,8 +1954,6 @@ var COND_FLD = [['toa','oaPkT'], ['rhoa','oaPkRh'], ['tr','rT'], ['rhr','rRh'],
    csCond/hubCondSync; everything else the answer needs is. */
 var LOAD_KEEP = [
   'loadnow',
-  { k:'mode', get:function(){ return MODE; },
-    set:function(v){ setBar('modebar','m', v); } },
   { k:'dens', get:function(){ return DENS; },
     set:function(v){ setBar('densbar','d', v); } }
 ];
@@ -2013,7 +2002,6 @@ function hubInit(){
   } else if(e){
     /* a room saved before the keep list existed */
     if(e.loadnow != null && isFinite(e.loadnow)) $('loadnow').value = e.loadnow;
-    if(e.mode) setBar('modebar','m', e.mode);
     if(e.dens) setBar('densbar','d', e.dens);
   }
 
@@ -2107,7 +2095,10 @@ function fmt(n,d){ d = d||0; return (isFinite(n)?n:0).toLocaleString('en-US',
   {minimumFractionDigits:d, maximumFractionDigits:d}); }
 function sgn(n,d){ return (n>=0?'+':'−') + fmt(Math.abs(n), d); }
 
-var MODE = 'return';
+/* The ERV air is taken as blown straight into the room: it is the source
+   of the load, so it is not counted as a stream that carries heat back to
+   the coil. Ducting it into the AC's return can only do better than this.
+   See the note on the "คิดแบบจ่ายเข้าห้องโดยตรงเสมอ" card. */
 var SHOW_SYMS = false;   /* opened once, stays open for the rest of the session */
 var DENS = 'std';      /* 'std' = ASHRAE standard air, 'act' = real outdoor density */
 
@@ -2163,7 +2154,7 @@ function model(qOverride){
      Both lines are plain mass balances. For temperature this is algebraically
      identical to qs/(Cs*Qeff) because Cs cancels; for moisture it avoids the
      2% error that riding through the 2500 kJ/kg latent constant would add. */
-  var Qeff = (MODE === 'return') ? (Qac/3.6 + Ql) : (Qac/3.6);
+  var Qeff = Qac/3.6;            /* only the AC's own recirculation */
   var share = qt > 0 ? deficitW/qt : 0;
   var dT = 0, dW = 0;
   if(Qeff > 0){
@@ -2624,7 +2615,7 @@ function drawSens(cv){
           ['Q<sub>oa</sub>','ลม ERV ที่เติมเข้า','CMH'],
           ['Q<sub>eff</sub>','ลมที่ดึงความร้อนออกจากห้องได้จริง', fmt(cur.Qeff*3.6)+' CMH']],
     rows:[['ที่ลมปัจจุบัน '+fmt(cur.Q)+' CMH', (cur.dT<0.005?'0.00':sgn(cur.dT,2))+' °C'],
-          ['วิธีต่อลมที่เลือกอยู่', MODE==='return'?'เข้าท่อลมกลับ':'จ่ายเข้าห้องตรง'],
+          ['ข้อสมมติทางเดินลม', 'จ่ายเข้าห้องตรง · กรณีหนักสุด'],
           ['ลมที่ใช้ดึงความร้อนออก', fmt(cur.Qeff*3.6)+' CMH'],
           ['แอร์ใช้กำลังอยู่ก่อนหน้า', fmt(cur.loadnow*100,0)+' %']],
     mean:'<b>เส้นนี้ติดพื้นอยู่ตราบใดที่แอร์ยังรับไหว</b> แล้วค่อยไต่ขึ้นหลังจากนั้น '
@@ -2723,9 +2714,9 @@ function render(){
     + fmt(mStd,3) + '</b> kg/s<br>เลือกลมมาตรฐานจะได้ภาระสูงกว่า '
     + fmt(gap,1) + '% ซึ่งเป็นฝั่งปลอดภัย และตรงกับไฟล์ของทีม';
 
-  $('modeHint').textContent = MODE==='return'
-    ? 'ใช้ลมรวม ' + fmt(m.Qac + m.Q) + ' CMH ในการหาอุณหภูมิที่เปลี่ยน'
-    : 'ใช้เฉพาะลมแอร์ ' + fmt(m.Qac) + ' CMH ในการหาอุณหภูมิที่เปลี่ยน';
+  $('modeHint').textContent =
+    'ใช้เฉพาะลมหมุนเวียนของแอร์ ' + fmt(m.Qac)
+    + ' CMH ในการหาอุณหภูมิและความชื้นที่เปลี่ยน';
 
   /* KPIs */
   var rt = m.qt/RTW, pct = m.cap>0 ? rt/m.cap*100 : 0;
@@ -2840,7 +2831,7 @@ function render(){
       + '</td><td class="num"><span class="'+cls+'">'+r[3]+'</span></td><td>'+r[4]+'</td></tr>';
   }).join('');
 
-  $('sensPill').textContent = MODE==='return' ? 'ต่อเข้าลมกลับ' : 'จ่ายเข้าห้องตรง';
+  $('sensPill').textContent = 'จ่ายเข้าห้องตรง';
 
   drawPsy($('psy'), m);
   drawSens($('sens'));
@@ -2865,12 +2856,6 @@ $('densbar').addEventListener('click', function(e){
   var t = e.target.closest('button'); if(!t) return;
   DENS = t.dataset.d;
   this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===t); });
-  render();
-});
-$('modebar').addEventListener('click', function(e){
-  var t = e.target.closest('.modecard'); if(!t) return;
-  MODE = t.dataset.m;
-  this.querySelectorAll('.modecard').forEach(function(x){ x.classList.toggle('active', x===t); });
   render();
 });
 ['toa','rhoa','tr','rhr','et','es','cap','qac','area','ht','loadnow','oa'].forEach(function(id){
