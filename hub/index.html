@@ -945,11 +945,10 @@ tr.gov td{background:#EDF6FD !important}
     <label class="opt"><input type="checkbox" id="repCalc" checked> แนบเงื่อนไขและข้อสมมติ</label>
     <label class="opt"><input type="checkbox" id="repSign" checked> ช่องลงชื่อ</label>
     <span class="projbar-sep"></span>
-    <button class="btn ghost" id="repSave" title="เขียนรายงานเป็นไฟล์ .html ลงโฟลเดอร์ที่เลือกไว้">บันทึกลงโฟลเดอร์</button>
-    <button class="btn ghost" id="repDirPick" title="เลือกโฟลเดอร์ปลายทางใหม่ แล้วบันทึกลงที่นั่น">เปลี่ยนโฟลเดอร์…</button>
-    <span class="hint" style="margin:0" id="repDirName"></span>
+    <button class="btn ghost" id="repSave" title="บันทึกรายงานเป็นไฟล์ .html · เลือกโฟลเดอร์ปลายทางได้ทุกครั้ง">บันทึกเป็นไฟล์…</button>
     <span class="hint" style="margin:0;flex-basis:100%" id="repSaveHint">ตั้งกระดาษเป็น <b>A3 แนวตั้ง</b> · ใน Chrome เลือกปลายทางเป็น
-    <b>บันทึกเป็น PDF</b> ได้เลย · หรือกด <b>บันทึกลงโฟลเดอร์</b> เก็บเป็นไฟล์ .html ไว้ในโฟลเดอร์งาน</span>
+    <b>บันทึกเป็น PDF</b> ได้เลย · หรือกด <b>บันทึกเป็นไฟล์…</b> เก็บเป็น .html ไว้ในโฟลเดอร์ของงานนั้น
+    (<b>เลือกโฟลเดอร์ใหม่ได้ทุกครั้ง</b>)</span>
   </div>
   <div class="sheet" id="repSheet"></div>
 </div>
@@ -4494,63 +4493,29 @@ function backRender(){
 }
 
 
-/* ═══════════ saving the report into a folder you pick ═══════════
+/* ═══════════ saving the report as a file ═══════════
 
-   Printing already lets Chrome put a PDF wherever you like, but only one at
-   a time and only through the print dialog. This writes the sheet straight
-   into a folder as a self-contained .html - opens in any browser, prints to
-   the same A3 through the same stylesheet, and can sit next to the project
-   files where the rest of the team looks.
+   Printing already lets Chrome put a PDF wherever you like. This writes the
+   sheet as a self-contained .html instead: the stylesheet travels with it
+   and the mark is inlined as a data URI, so the file still looks like the
+   report after it is moved or mailed, and printing it gives the same A3.
 
-   It is a SEPARATE folder from the team folder on purpose: projects are the
-   work and reports are output, and those do not always belong in the same
-   place. Pointing it at the team folder is one click for anyone who wants
-   them together.
+   The destination is asked for every time. An earlier version remembered a
+   folder, which is right for the team folder - that is one place, used all
+   day - and wrong for reports: a report belongs in the folder of the job it
+   is about, and that is a different folder every time. Remembering it would
+   put every report in whichever job was open first.
+
+   showSaveFilePicker rather than showDirectoryPicker, so the same dialog
+   chooses the folder and lets the name be changed, and so overwriting is
+   the browser's own "replace?" rather than something we do quietly.
 
    Not a PDF: making one by hand means embedding a subsetted Thai font, and
-   this whole tool set has no dependencies. The print button is still the
-   way to a PDF.                                                          */
-var REP_DKEY = 'reportdir';
-var repDirHandle = null;
-
-function repDirLoad(){
-  return csIdbGet(REP_DKEY).then(function(h){
-    repDirHandle = h || null;
-    repDirRender();
-    return h;
-  });
-}
-function repDirRender(){
-  var el = $('repDirName'); if(!el) return;
-  el.innerHTML = repDirHandle
-    ? 'โฟลเดอร์ <b>' + esc(repDirHandle.name) + '</b>'
-    : 'ยังไม่ได้เลือกโฟลเดอร์';
-}
+   this whole tool set has no dependencies. The print button is the way to a
+   PDF.                                                                   */
 function repSay(html, col){
   var el = $('repSaveHint'); if(!el) return;
   el.innerHTML = col ? '<b style="color:' + col + '">' + html + '</b>' : html;
-}
-/* a folder we are allowed to write to right now, asking if we have to */
-function repDirReady(pickAnyway){
-  if(!csDirSupported())
-    return Promise.reject(new Error('เบราว์เซอร์นี้เลือกโฟลเดอร์ไม่ได้ · ใช้ได้กับ Chrome และ Edge'));
-  if(!repDirHandle || pickAnyway){
-    return window.showDirectoryPicker({ mode:'readwrite' }).then(function(h){
-      return csIdbPut(REP_DKEY, h).then(function(){
-        repDirHandle = h; repDirRender(); return h;
-      });
-    });
-  }
-  return csFilePerm(repDirHandle, true).then(function(p){
-    if(p === 'granted') return repDirHandle;
-    /* the handle is stale or refused · let them choose again rather than
-       failing with something they cannot act on */
-    return window.showDirectoryPicker({ mode:'readwrite' }).then(function(h){
-      return csIdbPut(REP_DKEY, h).then(function(){
-        repDirHandle = h; repDirRender(); return h;
-      });
-    });
-  });
 }
 function repFileName(){
   var p = curP(), s = curS(), o = repOpts();
@@ -4559,8 +4524,7 @@ function repFileName(){
   return csSafe(p ? p.name : 'รายงาน') + ' · '
     + csSafe(o.all ? 'ทุกทางเลือก' : (s ? s.name : '')) + ' · ' + day + '.html';
 }
-/* the sheet on its own, carrying the stylesheet and the mark with it, so
-   the file still looks like the report after it has been moved or mailed */
+/* the sheet on its own, carrying the stylesheet and the mark with it */
 function repStandalone(){
   var css = [].map.call(document.querySelectorAll('style'), function(st){
     return st.textContent; }).join('\n');
@@ -4586,35 +4550,39 @@ function repStandalone(){
       + '</style></head><body>' + body + '</body></html>';
   });
 }
-function repSaveToDir(pickAnyway){
+function repSaveAs(){
   var btn = $('repSave'); if(btn) btn.disabled = true;
-  repSay('กำลังเขียนไฟล์…');
   var name = repFileName();
-  return repDirReady(pickAnyway)
-    .then(function(dir){
-      return repStandalone().then(function(html){
-        return dir.getFileHandle(name, { create:true })
-          .then(function(fh){ return fh.createWritable(); })
-          .then(function(w){ return w.write(html).then(function(){ return w.close(); }); })
-          .then(function(){ return { dir:dir, bytes:html.length }; });
-      });
-    })
-    .then(function(r){
-      repSay('บันทึกแล้ว', '#2E7D32');
-      $('repSaveHint').innerHTML += ' · <span class="fname">' + esc(r.dir.name + '/' + name)
-        + '</span> · ' + Math.round(r.bytes/1024) + ' KB · ชื่อซ้ำของวันเดียวกันจะทับไฟล์เดิม';
-      if(btn) btn.disabled = false;
-    })
-    .catch(function(err){
-      /* the picker throws this when somebody closes it · not an error */
-      if(err && err.name === 'AbortError') repSay('ยกเลิกแล้ว');
-      else repSay('บันทึกไม่สำเร็จ · ' + esc(err.message), '#B4291F');
-      if(btn) btn.disabled = false;
+  repSay('กำลังสร้างไฟล์…');
+  return repStandalone().then(function(html){
+    if(!window.showSaveFilePicker){
+      /* no picker here · at least hand over the file */
+      dl(new Blob([html], { type:'text/html;charset=utf-8' }), name);
+      repSay('เบราว์เซอร์นี้เลือกโฟลเดอร์เองไม่ได้ · ดาวน์โหลดไฟล์ให้แทน');
+      return null;
+    }
+    return window.showSaveFilePicker({
+      suggestedName: name,
+      types: [{ description:'หน้าเว็บ', accept:{ 'text/html':['.html'] } }]
+    }).then(function(fh){
+      return fh.createWritable()
+        .then(function(w){ return w.write(html).then(function(){ return w.close(); }); })
+        .then(function(){ return { name:fh.name, kb:Math.round(html.length/1024) }; });
     });
+  }).then(function(r){
+    if(r) repSay('บันทึกแล้ว · <span class="fname">' + esc(r.name) + '</span> · '
+      + r.kb + ' KB · เปิดไฟล์นี้แล้วสั่งพิมพ์ได้ A3 เหมือนกัน');
+    if(btn) btn.disabled = false;
+  }).catch(function(err){
+    /* closing the dialog is a decision, not a fault */
+    if(err && err.name === 'AbortError') repSay('ยกเลิกแล้ว');
+    else repSay('บันทึกไม่สำเร็จ · ' + esc(err.message), '#B4291F');
+    if(btn) btn.disabled = false;
+  });
 }
-if($('repSave')) $('repSave').addEventListener('click', function(){ repSaveToDir(false); });
-if($('repDirPick')) $('repDirPick').addEventListener('click', function(){ repSaveToDir(true); });
-repDirLoad();
+if($('repSave')) $('repSave').addEventListener('click', repSaveAs);
+/* the folder this used to remember · nothing reads it any more */
+csIdbPut('reportdir', null);
 
 /* ═══════════ saved, and saved where ═══════════ */
 var SAVE_T = null;
