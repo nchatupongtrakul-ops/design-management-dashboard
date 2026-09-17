@@ -290,6 +290,16 @@ tfoot td{background:var(--surface); font-weight:600}
 </style>
 
 <style>
+/* lifted from the CO2 tool so the two pages type the same way */
+.numbox{width:104px; padding:5px 9px; border:1px solid var(--border); border-radius:6px;
+  font-size:14px; font-family:inherit; font-variant-numeric:tabular-nums;
+  font-weight:600; text-align:right; background:var(--card-bg); color:var(--text);
+  appearance:textfield}
+.numbox::-webkit-outer-spin-button, .numbox::-webkit-inner-spin-button{
+  -webkit-appearance:none; margin:0}
+.numbox:focus{border-color:var(--blue); outline:none}
+.numwrap{display:flex; align-items:center; gap:6px}
+.numwrap .u{font-size:12px; color:var(--text-secondary)}
 .statedot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:middle;flex:none}
 .delta{font-variant-numeric:tabular-nums;font-weight:600}
 .delta.up{color:var(--red)} .delta.dn{color:#2E7D32}
@@ -442,6 +452,8 @@ table.dtable td.st{white-space:nowrap}
           <div class="flowval" id="oaVal">3,000<small>CMH</small></div>
         </div>
         <div class="flowmeta">
+          <span class="numwrap"><input type="number" id="oanum" class="numbox" min="0" step="10"
+                 aria-label="พิมพ์ปริมาณลม"><span class="u">CMH</span></span>
           <button class="stepbtn" data-step="-100">−</button>
           <button class="stepbtn" data-step="100">+</button>
           <span class="chip" id="oaLs"></span>
@@ -1963,6 +1975,7 @@ var LOAD_SKIP = [
   /* the airflow is the CO2 tool's answer, held on the room as vent.q ·
      keeping a second copy here is what made this page outrank it */
   'oa',
+  'oanum',                                 /* mirrors the slider above it */
   'toa', 'rhoa', 'tr', 'rhr', 'et', 'es'   /* the scenario's, kept as room.cond */
 ];
 
@@ -2685,6 +2698,8 @@ function render(){
   /* slider furniture */
   var mx = parseFloat($('oa').max);
   $('oaVal').innerHTML = fmt(m.Q) + '<small>CMH</small>';
+  /* not while it is being typed in, or the caret jumps */
+  if(document.activeElement !== $('oanum')) $('oanum').value = Math.round(m.Q);
   $('oaLs').textContent = fmt(m.Ql,1) + ' L/s';
   var vol = nv('area')*nv('ht');
   $('oaAch').textContent = vol>0 ? fmt(m.Q/vol,2) + ' ACH' : '–';
@@ -2857,6 +2872,20 @@ $('densbar').addEventListener('click', function(e){
   DENS = t.dataset.d;
   this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x===t); });
   render();
+});
+/* Typing sets the slider, widening its track first - writing the value
+   first would clamp it to the old ceiling. Same rule as the CO2 tool. */
+$('oanum').addEventListener('input', function(){
+  var v = parseFloat(this.value);
+  if(!isFinite(v) || v < 0) return;
+  if(v > (parseFloat($('oa').max)||0)) $('oa').max = Math.ceil(v*1.15/1000)*1000;
+  $('oa').value = v;
+  render();
+});
+/* a blank or nonsense box snaps back to the slider rather than lying */
+$('oanum').addEventListener('blur', function(){
+  var v = parseFloat(this.value);
+  if(!isFinite(v)) this.value = Math.round(nv('oa'));
 });
 ['toa','rhoa','tr','rhr','et','es','cap','qac','area','ht','loadnow','oa'].forEach(function(id){
   $(id).addEventListener('input', render);
