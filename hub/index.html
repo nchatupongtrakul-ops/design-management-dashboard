@@ -1699,20 +1699,26 @@ function csDirFlush(){
    The project files are a MIRROR - delete a project in the tool and its
    file goes too. These snapshots are the part that remembers yesterday.
 
+   One file per day, and pressing the button again just rewrites today's.
+   A file per press piles up for no gain: what a backup has to give back is
+   YESTERDAY, and the last state of today. Keeping 09:14 as well as 15:42 of
+   the same day only makes the folder harder to look at.
+
    Pruning only ever touches files inside _backup whose names this code
    wrote. Anything else in there belongs to a person and is not ours to
    remove. A failed snapshot is never allowed to fail the save it rode in
    on, because losing today's work to protect last week's would be absurd.
    ═══════════════════════════════════════════════════════════════════════ */
 var CS_BDIR = '_backup';
-var CS_BPAT = /^coral-backup-(\d{4}-\d{2}-\d{2})-\d{4}\.json$/;
+/* the -hhmm tail is gone · still matched so files written by the first
+   version of this get swept up by the same pruning */
+var CS_BPAT = /^coral-backup-(\d{4}-\d{2}-\d{2})(?:-\d{4})?\.json$/;
 var CS_BKEEP = 30;                 /* days */
 
 function csPad(n, w){ var s = String(n); while(s.length < w) s = '0' + s; return s; }
 function csBackupName(d){
   return 'coral-backup-' + d.getFullYear() + '-' + csPad(d.getMonth() + 1, 2)
-    + '-' + csPad(d.getDate(), 2) + '-' + csPad(d.getHours(), 2) + csPad(d.getMinutes(), 2)
-    + '.json';
+    + '-' + csPad(d.getDate(), 2) + '.json';
 }
 function csBackupAt(){
   try { return localStorage.getItem('coral.backup.at') || ''; } catch(e){ return ''; }
@@ -4480,7 +4486,7 @@ function backRender(){
     + esc(CS_BDIR) + '</span> · เก็บย้อนหลัง ' + CS_BKEEP + ' วัน · '
     + (at ? 'ล่าสุด ' + new Date(at).toLocaleString('th-TH')
           : '<b>ยังไม่เคยสำรอง</b> จะเขียนให้เองตอนบันทึกครั้งต่อไป')
-    + ' · กด <b>สำรองเดี๋ยวนี้</b> ได้ตลอด ไม่จำกัดวันละครั้ง';
+    + ' · กด <b>สำรองเดี๋ยวนี้</b> ได้ตลอด <b>ทับไฟล์ของวันนี้</b> ไม่เพิ่มไฟล์ใหม่';
 }
 
 /* ═══════════ saved, and saved where ═══════════ */
@@ -4561,8 +4567,10 @@ function fileRender(f){
     var btn = this; btn.disabled = true;
     $('backHint').textContent = 'กำลังเขียนไฟล์สำรอง…';
     csDirBackup(DB, 'กดเอง').then(function(r){
-      $('backHint').innerHTML = '<b style="color:#2E7D32">สำรองแล้ว</b> · '
+      $('backHint').innerHTML = '<b style="color:#2E7D32">สำรองแล้ว</b> '
+        + new Date().toLocaleTimeString('th-TH') + ' · '
         + '<span class="fname">' + esc(CS_BDIR + '/' + r.name) + '</span>'
+        + ' · ทับไฟล์ของวันนี้'
         + (r.pruned ? ' · ลบไฟล์สำรองที่เกิน ' + CS_BKEEP + ' วันไป ' + r.pruned + ' ไฟล์' : '');
       btn.disabled = false;
     }).catch(function(err){
