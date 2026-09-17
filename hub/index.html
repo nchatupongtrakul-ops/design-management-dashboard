@@ -373,6 +373,18 @@ tr.gov td{background:#EDF6FD !important}
 .rc-v{text-align:right; font-variant-numeric:tabular-nums}
 .rc-chart{margin-top:7px}
 .co2svg{width:100%; height:auto; display:block}
+/* the ERV process is drawn once for the scenario, beside the numbers it
+   was drawn from · never split across a page */
+.rep-psy{display:flex; gap:14px; align-items:flex-start;
+  break-inside:avoid; page-break-inside:avoid}
+.psysvg{flex:1 1 auto; min-width:0; max-width:620px; height:auto; display:block}
+.psy-side{flex:0 0 280px; font-size:11px}
+.psy-side table{width:100%; border-collapse:collapse}
+.psy-side th, .psy-side td{border-bottom:1px solid var(--border); padding:3px 4px;
+  text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.psy-side th{font-weight:600; font-size:10px; color:var(--text-secondary)}
+.psy-side td:first-child, .psy-side th:first-child{text-align:left}
+@media(max-width:820px){ .rep-psy{flex-direction:column} .psy-side{flex:1 1 auto} }
 .rc-cap{font-size:9.5px; color:var(--text-secondary); margin-top:3px; line-height:1.4}
 @media (max-width:1100px){ .rep-rooms{grid-template-columns:repeat(2,1fr)} }
 @media print{ .rep-rooms{grid-template-columns:repeat(3,1fr)} }
@@ -2863,6 +2875,7 @@ function repScnBlock(p, s, o, first){
     + (o.calc ? '<div class="rep-sec"><h3>เงื่อนไขของทางเลือกนี้</h3>' + repCond(s)
         + '<div class="rep-note" style="margin-top:6px">ห้องทุกห้องใช้ค่าชุดนี้ '
         + 'เว้นห้องที่มีป้าย <span class="rep-flag">ตั้งค่าเอง</span> ในตารางด้านล่าง</div></div>' : '')
+    + (o.calc ? repPsy(s) : '')
     + '<div class="rep-sec wide"><h3>ตารางห้อง'
       + (GROUPBY ? '<span class="n">จัดกลุ่มตาม' + ({level:'ชั้น',system:'ระบบ',zone:'โซน'}[GROUPBY]) + '</span>' : '')
       + '</h3>' + repSched(s, r) + '</div>'
@@ -2870,6 +2883,198 @@ function repScnBlock(p, s, o, first){
     + repTotals(r, s)
     + (o.rooms ? repRoomCards(s) : '')
     + (o.calc ? repNotes(s) : '');
+}
+
+/* ══ psychrometrics ══
+   ASHRAE Handbook 2021 Fundamentals (SI) chapter 1, the same equations the
+   ERV Load page works from: eq (5) saturation pressure over liquid water
+   (IAPWS-IF97), eq (21) humidity ratio, eq (32) enthalpy. Written out here
+   rather than shared, because the store block is the only code these pages
+   hold in common and this is 20 lines. If one copy is ever corrected, the
+   other has to be corrected with it. */
+var PSY_NC = [ 0.11670521452767e4, -0.72421316703206e6, -0.17073846940092e2,
+               0.12020824702470e5, -0.32325550323333e7,  0.14915108613530e2,
+              -0.48232657361591e4,  0.40511340542057e6, -0.23855557567849e0,
+               0.65017534844798e3 ];
+var PATM = 101.325;                        /* kPa, sea level */
+function pws(t){                           /* kPa */
+  var T = t + 273.15, th = T + PSY_NC[8]/(T - PSY_NC[9]);
+  var A = th*th + PSY_NC[0]*th + PSY_NC[1];
+  var B = PSY_NC[2]*th*th + PSY_NC[3]*th + PSY_NC[4];
+  var D = PSY_NC[5]*th*th + PSY_NC[6]*th + PSY_NC[7];
+  return Math.pow(2*D/(-B + Math.sqrt(B*B - 4*A*D)), 4) * 1000;
+}
+function Wof(t, rh){                       /* rh as a fraction */
+  var pw = rh * pws(t);
+  if(pw >= PATM) pw = PATM * 0.9999;
+  return 0.621945 * pw / (PATM - pw);
+}
+function hof(t, W){ return 1.006*t + W*(2501 + 1.86*t); }
+function WofH(t, h){ return (h - 1.006*t)/(2501 + 1.86*t); }
+function rhof(t, W){
+  var pw = PATM * W / (0.621945 + W);
+  return pw / pws(t);
+}
+
+/* ── where the air actually goes, as three states ──
+     Tsa = Toa + ηs (Tr − Toa)        hsa = hoa + ηt (hr − hoa)
+   The airflow is not in either equation. Outdoor air, room air and the two
+   effectivenesses all belong to the scenario, so these three points are the
+   same for every room under it - which is why this chart is drawn once per
+   scenario and not once per room card. The only room-level fact on it is
+   where a room ends up when its existing plant cannot hold the room. */
+function psyModel(s){
+  var c = csCond(s, null);
+  var Toa = csNum(c.oaPkT, NaN), RHoa = csNum(c.oaPkRh, NaN)/100;
+  var Tr  = csNum(c.rT, NaN),    RHr  = csNum(c.rRh, NaN)/100;
+  var es  = csNum(c.es)/100,     et   = csNum(c.et)/100;
+  if(!isFinite(Toa) || !isFinite(Tr) || !isFinite(RHoa) || !isFinite(RHr)) return null;
+  var Woa = Wof(Toa, RHoa), hoa = hof(Toa, Woa);
+  var Wr  = Wof(Tr,  RHr),  hr  = hof(Tr,  Wr);
+  var Tsa = Toa + es*(Tr - Toa);
+  var hsa = hoa + et*(hr - hoa);
+  var Wsa = WofH(Tsa, hsa);
+  var Wsat = Wof(Tsa, 1);
+  if(Wsa > Wsat) Wsa = Wsat;               /* a core cannot hand back wetter than saturated */
+  if(Wsa < 0) Wsa = 0;
+
+  /* a room only leaves the room point when its plant runs out, and only a
+     result computed under today's conditions is allowed to put a dot on the
+     chart - a stale one would be drawn in the wrong place with no way to
+     tell from looking */
+  var drift = [], over = 0;
+  (s.rooms || []).forEach(function(rm, j){
+    if(csCond(s, rm).over.length) over++;
+    var e = rm.erv;
+    if(!e || staleErv(s, rm)) return;
+    var dT = csNum(e.dT), dRH = csNum(e.dRH);
+    if(Math.abs(dT) < 0.05 && Math.abs(dRH) < 0.5) return;
+    var cr = csCond(s, rm);
+    var T2 = csNum(cr.rT) + dT, RH2 = (csNum(cr.rRh) + dRH)/100;
+    if(RH2 > 1) RH2 = 1;
+    if(RH2 < 0.01) RH2 = 0.01;
+    drift.push({ n:j+1, name:rm.name || '', T:T2, rh:RH2, W:Wof(T2, RH2) });
+  });
+
+  return { Toa:Toa, Woa:Woa, hoa:hoa, RHoa:RHoa,
+           Tsa:Tsa, Wsa:Wsa, hsa:hsa, RHsa:rhof(Tsa, Wsa),
+           Tr:Tr,  Wr:Wr,  hr:hr,  RHr:RHr,
+           es:es, et:et, drift:drift, over:over };
+}
+
+/* SVG again, so the printer draws it at the printer's resolution */
+function psySvg(m){
+  var W = 560, H = 300, L = 46, R = 58, T = 12, B = 34;
+  var Ts = [m.Toa, m.Tsa, m.Tr], Ws = [m.Woa, m.Wsa, m.Wr];
+  m.drift.forEach(function(d){ Ts.push(d.T); Ws.push(d.W); });
+  var x0 = Math.min(15, Math.floor(Math.min.apply(null, Ts)/5)*5 - 5);
+  var x1 = Math.max(45, Math.ceil(Math.max.apply(null, Ts)/5)*5 + 5);
+  var y1 = Math.max(0.030, Math.ceil(Math.max.apply(null, Ws)/0.005)*0.005 + 0.005);
+  function px(t){ return L + (t - x0)/(x1 - x0)*(W - L - R); }
+  function py(w){ return H - B - w/y1*(H - B - T); }
+  function f1(n){ return n.toFixed(1); }
+
+  var o = [], t, w;
+  o.push('<rect x="' + L + '" y="' + T + '" width="' + (W-L-R) + '" height="' + (H-B-T)
+    + '" fill="#fff" stroke="#E3E7EB"/>');
+  for(t = x0; t <= x1 + 1e-9; t += 5){
+    o.push('<line x1="' + f1(px(t)) + '" y1="' + T + '" x2="' + f1(px(t)) + '" y2="' + (H-B)
+      + '" stroke="#EDEFF1"/>');
+    o.push('<text x="' + f1(px(t)) + '" y="' + (H-B+12) + '" text-anchor="middle" font-size="8.5"'
+      + ' fill="#6B7280">' + t + '°</text>');
+  }
+  for(w = 0; w <= y1 + 1e-9; w += 0.005){
+    o.push('<line x1="' + L + '" y1="' + f1(py(w)) + '" x2="' + (W-R) + '" y2="' + f1(py(w))
+      + '" stroke="#EDEFF1"/>');
+    o.push('<text x="' + (L-5) + '" y="' + f1(py(w)+3) + '" text-anchor="end" font-size="8.5"'
+      + ' fill="#6B7280">' + w.toFixed(3) + '</text>');
+  }
+  o.push('<text x="' + ((L+W-R)/2) + '" y="' + (H-4) + '" text-anchor="middle" font-size="9"'
+    + ' fill="#6B7280">อุณหภูมิกระเปาะแห้ง °C</text>');
+  o.push('<text x="11" y="' + ((T+H-B)/2) + '" text-anchor="middle" font-size="9" fill="#6B7280"'
+    + ' transform="rotate(-90 11 ' + ((T+H-B)/2) + ')">W  kg/kg</text>');
+
+  /* the relative-humidity family, labelled where each curve leaves the box */
+  [0.2, 0.4, 0.6, 0.8, 1.0].forEach(function(rh){
+    var pts = [], tt;
+    for(tt = x0; tt <= x1 + 1e-9; tt += 0.5){
+      var ww = Wof(tt, rh);
+      if(ww > y1) break;
+      pts.push([px(tt), py(ww)]);
+    }
+    if(pts.length < 2) return;
+    o.push('<path d="' + pts.map(function(q, i){
+        return (i ? 'L' : 'M') + f1(q[0]) + ' ' + f1(q[1]); }).join(' ')
+      + '" fill="none" stroke="' + (rh === 1 ? '#9B9A97' : '#E3E2DE') + '" stroke-width="'
+      + (rh === 1 ? 1.4 : 1) + '"/>');
+    var end = pts[pts.length - 1];
+    o.push('<text x="' + f1(end[0] + 3) + '" y="' + f1(end[1] + (end[1] < T + 14 ? 11 : -3))
+      + '" font-size="8" fill="#9B9A97">' + Math.round(rh*100) + '%</text>');
+  });
+
+  var P = { oa:[px(m.Toa), py(m.Woa)], sa:[px(m.Tsa), py(m.Wsa)], rm:[px(m.Tr), py(m.Wr)] };
+  o.push('<line x1="' + f1(P.oa[0]) + '" y1="' + f1(P.oa[1]) + '" x2="' + f1(P.sa[0])
+    + '" y2="' + f1(P.sa[1]) + '" stroke="#6940A5" stroke-width="2.6"/>');
+  o.push('<line x1="' + f1(P.sa[0]) + '" y1="' + f1(P.sa[1]) + '" x2="' + f1(P.rm[0])
+    + '" y2="' + f1(P.rm[1]) + '" stroke="#2383E2" stroke-width="2" stroke-dasharray="5 4"/>');
+
+  m.drift.forEach(function(d){
+    var x = px(d.T), y = py(d.W);
+    o.push('<line x1="' + f1(P.rm[0]) + '" y1="' + f1(P.rm[1]) + '" x2="' + f1(x) + '" y2="' + f1(y)
+      + '" stroke="#D44C47" stroke-width="1" stroke-dasharray="2 2"/>');
+    o.push('<circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="3.2" fill="#fff" stroke="#D44C47"'
+      + ' stroke-width="1.6"/>');
+    o.push('<text x="' + f1(x + 5) + '" y="' + f1(y + 3) + '" font-size="8" fill="#D44C47">'
+      + d.n + '</text>');
+  });
+
+  function dot(p, col, label, anchor, dx){
+    return '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="4" fill="' + col + '"/>'
+      + '<text x="' + f1(p[0] + dx) + '" y="' + f1(p[1] - 7) + '" text-anchor="' + anchor
+      + '" font-size="9" font-weight="600" fill="' + col + '">' + label + '</text>';
+  }
+  o.push(dot(P.oa, '#6940A5', 'อากาศนอก', 'start', 7));
+  o.push(dot(P.sa, '#6940A5', 'หลังแกน ERV', 'end', -7));
+  o.push(dot(P.rm, '#2383E2', 'อากาศในห้อง', 'end', -7));
+
+  return '<svg class="psysvg" viewBox="0 0 ' + W + ' ' + H + '" role="img">' + o.join('') + '</svg>';
+}
+
+/* ── the chart plus the numbers behind it ── */
+function repPsy(s){
+  var m = psyModel(s);
+  if(!m) return '';
+  function row(n, T, rh, w, h, cls){
+    return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + n + '</td>'
+      + '<td>' + fmt(T,1) + ' °C</td><td>' + fmt(rh*100,0) + ' %</td>'
+      + '<td>' + w.toFixed(4) + '</td><td>' + fmt(h,1) + '</td></tr>';
+  }
+  var cut = m.hoa - m.hsa, all = m.hoa - m.hr;
+  var side = '<table><thead><tr><th>จุด</th><th>T</th><th>RH</th>'
+      + '<th>W kg/kg</th><th>h kJ/kg</th></tr></thead><tbody>'
+    + row('อากาศภายนอก', m.Toa, m.RHoa, m.Woa, m.hoa)
+    + row('หลังแกน ERV', m.Tsa, m.RHsa, m.Wsa, m.hsa)
+    + row('อากาศในห้อง', m.Tr,  m.RHr,  m.Wr,  m.hr)
+    + '</tbody></table>'
+    + '<div class="rep-note" style="margin-top:7px">'
+    + '<b>เส้นม่วง</b> คือระยะที่แกนแลกเปลี่ยนทำให้เองโดยไม่ใช้ไฟ '
+    + (all > 0 ? '<b>' + fmt(cut,1) + '</b> จาก <b>' + fmt(all,1) + '</b> kJ/kg' : '')
+    + ' · <b>เส้นประน้ำเงิน</b> คือส่วนที่ยังเหลือให้คอยล์ของแอร์รับไป<br>'
+    + 'ค่าทั้งหมดมาจากเงื่อนไขของทางเลือกนี้ ไม่ได้ขึ้นกับปริมาณลม '
+    + 'จุดทั้งสามจึงเหมือนกันทุกห้อง'
+    + (m.drift.length
+        ? '<br><b style="color:#D44C47">จุดแดง</b> คือห้องที่แอร์เดิมรับไม่ไหว '
+          + 'ห้องจึงไม่ได้อยู่ที่สภาวะออกแบบ · '
+          + m.drift.map(function(d){ return d.n + '. ' + esc(d.name); }).join(' · ')
+        : '')
+    + (m.over
+        ? '<br>มี ' + m.over + ' ห้องที่ตั้งเงื่อนไขเอง ค่าของห้องนั้นไม่ได้อยู่บนแผนภูมินี้'
+        : '')
+    + '</div>';
+
+  return '<div class="rep-sec"><h3>แผนภูมิไซโครเมตริก'
+    + '<span class="n">ASHRAE 2021 Fundamentals บทที่ 1</span></h3>'
+    + '<div class="rep-psy">' + psySvg(m) + '<div class="psy-side">' + side + '</div></div></div>';
 }
 
 /* ── the CO2 curve, redrawn for the report ──
