@@ -720,8 +720,12 @@ tr.gov td{background:#EDF6FD !important}
           <button class="btn ghost" id="jImp" title="อ่านไฟล์สำรองกลับเข้ามา">คืนค่า JSON</button>
           <input type="file" id="jFile" accept=".json,application/json" hidden>
           <span class="projbar-sep"></span>
-          <button class="btn ghost" id="pExp" title="ตารางห้องสำหรับ Excel">ตาราง CSV</button>
-          <button class="btn ghost" id="pImp" title="อ่านตารางห้องจาก Excel">อ่าน CSV</button>
+          <button class="btn ghost" id="xExp" title="สมุดงาน Excel · หนึ่งทางเลือกหนึ่งชีท · อ่านกลับเข้ามาได้">ตาราง Excel</button>
+          <button class="btn ghost" id="xImp" title="อ่านสมุดงาน Excel กลับเข้ามา · เพิ่มและแก้เท่านั้น ไม่ลบ">อ่าน Excel</button>
+          <input type="file" id="xFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+          <span class="projbar-sep"></span>
+          <button class="btn ghost" id="pExp" title="ตารางห้องแบบ CSV ไฟล์เดียวรวมทุกโปรเจค">ตาราง CSV</button>
+          <button class="btn ghost" id="pImp" title="อ่านตารางห้องจาก CSV">อ่าน CSV</button>
           <input type="file" id="pFile" accept=".csv,text/csv" hidden>
         </div>
       </div>
@@ -3837,6 +3841,244 @@ $('jFile').addEventListener('change', function(){
   rd.readAsText(f, 'utf-8');
 });
 
+/* ═══════════════════════════════════════════════════════════════════════
+   READING AND WRITING XLSX WITHOUT A LIBRARY
+
+   Second copy · the first is in cost/index.html and this one came from it
+   unchanged. Fix one, fix the other. It is not in _src/store.js because that
+   block is the shared project store, not a place to keep utilities.
+
+   An xlsx is a zip of XML, and the browser already does both halves:
+   DecompressionStream('deflate-raw') inflates, CompressionStream deflates,
+   DOMParser reads the XML. So this is a zip directory walk and two small
+   XML passes rather than a dependency - which matters here because every
+   other tool in this set has none, and a vendored spreadsheet parser is
+   exactly the kind of thing that goes stale and nobody dares upgrade.
+
+   Values come back as the numbers Excel cached when it last saved, so a
+   BOQ total that is a formula reads as its answer. That is what we want:
+   we are reading somebody's finished quotation, not recalculating it.
+   ═══════════════════════════════════════════════════════════════════════ */
+function zipEntries(buf){
+  var dv = new DataView(buf), n = buf.byteLength, eocd = -1;
+  for(var i = n - 22; i >= 0 && i > n - 65558; i--){
+    if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  }
+  if(eocd < 0) throw new Error('ไม่ใช่ไฟล์ .xlsx');
+  var count = dv.getUint16(eocd + 10, true), off = dv.getUint32(eocd + 16, true);
+  var out = {}, p = off, dec = new TextDecoder();
+  for(var k = 0; k < count; k++){
+    if(dv.getUint32(p, true) !== 0x02014b50) throw new Error('โครงไฟล์ zip เสีย');
+    var nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true),
+        clen = dv.getUint16(p + 32, true);
+    out[dec.decode(new Uint8Array(buf, p + 46, nlen))] = {
+      method: dv.getUint16(p + 10, true), csize: dv.getUint32(p + 20, true),
+      lho: dv.getUint32(p + 42, true) };
+    p += 46 + nlen + elen + clen;
+  }
+  return out;
+}
+async function zipRead(buf, e){
+  var dv = new DataView(buf);
+  if(dv.getUint32(e.lho, true) !== 0x04034b50) throw new Error('zip entry เสีย');
+  var start = e.lho + 30 + dv.getUint16(e.lho + 26, true) + dv.getUint16(e.lho + 28, true);
+  var raw = new Uint8Array(buf, start, e.csize);
+  if(e.method === 0) return raw;
+  if(e.method !== 8) throw new Error('zip method ' + e.method + ' ไม่รองรับ');
+  var st = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(st).arrayBuffer());
+}
+function colNum(ref){
+  var n = 0;
+  for(var i = 0; i < ref.length; i++){
+    var c = ref.charCodeAt(i);
+    if(c < 65 || c > 90) break;
+    n = n * 26 + (c - 64);
+  }
+  return n;
+}
+async function xlsxRead(buf){
+  var dir = zipEntries(buf), dec = new TextDecoder();
+  async function xml(path){
+    if(!dir[path]) return null;
+    return new DOMParser().parseFromString(dec.decode(await zipRead(buf, dir[path])), 'application/xml');
+  }
+  var shared = [], sst = await xml('xl/sharedStrings.xml');
+  if(sst){
+    var sis = sst.getElementsByTagName('si');
+    for(var i = 0; i < sis.length; i++){
+      var ts = sis[i].getElementsByTagName('t'), s = '';
+      for(var j = 0; j < ts.length; j++){
+        if(ts[j].parentNode.nodeName === 'rPh') continue;   /* phonetic ruby */
+        s += ts[j].textContent;
+      }
+      shared.push(s);
+    }
+  }
+  var wbx = await xml('xl/workbook.xml'), rel = await xml('xl/_rels/workbook.xml.rels');
+  var relMap = {};
+  if(rel){
+    var rs = rel.getElementsByTagName('Relationship');
+    for(var r = 0; r < rs.length; r++)
+      relMap[rs[r].getAttribute('Id')] = rs[r].getAttribute('Target');
+  }
+  var sheets = [], sh = wbx.getElementsByTagName('sheet');
+  for(var s2 = 0; s2 < sh.length; s2++){
+    var rid = sh[s2].getAttribute('r:id') || sh[s2].getAttributeNS(
+      'http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+    var tgt = relMap[rid] || ('worksheets/sheet' + (s2 + 1) + '.xml');
+    tgt = (tgt.charAt(0) === '/') ? tgt.slice(1) : 'xl/' + tgt;
+    sheets.push({ name: sh[s2].getAttribute('name'), path: tgt });
+  }
+  async function readSheet(path){
+    var doc = await xml(path);
+    if(!doc) return [];
+    var grid = [], rows = doc.getElementsByTagName('row');
+    for(var i = 0; i < rows.length; i++){
+      var rn = +rows[i].getAttribute('r') || (i + 1);
+      var line = grid[rn] = grid[rn] || [];
+      var cs = rows[i].getElementsByTagName('c');
+      for(var j = 0; j < cs.length; j++){
+        var c = cs[j], cn = colNum(c.getAttribute('r') || '') || (j + 1);
+        var t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], val = null;
+        if(t === 's') val = shared[+(v ? v.textContent : -1)] || '';
+        else if(t === 'inlineStr'){
+          var is = c.getElementsByTagName('t'), str = '';
+          for(var q = 0; q < is.length; q++) str += is[q].textContent;
+          val = str;
+        }
+        else if(t === 'b') val = (v && v.textContent === '1');
+        else if(t === 'e') val = null;                      /* #REF! and friends */
+        else if(v){ var f = parseFloat(v.textContent); val = isFinite(f) ? f : v.textContent; }
+        line[cn] = val;
+      }
+    }
+    return grid;
+  }
+  return { sheets: sheets, readSheet: readSheet, sheet: async function(name){
+    for(var i = 0; i < sheets.length; i++)
+      if(sheets[i].name === name) return await readSheet(sheets[i].path);
+    return null;
+  } };
+}
+
+/* ── writing ── */
+var CRC = (function(){
+  var t = new Uint32Array(256);
+  for(var n = 0; n < 256; n++){
+    var c = n;
+    for(var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8){
+  var c = 0xFFFFFFFF;
+  for(var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function deflateRaw(u8){
+  var st = new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(st).arrayBuffer());
+}
+async function zipMake(files){
+  var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+  for(var i = 0; i < files.length; i++){
+    var nameU8 = enc.encode(files[i].name);
+    var data = enc.encode(files[i].text);
+    var comp = await deflateRaw(data), crc = crc32(data);
+    var lh = new Uint8Array(30 + nameU8.length), dv = new DataView(lh.buffer);
+    dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true);
+    dv.setUint16(6, 0, true); dv.setUint16(8, 8, true);
+    dv.setUint16(10, 0, true); dv.setUint16(12, 0x2821, true);
+    dv.setUint32(14, crc, true); dv.setUint32(18, comp.length, true);
+    dv.setUint32(22, data.length, true); dv.setUint16(26, nameU8.length, true);
+    dv.setUint16(28, 0, true);
+    lh.set(nameU8, 30);
+    parts.push(lh, comp);
+    var ch = new Uint8Array(46 + nameU8.length), cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true); cv.setUint16(10, 8, true);
+    cv.setUint16(12, 0, true); cv.setUint16(14, 0x2821, true);
+    cv.setUint32(16, crc, true); cv.setUint32(20, comp.length, true);
+    cv.setUint32(24, data.length, true); cv.setUint16(28, nameU8.length, true);
+    cv.setUint32(42, offset, true);
+    ch.set(nameU8, 46);
+    central.push(ch);
+    offset += lh.length + comp.length;
+  }
+  var cdSize = central.reduce(function(a, b){ return a + b.length; }, 0);
+  var eocd = new Uint8Array(22), ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+  return new Blob(parts.concat(central, [eocd]), { type:
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+function xesc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]; });
+}
+function colName(n){
+  var s = '';
+  while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
+  return s;
+}
+async function xlsxWrite(sheets){
+  var parts = [], sheetXml = [];
+  sheets.forEach(function(sh, si){
+    var rows = sh.rows.map(function(row, ri){
+      var cells = row.map(function(v, ci){
+        if(v === null || v === undefined || v === '') return '';
+        var ref = colName(ci + 1) + (ri + 1);
+        if(typeof v === 'number' && isFinite(v))
+          return '<c r="' + ref + '"><v>' + v + '</v></c>';
+        return '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">'
+          + xesc(v) + '</t></is></c>';
+      }).join('');
+      return '<row r="' + (ri + 1) + '">' + cells + '</row>';
+    }).join('');
+    sheetXml.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      + '<sheetData>' + rows + '</sheetData></worksheet>');
+  });
+  var wbSheets = sheets.map(function(s, i){
+    return '<sheet name="' + xesc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>';
+  }).join('');
+  var wbRels = sheets.map(function(s, i){
+    return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/'
+      + 'officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>';
+  }).join('');
+  var types = sheets.map(function(s, i){
+    return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType='
+      + '"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+  }).join('');
+  parts.push({ name: '[Content_Types].xml', text:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-'
+    + 'officedocument.spreadsheetml.sheet.main+xml"/>' + types + '</Types>' });
+  parts.push({ name: '_rels/.rels', text:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+    + 'relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' });
+  parts.push({ name: 'xl/workbook.xml', text:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+    + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheets>' + wbSheets + '</sheets></workbook>' });
+  parts.push({ name: 'xl/_rels/workbook.xml.rels', text:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + wbRels + '</Relationships>' });
+  sheetXml.forEach(function(x, i){
+    parts.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', text: x }); });
+  return await zipMake(parts);
+}
+
 /* CSV — one row per room, for reading and bulk editing in Excel.
    It carries the inputs, not the results, so importing it never touches a
    calculation: it updates the rooms it can match and adds the ones it
@@ -3894,45 +4136,21 @@ $('pFile').addEventListener('change', function(){
         var k = h.indexOf(c); if(k>=0) ix[c]=k; });
       if(ix['โปรเจค'] === undefined || ix['ห้อง'] === undefined)
         throw new Error('ไม่พบคอลัมน์ โปรเจค หรือ ห้อง');
-      function g(c, key){ return ix[key] === undefined ? '' : (c[ix[key]]||'').trim(); }
-      var addP = 0, addS = 0, addR = 0, updR = 0;
+      /* the same rules the Excel reader uses · one place decides what a row
+         means, so the two readers cannot drift apart */
+      var tally = { addP:0, addS:0, addR:0, updR:0 };
       for(var i=1;i<L.length;i++){
         var c = L[i]; if(!c.length) continue;
-        var pn = g(c,'โปรเจค'); if(!pn) continue;
-        var p = null;
-        DB.projects.forEach(function(x){ if(x.name === pn) p = x; });
-        if(!p){ p = csNewProject(pn); p.scenarios[0].rooms = []; DB.projects.push(p); addP++; }
-        if(!p.client) p.client = g(c,'ลูกค้า');
-        var sn = g(c,'ทางเลือก') || p.scenarios[0].name;
-        var s = null;
-        p.scenarios.forEach(function(x){ if(x.name === sn) s = x; });
-        if(!s){ s = csNewScenario(sn); s.rooms = []; p.scenarios.push(s); addS++; }
-        var rn = g(c,'ห้อง') || 'ห้อง';
-        var rm = null;
-        s.rooms.forEach(function(x){ if(x.name === rn) rm = x; });
-        if(!rm){ rm = csNewRoom(rn); s.rooms.push(rm); addR++; } else { updR++; }
-        rm.tag = g(c,'รหัส'); rm.level = g(c,'ชั้น');
-        rm.system = g(c,'ระบบ'); rm.zone = g(c,'โซน');
-        [['a','พื้นที่'],['h','สูง'],['pz','จำนวนคน'],
-         ['cap','แอร์เดิม RT'],['qac','ลมแอร์ CMH']].forEach(function(x){
-          if(ix[x[1]] !== undefined) rm[x[0]] = csNum(g(c,x[1]));
-        });
-        /* a room datasheet written the Thai way gives the unit in BTU */
-        if(ix['แอร์เดิม BTU'] !== undefined)
-          rm.cap = csNum(g(c,'แอร์เดิม BTU')) / BTU_PER_RT;
-        /* a sheet exported before the change still says width and length */
-        if(ix['พื้นที่'] === undefined && ix['กว้าง'] !== undefined && ix['ยาว'] !== undefined)
-          rm.a = csNum(g(c,'กว้าง')) * csNum(g(c,'ยาว'));
-        if(ix['จำนวนคน'] !== undefined) rm.pzAuto = false;
-        if(ix['จำนวนห้องเหมือนกัน'] !== undefined)
-          rm.qty = Math.max(1, Math.round(csNum(g(c,'จำนวนห้องเหมือนกัน'),1)));
-        if(ix['ประเภท'] !== undefined)
-          rm.cat = g(c,'ประเภท').indexOf('ระบาย') >= 0 ? 'MV' : 'AC';
-        csTouch(p);
+        applyRow((function(row){ return function(key){
+          if(ix[key] === undefined) return '';
+          var v = row[ix[key]];
+          return String(v == null ? '' : v).trim();
+        }; })(c), ix, tally);
       }
       saveDB(); renderList(); renderDetail();
-      $('listHint').innerHTML = 'อ่านไฟล์แล้ว · เพิ่มโปรเจคใหม่ ' + addP
-        + ' · ทางเลือกใหม่ ' + addS + ' · ห้องใหม่ ' + addR + ' · แก้ห้องเดิม ' + updR
+      $('listHint').innerHTML = 'อ่านไฟล์แล้ว · เพิ่มโปรเจคใหม่ ' + tally.addP
+        + ' · ทางเลือกใหม่ ' + tally.addS + ' · ห้องใหม่ ' + tally.addR
+        + ' · แก้ห้องเดิม ' + tally.updR
         + ' · <b>ผลคำนวณเดิมทั้งหมดยังอยู่ครบ ไม่มีอะไรถูกลบ</b>';
     } catch(err){
       window.alert('อ่านไฟล์ไม่สำเร็จ · ' + err.message + String.fromCharCode(10)
@@ -3958,6 +4176,180 @@ function splitCsv(txt){
   if(cell.length || row.length){ row.push(cell); rows.push(row); }
   return rows;
 }
+
+/* ── the workbook ──
+   One sheet per ทางเลือก, which is the unit that owns a room schedule, plus
+   a summary sheet in front that is read only. Every sheet carries the
+   project and the scenario in its own columns rather than relying on the
+   tab name: Excel caps a tab name at 31 characters and people rename tabs,
+   and the importer has to survive both.
+
+   The columns are the same list the CSV uses, and the same rule holds -
+   the first CSV_IN are inputs and come back on import, the rest are results
+   and are written for reading only. A result typed over in Excel is
+   ignored, because the tool that produced it is the only thing allowed to
+   set it. The sheet says so in its own last column. */
+function sheetRows(p, s){
+  var rows = [COLS.slice()];
+  s.rooms.forEach(function(rm){
+    rows.push([p.name, p.client || '', p.off ? 'ปิด' : 'เปิด', s.name,
+      rm.name, rm.tag || '', rm.level || '', rm.system || '', rm.zone || '',
+      csArea(rm), csNum(rm.h), csNum(rm.pz), Math.max(1, csNum(rm.qty, 1)),
+      rm.cat === 'MV' ? 'ระบายอากาศ' : 'ปรับอากาศ',
+      csNum(rm.cap), csNum(rm.qac),
+      rm.vent ? csNum(rm.vent.q) : '', rm.vent ? Math.round(csNum(rm.vent.co2)) : '',
+      rm.vent ? (rm.vent.ok === false ? 'ไม่ผ่าน' : rm.vent.ok === true ? 'ผ่าน' : '') : '',
+      rm.erv ? +csNum(rm.erv.rt).toFixed(2) : '', rm.erv ? +csNum(rm.erv.dT).toFixed(2) : '',
+      rm.erv ? (rm.erv.ok === false ? 'ไม่ไหว' : rm.erv.ok === true ? 'ไหว' : '') : '',
+      rm.ac ? +csNum(rm.ac.dba).toFixed(1) : '']);
+  });
+  return rows;
+}
+/* Excel will not open a workbook with an illegal or a repeated tab name,
+   and it truncates silently at 31 - so do it here, visibly */
+function sheetName(base, used){
+  var n = String(base || 'ทางเลือก').replace(/[\\\/\?\*\[\]:]/g, ' ').trim().slice(0, 31);
+  if(!n) n = 'ทางเลือก';
+  var t = n, i = 2;
+  while(used[t]){
+    var tail = ' (' + i + ')';
+    t = n.slice(0, 31 - tail.length) + tail; i++;
+  }
+  used[t] = 1;
+  return t;
+}
+function summaryRows(){
+  var rows = [['สรุปโปรเจคทั้งหมด'], [],
+    ['โปรเจค','ลูกค้า','สถานะ','ทางเลือก','จำนวนห้อง','พื้นที่ ตร.ม.','คน',
+     'ลมรวม CMH','ภาระรวม RT','ห้องที่ยังไม่ผ่าน','ชีท']];
+  var used = {};
+  DB.projects.forEach(function(p){
+    p.scenarios.forEach(function(s){
+      var r = roll(s);
+      rows.push([p.name, p.client || '', p.off ? 'ปิด' : 'เปิด', s.name,
+        r.rooms, +r.area.toFixed(1), r.people,
+        r.done.vent ? r.cmh : '', r.done.erv ? +r.rt.toFixed(2) : '',
+        r.failCo2 + r.failAc, sheetName(s.name, used)]);
+    });
+  });
+  rows.push([]);
+  rows.push(['ชีทนี้อ่านอย่างเดียว · แก้ที่ชีทของแต่ละทางเลือก']);
+  rows.push(['อ่านไฟล์นี้กลับเข้าเว็บได้ · จะเพิ่มและแก้เท่านั้น ไม่ลบอะไรเลย']);
+  rows.push(['คอลัมน์ตั้งแต่ ' + COLS[CSV_IN] + ' ไปทางขวาเป็นผลคำนวณ '
+    + 'แก้ใน Excel แล้วไม่มีผล เครื่องมือที่คำนวณเป็นเจ้าของค่านั้น']);
+  return rows;
+}
+$('xExp').addEventListener('click', function(){
+  var btn = this;
+  btn.disabled = true;
+  var used = {}, sheets = [{ name:'สรุป', rows:summaryRows() }];
+  /* the summary numbered the tabs, so number them again the same way */
+  used = {};
+  DB.projects.forEach(function(p){
+    p.scenarios.forEach(function(s){
+      sheets.push({ name: sheetName(s.name, used), rows: sheetRows(p, s) });
+    });
+  });
+  xlsxWrite(sheets).then(function(blob){
+    dl(blob, 'Coral-projects-' + new Date().toISOString().slice(0,10) + '.xlsx');
+    $('listHint').innerHTML = 'บันทึกเป็น Excel แล้ว · <b>หนึ่งทางเลือกหนึ่งชีท</b> '
+      + 'รวม ' + (sheets.length - 1) + ' ชีท และชีทสรุปอีกหนึ่ง · '
+      + 'แก้ในไฟล์นี้แล้ว <b>อ่านกลับเข้ามาได้</b> ด้วยปุ่ม อ่าน Excel';
+    btn.disabled = false;
+  }).catch(function(err){
+    $('listHint').innerHTML = 'เขียนไฟล์ Excel ไม่สำเร็จ · ' + esc(err.message);
+    btn.disabled = false;
+  });
+});
+$('xImp').addEventListener('click', function(){ $('xFile').click(); });
+$('xFile').addEventListener('change', function(){
+  var f = this.files && this.files[0]; this.value = '';
+  if(!f) return;
+  var hint = $('listHint');
+  hint.textContent = 'กำลังอ่าน ' + f.name + ' …';
+  f.arrayBuffer().then(function(buf){ return xlsxRead(buf); }).then(function(wb){
+    var tally = { addP:0, addS:0, addR:0, updR:0, sheets:0, skipped:[] };
+    var chain = Promise.resolve();
+    wb.sheets.forEach(function(sh){
+      chain = chain.then(function(){
+        return wb.readSheet(sh.path).then(function(grid){
+          /* a grid is sparse and 1-based · find the header wherever it sits,
+             and skip anything that is not a room schedule, which is how the
+             summary sheet and whatever else somebody added get left alone.
+             Two column names are not enough to decide on: the summary sheet
+             also names the project and counts rooms, and reading it as a
+             schedule invented a project per line. So one of the columns that
+             only a room schedule carries has to be there too. */
+          var head = null, hr = 0, i;
+          var MUST = ['พื้นที่', 'สูง', 'จำนวนคน'];
+          for(i = 1; i < grid.length && i <= 20; i++){
+            var row = grid[i]; if(!row) continue;
+            var flat = row.map(function(v){ return String(v == null ? '' : v).trim(); });
+            if(flat.indexOf('โปรเจค') < 0 || flat.indexOf('ห้อง') < 0) continue;
+            var ok = false;
+            MUST.forEach(function(c){ if(flat.indexOf(c) >= 0) ok = true; });
+            if(ok){ head = flat; hr = i; break; }
+          }
+          if(!head){ tally.skipped.push(sh.name); return; }
+          tally.sheets++;
+          var ix = {};
+          head.forEach(function(c, k){ if(c && ix[c] === undefined) ix[c] = k; });
+          for(i = hr + 1; i < grid.length; i++){
+            var r = grid[i]; if(!r) continue;
+            applyRow(function(key){
+              if(ix[key] === undefined) return '';
+              var v = r[ix[key]];
+              return String(v == null ? '' : v).trim();
+            }, ix, tally);
+          }
+        });
+      });
+    });
+    return chain.then(function(){
+      saveDB(); renderList(); renderDetail();
+      hint.innerHTML = 'อ่านไฟล์ Excel แล้ว · ' + tally.sheets + ' ชีท · '
+        + 'โปรเจคใหม่ ' + tally.addP + ' · ทางเลือกใหม่ ' + tally.addS
+        + ' · ห้องใหม่ ' + tally.addR + ' · แก้ห้องเดิม ' + tally.updR
+        + ' · <b>ผลคำนวณเดิมทั้งหมดยังอยู่ครบ ไม่มีอะไรถูกลบ</b>'
+        + (tally.skipped.length ? ' · ข้ามชีทที่ไม่ใช่ตารางห้อง '
+            + tally.skipped.map(esc).join(' · ') : '');
+    });
+  }).catch(function(err){
+    hint.innerHTML = 'อ่านไฟล์ไม่สำเร็จ · ' + esc(err.message)
+      + ' · ไฟล์ต้องเป็น .xlsx ที่มีหัวตารางแบบเดียวกับที่ส่งออกไป';
+  });
+});
+/* one row, from either reader · g(columnName) returns a trimmed string */
+function applyRow(g, ix, tally){
+  var pn = g('โปรเจค'); if(!pn) return;
+  var p = null;
+  DB.projects.forEach(function(x){ if(x.name === pn) p = x; });
+  if(!p){ p = csNewProject(pn); p.scenarios[0].rooms = []; DB.projects.push(p); tally.addP++; }
+  if(!p.client) p.client = g('ลูกค้า');
+  var sn = g('ทางเลือก') || p.scenarios[0].name;
+  var s = null;
+  p.scenarios.forEach(function(x){ if(x.name === sn) s = x; });
+  if(!s){ s = csNewScenario(sn); s.rooms = []; p.scenarios.push(s); tally.addS++; }
+  var rn = g('ห้อง') || 'ห้อง';
+  var rm = null;
+  s.rooms.forEach(function(x){ if(x.name === rn) rm = x; });
+  if(!rm){ rm = csNewRoom(rn); s.rooms.push(rm); tally.addR++; } else { tally.updR++; }
+  rm.tag = g('รหัส'); rm.level = g('ชั้น');
+  rm.system = g('ระบบ'); rm.zone = g('โซน');
+  [['a','พื้นที่'],['h','สูง'],['pz','จำนวนคน'],
+   ['cap','แอร์เดิม RT'],['qac','ลมแอร์ CMH']].forEach(function(x){
+    if(ix[x[1]] !== undefined) rm[x[0]] = csNum(g(x[1]));
+  });
+  if(ix['แอร์เดิม BTU'] !== undefined) rm.cap = csNum(g('แอร์เดิม BTU')) / BTU_PER_RT;
+  if(ix['พื้นที่'] === undefined && ix['กว้าง'] !== undefined && ix['ยาว'] !== undefined)
+    rm.a = csNum(g('กว้าง')) * csNum(g('ยาว'));
+  if(ix['จำนวนคน'] !== undefined) rm.pzAuto = false;
+  if(ix['จำนวนห้องเหมือนกัน'] !== undefined)
+    rm.qty = Math.max(1, Math.round(csNum(g('จำนวนห้องเหมือนกัน'), 1)));
+  if(ix['ประเภท'] !== undefined) rm.cat = g('ประเภท').indexOf('ระบาย') >= 0 ? 'MV' : 'AC';
+  csTouch(p);
+}
+
 
 /* ═══════════ boot ═══════════ */
 document.querySelectorAll('.tab').forEach(function(b){
