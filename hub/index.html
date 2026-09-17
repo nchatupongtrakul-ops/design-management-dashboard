@@ -351,6 +351,24 @@ tr.gov td{background:#EDF6FD !important}
 .qn{font-size:11px; color:var(--gray); font-variant-numeric:tabular-nums}
 .qn:empty{display:none}
 /* our own confirm · the portal's iframe blocks the browser's */
+/* one room per card · three to a row on A4 landscape, and a card is never
+   split across a page break */
+.rep-rooms{display:grid; grid-template-columns:repeat(3,1fr); gap:9px}
+.rep-room{border:1px solid var(--border); border-radius:7px; padding:9px 10px;
+  break-inside:avoid; page-break-inside:avoid}
+.rep-room .rc-head{border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom:6px}
+.rep-room .rc-head b{font-size:12px}
+.rep-room .rc-head .n{font-size:10px; color:var(--text-secondary)}
+.rep-room .rc-head .sub{font-size:10px; color:var(--text-secondary); margin-top:2px}
+.rc-grid{display:grid; grid-template-columns:auto 1fr; gap:2px 8px; font-size:10.5px}
+.rc-k{color:var(--text-secondary); white-space:nowrap}
+.rc-v{text-align:right; font-variant-numeric:tabular-nums}
+.rc-chart{margin-top:7px}
+.co2svg{width:100%; height:auto; display:block}
+.rc-cap{font-size:9.5px; color:var(--text-secondary); margin-top:3px; line-height:1.4}
+@media (max-width:1100px){ .rep-rooms{grid-template-columns:repeat(2,1fr)} }
+@media print{ .rep-rooms{grid-template-columns:repeat(3,1fr)} }
+
 .askback{position:fixed; inset:0; background:rgba(15,23,32,.38); z-index:9000;
   display:flex; align-items:center; justify-content:center; padding:20px}
 .askbox{background:var(--card-bg); border-radius:10px; box-shadow:0 18px 50px rgba(0,0,0,.28);
@@ -885,6 +903,7 @@ tr.gov td{background:#EDF6FD !important}
     <button class="btn ghost" id="repBack">← กลับไปภาพรวมโปรเจค</button>
     <button class="btn" id="repPrint">พิมพ์ / บันทึกเป็น PDF</button>
     <label class="opt"><input type="checkbox" id="repAll"> ทุกทางเลือกของโปรเจคนี้</label>
+    <label class="opt"><input type="checkbox" id="repRooms"> รายละเอียดรายห้อง + กราฟ CO₂</label>
     <label class="opt"><input type="checkbox" id="repCalc" checked> แนบเงื่อนไขและข้อสมมติ</label>
     <label class="opt"><input type="checkbox" id="repSign" checked> ช่องลงชื่อ</label>
     <span class="hint" style="margin:0">ตั้งกระดาษเป็น <b>A4 แนวนอน</b> · ใน Chrome เลือกปลายทางเป็น
@@ -2011,6 +2030,7 @@ function renderScnBar(p){
       + '<button class="btn ghost" id="sDup">คัดลอกทางเลือก</button>'
       + '<button class="btn ghost" id="sRen" title="ชื่อทางเลือกพิมพ์ทับได้ในแท็บรายการโปรเจค">เปลี่ยนชื่อ</button>'
       + '<button class="btn ghost" id="sDel">ลบทางเลือก</button>'
+      + '<button class="btn" id="sRep" title="รายงานของทางเลือกนี้ พร้อมห้องทุกห้อง · สั่งพิมก์หรือบันทึก PDF ได้">รายงานของทางเลือกนี้</button>'
     + '</div></div>'
     + '<div class="hint" style="margin-top:6px">ทางเลือกคือ<b>ชุดเงื่อนไขออกแบบหนึ่งชุดของอาคารเดียวกัน</b> '
     + 'ใช้เทียบ เช่น ηt 70% กับ 55% หรือ เกณฑ์ ASHRAE กับ กฎกระทรวง · '
@@ -2830,11 +2850,134 @@ function repScnBlock(p, s, o, first){
       + '</h3>' + repSched(s, r) + '</div>'
     + repFails(s)
     + repTotals(r, s)
+    + (o.rooms ? repRoomCards(s) : '')
     + (o.calc ? repNotes(s) : '');
 }
 
+/* ── the CO2 curve, redrawn for the report ──
+   Same formula as the CO2 tool's at(): a room is a well-mixed box, people
+   emit at a rate set by the activity, and the concentration decays toward
+   the level the airflow can hold. Kept identical on purpose - a report
+   that disagreed with the tool it came from would be worse than no chart.
+
+     Qt  = airflow + infiltration          m3/h
+     gen = people x rate                   m3/h of CO2
+     C(t) = e + (C0 - e) e^(-Qt t / V),  e = outdoor + gen/Qt x 1e6
+*/
+function co2Curve(sc, rm){
+  var v = rm.vent; if(!v) return null;
+  var k = v.keep || {};
+  var V = csVolume(rm); if(!(V > 0)) return null;
+  var act = ACTS[csNum(rm.act, 0)] || ACTS[0];
+  var N = act[2];
+  var Pz = Math.max(1, csNum(rm.pz));
+  var Q = csNum(v.q);
+  var Co = csNum(csCond(sc, rm).oaCo, 400);
+  var C0 = (k.c0 != null) ? csNum(k.c0) : Co;
+  var dur = Math.max(0.5, (k.dur != null) ? csNum(k.dur) : 8);
+  var inf = (k.inf != null) ? csNum(k.inf) : 0;
+
+  function at(t, q){
+    var Qt = q + inf * V, gen = Pz * N * 0.0036;
+    if(Qt <= 0.5) return C0 + gen / V * 1e6 * t;
+    var e = Co + gen / Qt * 1e6;
+    return e + (C0 - e) * Math.exp(-Qt * t / V);
+  }
+  var pts = [], n = 48, i;
+  for(i = 0; i <= n; i++){ var t = dur * i / n; pts.push([t, at(t, Q)]); }
+  var f = funcRates(rm);
+  return { pts: pts, dur: dur, end: at(dur, Q), C0: C0, Co: Co,
+           ceil: (f.ceil != null) ? Co + f.ceil : null, q: Q };
+}
+
+/* A small chart, in SVG so that printing uses the printer's resolution. */
+function co2Svg(c){
+  if(!c) return '';
+  var W = 250, H = 104, L = 34, R = 6, T = 8, B = 16;
+  var lo = Math.min(c.Co, c.C0, c.end) - 40;
+  var hi = Math.max(c.C0, c.end, c.ceil || 0, 1000) + 60;
+  if(lo < 0) lo = 0;
+  function px(t){ return L + (W - L - R) * (t / c.dur); }
+  function py(v){ return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); }
+  var d = c.pts.map(function(p, i){
+    return (i ? 'L' : 'M') + px(p[0]).toFixed(1) + ' ' + py(p[1]).toFixed(1); }).join(' ');
+  function rule(v, col, dash, label){
+    if(v == null || v < lo || v > hi) return '';
+    var y = py(v).toFixed(1);
+    return '<line x1="'+L+'" y1="'+y+'" x2="'+(W-R)+'" y2="'+y+'" stroke="'+col
+      + '" stroke-width="1" stroke-dasharray="'+dash+'" opacity=".75"/>'
+      + '<text x="'+(W-R)+'" y="'+(+y - 2)+'" text-anchor="end" font-size="7.5" fill="'+col+'">'
+      + label + '</text>';
+  }
+  return '<svg class="co2svg" viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img">'
+    + '<rect x="'+L+'" y="'+T+'" width="'+(W-L-R)+'" height="'+(H-T-B)+'" fill="#fff" stroke="#E3E7EB"/>'
+    + rule(1000, '#C7A008', '3 2', '1,000')
+    + rule(c.ceil, '#D44C47', '3 2', '\u0e40\u0e1e\u0e14\u0e32\u0e19')
+    + rule(c.Co, '#8A9199', '1 3', '\u0e19\u0e2d\u0e01 ' + fmt(c.Co))
+    + '<path d="'+d+'" fill="none" stroke="#2383E2" stroke-width="1.6"/>'
+    + '<text x="2" y="'+(T+7)+'" font-size="7.5" fill="#6B7280">'+fmt(Math.round(hi))+'</text>'
+    + '<text x="2" y="'+(H-B)+'" font-size="7.5" fill="#6B7280">'+fmt(Math.round(lo))+'</text>'
+    + '<text x="'+L+'" y="'+(H-4)+'" font-size="7.5" fill="#6B7280">0</text>'
+    + '<text x="'+(W-R)+'" y="'+(H-4)+'" text-anchor="end" font-size="7.5" fill="#6B7280">'
+      + fmt(c.dur,1) + ' \u0e0a\u0e21.</text>'
+    + '</svg>';
+}
+
+/* A page per handful of rooms: what the room is, what it was given, and
+   what the CO2 does across the occupied hours. */
+function repRoomCards(sc){
+  var rooms = (sc.rooms || []);
+  if(!rooms.length) return '';
+  var cards = rooms.map(function(rm, j){
+    var f = funcRates(rm), cnd = csCond(sc, rm), v = rm.vent, e = rm.erv, a = rm.ac;
+    var q = Math.max(1, csNum(rm.qty, 1));
+    var c = co2Curve(sc, rm);
+    function line(k, val){
+      return '<div class="rc-k">' + k + '</div><div class="rc-v">' + val + '</div>';
+    }
+    return '<div class="rep-room">'
+      + '<div class="rc-head"><b>' + (j+1) + '. ' + esc(rm.name || '\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e15\u0e31\u0e49\u0e07\u0e0a\u0e37\u0e48\u0e2d') + '</b>'
+        + (q > 1 ? ' <span class="n">\u00d7' + q + ' \u0e2b\u0e49\u0e2d\u0e07</span>' : '')
+        + (cnd.over.length ? ' <span class="rep-flag">\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32\u0e40\u0e2d\u0e07</span>' : '')
+        + '<div class="sub">' + esc(f.c[1]) + ' \u00b7 '
+        + (rm.cat === 'MV' ? '\u0e23\u0e30\u0e1a\u0e32\u0e22\u0e2d\u0e32\u0e01\u0e32\u0e28' : '\u0e1b\u0e23\u0e31\u0e1a\u0e2d\u0e32\u0e01\u0e32\u0e28') + '</div></div>'
+      + '<div class="rc-grid">'
+        + line('\u0e02\u0e19\u0e32\u0e14', fmt(csArea(rm),1) + ' \u0e15\u0e23.\u0e21. \u00b7 \u0e2a\u0e39\u0e07 ' + fmt(csNum(rm.h),1) + ' \u0e21.')
+        + line('\u0e04\u0e19', fmt(csNum(rm.pz)) + ' \u0e04\u0e19')
+        + line('\u0e25\u0e21\u0e2d\u0e2d\u0e01\u0e41\u0e1a\u0e1a', v ? '<b>' + fmt(csNum(v.q)) + '</b> CMH'
+            + (v.rec != null ? ' <span class="n">\u0e02\u0e31\u0e49\u0e19\u0e15\u0e48\u0e33 ' + fmt(csNum(v.rec)) + '</span>' : '')
+            : '<span class="rep-none">\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e04\u0e33\u0e19\u0e27\u0e13</span>')
+        + line('CO\u2082 \u0e1b\u0e25\u0e32\u0e22\u0e0a\u0e48\u0e27\u0e07', v && v.co2 != null
+            ? fmt(csNum(v.co2)) + ' ppm ' + repOk(v.ok, '\u0e1c\u0e48\u0e32\u0e19', '\u0e25\u0e21\u0e44\u0e21\u0e48\u0e1e\u0e2d')
+            : '<span class="rep-none">\u2014</span>')
+        + line('\u0e20\u0e32\u0e23\u0e30\u0e17\u0e35\u0e48\u0e15\u0e01\u0e01\u0e31\u0e1a\u0e41\u0e2d\u0e23\u0e4c', e
+            ? fmt(csNum(e.rt),2) + ' RT \u00b7 \u0e2b\u0e49\u0e2d\u0e07 ' + fmt(csNum(e.dT),2) + ' \u00b0C '
+              + repOk(e.ok, '\u0e23\u0e31\u0e1a\u0e44\u0e2b\u0e27', '\u0e44\u0e21\u0e48\u0e44\u0e2b\u0e27')
+            : '<span class="rep-none">\u2014</span>')
+        + line('\u0e40\u0e2a\u0e35\u0e22\u0e07\u0e17\u0e35\u0e48\u0e1c\u0e39\u0e49\u0e23\u0e31\u0e1a', a
+            ? fmt(csNum(a.dba),1) + ' dB(A) ' + repOk(a.ok, '\u0e1c\u0e48\u0e32\u0e19', '\u0e40\u0e01\u0e34\u0e19')
+            : '<span class="rep-none">\u2014</span>')
+      + '</div>'
+      + (c ? '<div class="rc-chart">' + co2Svg(c)
+             + '<div class="rc-cap">CO\u2082 \u0e43\u0e19\u0e2b\u0e49\u0e2d\u0e07\u0e15\u0e25\u0e2d\u0e14\u0e0a\u0e48\u0e27\u0e07\u0e17\u0e35\u0e48\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19 \u00b7 \u0e40\u0e23\u0e34\u0e48\u0e21 '
+             + fmt(Math.round(c.C0)) + ' \u2192 \u0e08\u0e1a ' + fmt(Math.round(c.end)) + ' ppm</div></div>'
+          : '<div class="rc-chart"><div class="rc-cap">'
+             + '\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35\u0e01\u0e23\u0e32\u0e1f \u00b7 \u0e40\u0e1b\u0e34\u0e14\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07\u0e21\u0e37\u0e2d CO\u2082 \u0e02\u0e2d\u0e07\u0e2b\u0e49\u0e2d\u0e07\u0e19\u0e35\u0e49\u0e2a\u0e31\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07</div></div>')
+      + '</div>';
+  }).join('');
+  return '<div class="rep-break"></div>'
+    + '<div class="rep-sec wide"><h3>\u0e23\u0e32\u0e22\u0e25\u0e30\u0e40\u0e2d\u0e35\u0e22\u0e14\u0e23\u0e32\u0e22\u0e2b\u0e49\u0e2d\u0e07'
+    + '<span class="n">' + rooms.length + ' \u0e2b\u0e49\u0e2d\u0e07</span></h3>'
+    + '<div class="rep-rooms">' + cards + '</div>'
+    + '<div class="rep-note" style="margin-top:8px">\u0e40\u0e2a\u0e49\u0e19 CO\u2082 \u0e27\u0e32\u0e14\u0e08\u0e32\u0e01'
+    + '\u0e2a\u0e21\u0e01\u0e32\u0e23\u0e40\u0e14\u0e35\u0e22\u0e27\u0e01\u0e31\u0e1a\u0e17\u0e35\u0e48\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07\u0e21\u0e37\u0e2d CO\u2082 \u0e43\u0e0a\u0e49 · '
+    + '\u0e40\u0e2a\u0e49\u0e19\u0e1b\u0e23\u0e30\u0e41\u0e14\u0e07\u0e04\u0e37\u0e2d\u0e40\u0e1e\u0e14\u0e32\u0e19\u0e02\u0e2d\u0e07\u0e2b\u0e21\u0e27\u0e14\u0e19\u0e31\u0e49\u0e19\u0e41\u0e25\u0e30\u0e40\u0e2a\u0e49\u0e19 1,000 ppm</div>'
+    + '</div>';
+}
+
 function repOpts(){
-  return { all: $('repAll').checked, calc: $('repCalc').checked, sign: $('repSign').checked };
+  return { all: $('repAll').checked, calc: $('repCalc').checked,
+           sign: $('repSign').checked, rooms: $('repRooms').checked };
 }
 function renderReport(){
   var p = curP(), s = curS(), sheet = $('repSheet');
@@ -2890,7 +3033,7 @@ $('repBack').addEventListener('click', function(){
   document.querySelector('.tab[data-p="detail"]').click();
 });
 $('repPrint').addEventListener('click', function(){ window.print(); });
-['repAll','repCalc','repSign'].forEach(function(id){
+['repAll','repCalc','repSign','repRooms'].forEach(function(id){
   $(id).addEventListener('change', renderReport);
 });
 
@@ -3049,7 +3192,8 @@ $('scnBar').addEventListener('click', function(e){
     }, 60);
     return;
   }
-  if(b.id === 'sDel'){ delScenario(CUR, CURS); }
+  if(b.id === 'sDel'){ delScenario(CUR, CURS); return; }
+  if(b.id === 'sRep'){ openReport(); }
 });
 
 $('rAdd').addEventListener('click', function(){
