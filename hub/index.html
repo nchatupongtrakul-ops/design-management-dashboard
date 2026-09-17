@@ -353,6 +353,9 @@ tr.gov td{background:#EDF6FD !important}
 /* our own confirm · the portal's iframe blocks the browser's */
 /* one room per card · three to a row on A4 landscape, and a card is never
    split across a page break */
+.rep-part{font-weight:400; font-size:10.5px; color:var(--text-secondary)}
+.rep-logo{height:34px; width:auto; display:block; margin:0 0 6px auto}
+@media print{ .rep-logo{height:30px} }
 .rep-rooms{display:grid; grid-template-columns:repeat(3,1fr); gap:9px}
 .rep-room{border:1px solid var(--border); border-radius:7px; padding:9px 10px;
   break-inside:avoid; page-break-inside:avoid}
@@ -2745,37 +2748,46 @@ function repFails(s){
 
 /* ── the totals that are legitimate to add up, and the ones that are not ── */
 function repTotals(r, s){
-  function row(a, b, c){ return '<tr><td style="width:210px">' + a + '</td>'
-    + '<td class="num" style="width:150px"><b>' + b + '</b></td>'
-    + '<td class="sub" style="font-size:10.5px">' + c + '</td></tr>'; }
-  var t = row('พื้นที่รวม', fmt(r.area,1) + ' ตร.ม.', 'บวกได้ · คูณ Q\'ty แล้ว')
-    + row('จำนวนคนรวม', fmt(r.people) + ' คน', 'บวกได้ · คูณ Q\'ty แล้ว')
-    + row('ลมบริสุทธิ์รวม', r.done.vent ? fmt(r.cmh) + ' CMH' : 'ยังไม่ครบ',
-        r.done.vent < r.rows ? 'คำนวณแล้ว ' + r.done.vent + ' จาก ' + r.rows + ' แถว'
-                             : 'ครบทุกแถว · ถือว่าทุกห้องใช้งานพร้อมกัน')
-    + row('ภาระอากาศภายนอกรวม', r.done.erv ? fmt(r.rt,2) + ' RT' : 'ยังไม่ครบ',
-        r.done.erv < r.acRows ? 'คำนวณแล้ว ' + r.done.erv + ' จาก ' + r.acRows + ' แถวปรับอากาศ'
-                              : 'ครบทุกแถวปรับอากาศ')
-    + row('ขนาดแอร์เดิมรวม', capBoth(r.cap) || 'ยังไม่ใส่',
-        r.noCap ? 'ยังไม่ใส่ ' + r.noCap + ' จาก ' + r.acRows + ' แถวปรับอากาศ' : 'ใส่ครบทุกแถวปรับอากาศ')
-    + row('ระดับ CO₂', r.worstCo2 !== null ? 'สูงสุด ' + fmt(r.worstCo2) + ' ppm' : 'ยังไม่คำนวณ',
-        '<b>บวกหรือเฉลี่ยไม่ได้</b> รายงานเป็นห้องที่แย่ที่สุด ค่าจริงรายห้องอยู่ในตารางด้านบน')
-    + row('ระดับเสียงที่ผู้รับ', r.worstDba !== null ? 'สูงสุด ' + fmt(r.worstDba,1) + ' dB(A)' : 'ยังไม่คำนวณ',
-        '<b>บวกไม่ได้</b> ขึ้นกับช่องเปิดและระยะของห้องนั้น')
-    + row('ห้องที่ลมไม่พอ', fmt(r.failCo2) + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย')
-    + row('ห้องที่แอร์เดิมรับไม่ไหว', fmt(r.failAc) + ' ห้อง', 'นับเป็นห้อง ไม่ใช่ค่าเฉลี่ย');
-  if(r.roi){
-    t += row('ประหยัดสุทธิต่อปี', baht(r.roi.net) + ' บาท',
-             'ของทั้งทางเลือก คิดจากลม ' + fmt(r.roi.q) + ' CMH ที่สภาวะเฉลี่ยทั้งปี')
-      + row('ระยะคืนทุน', repPlain(payText(r.roi)) || '—',
-             r.roi.capexKnown ? 'เทียบกับพัดลมระบายอากาศธรรมดา' : 'ยังไม่ได้ใส่ราคา ERV ที่ติดตั้ง')
-      + row('ลดขนาดแอร์ได้', fmt(r.roi.rtSaved,2) + ' RT',
-             'ที่สภาวะออกแบบ · ใช้ได้เมื่อยังไม่ได้สั่งเครื่อง');
-  } else {
-    t += row('ROI ของทางเลือกนี้', 'ยังไม่ได้คิด', 'เปิดเครื่องมือ ERV Energy Saving');
+  /* Two columns only. The third used to carry a remark against every line,
+     which reads as marginalia on a client document. What was load-bearing
+     in those remarks - a total that is not finished, a figure that is a
+     worst case and not a sum - is said in the value instead. */
+  function row(a, b){ return '<tr><td style="width:240px">' + a + '</td>'
+    + '<td class="num"><b>' + b + '</b></td></tr>'; }
+  function part(done, total, unit){
+    return done < total ? ' <span class="rep-part">(คำนวณแล้ว ' + done
+      + ' จาก ' + total + ' ' + unit + ')</span>' : '';
   }
+  var t = row('พื้นที่รวม', fmt(r.area,1) + ' ตร.ม.')
+    + row('จำนวนคนรวม', fmt(r.people) + ' คน')
+    + row('ลมบริสุทธิ์รวม', (r.done.vent ? fmt(r.cmh) + ' CMH' : 'ยังไม่คำนวณ')
+        + part(r.done.vent, r.rows, 'แถว'))
+    + row('ภาระอากาศภายนอกรวม', (r.done.erv ? fmt(r.rt,2) + ' RT' : 'ยังไม่คำนวณ')
+        + part(r.done.erv, r.acRows, 'แถวปรับอากาศ'))
+    + row('ขนาดแอร์เดิมรวม', (capBoth(r.cap) || '—')
+        + (r.noCap ? ' <span class="rep-part">(ยังไม่ใส่ ' + r.noCap
+            + ' จาก ' + r.acRows + ' แถวปรับอากาศ)</span>' : ''))
+    + row('CO₂ สูงสุดของห้องที่แย่ที่สุด',
+        r.worstCo2 !== null ? fmt(r.worstCo2) + ' ppm' : 'ยังไม่คำนวณ')
+    + row('เสียงสูงสุดที่ผู้รับ',
+        r.worstDba !== null ? fmt(r.worstDba,1) + ' dB(A)' : 'ยังไม่คำนวณ')
+    + row('ห้องที่ลมไม่พอ', fmt(r.failCo2) + ' ห้อง')
+    + row('ห้องที่แอร์เดิมรับไม่ไหว', fmt(r.failAc) + ' ห้อง');
+  if(r.roi){
+    t += row('ประหยัดสุทธิ์ต่อปี', baht(r.roi.net) + ' บาท')
+      + row('ระยะคืนทุน', (repPlain(payText(r.roi)) || '—')
+          + (r.roi.capexKnown ? ''
+             : ' <span class="rep-part">(ยังไม่ได้ใส่ราคา ERV)</span>'))
+      + row('ลดขนาดแอร์ได้', fmt(r.roi.rtSaved,2) + ' RT');
+  } else {
+    t += row('ROI ของทางเลือกนี้', 'ยังไม่ได้คิด');
+  }
+  /* The two figures that are not sums say so once, under the table,
+     rather than in a remark written beside every line. */
   return '<div class="rep-sec"><h3>ยอดรวมของทางเลือกนี้</h3>'
-    + '<table class="rtab"><tbody>' + t + '</tbody></table></div>';
+    + '<table class="rtab"><tbody>' + t + '</tbody></table>'
+    + '<div class="rep-note" style="margin-top:6px">CO₂ และเสียงเป็นค่าของห้องที่สูงที่สุด '
+      + 'ไม่ใช่ผลรวมหรือค่าเฉลี่ย · ค่ารายห้องอยู่ในตาราง</div></div>';
 }
 
 /* ── one scenario against another ── */
@@ -2998,8 +3010,9 @@ function renderReport(){
       + (p.status ? esc(p.status) + ' · ' : '')
       + (o.all ? 'รายงานทุกทางเลือก (' + p.scenarios.length + ')' : 'ทางเลือก ' + esc(s.name))
       + '</div></div>'
-    + '<div class="right">รายงานสรุปงานออกแบบระบบอากาศ<br>'
-    + 'Coral Life · ทีมออกแบบ<br>ออกรายงาน ' + stamp + '</div></div>';
+    + '<div class="right"><img class="rep-logo" src="logo.jpg" alt="Coral Life">'
+    + 'รายงานสรุปงานออกแบบระบบอากาศ<br>'
+    + 'ทีมออกแบบ · ออกรายงาน ' + stamp + '</div></div>';
 
   var body = (o.all && p.scenarios.length > 1 ? repCompare(p) : '')
     + list.map(function(x, i){ return repScnBlock(p, x, o, i === 0 && !(o.all && p.scenarios.length > 1)); }).join('');
