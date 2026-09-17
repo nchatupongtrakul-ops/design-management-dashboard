@@ -944,11 +944,8 @@ tr.gov td{background:#EDF6FD !important}
     <label class="opt"><input type="checkbox" id="repRooms"> รายละเอียดรายห้อง + กราฟ CO₂</label>
     <label class="opt"><input type="checkbox" id="repCalc" checked> แนบเงื่อนไขและข้อสมมติ</label>
     <label class="opt"><input type="checkbox" id="repSign" checked> ช่องลงชื่อ</label>
-    <span class="projbar-sep"></span>
-    <button class="btn ghost" id="repSave" title="บันทึกรายงานเป็นไฟล์ .html · เลือกโฟลเดอร์ปลายทางได้ทุกครั้ง">บันทึกเป็นไฟล์…</button>
-    <span class="hint" style="margin:0;flex-basis:100%" id="repSaveHint">ตั้งกระดาษเป็น <b>A3 แนวตั้ง</b> · ใน Chrome เลือกปลายทางเป็น
-    <b>บันทึกเป็น PDF</b> ได้เลย · หรือกด <b>บันทึกเป็นไฟล์…</b> เก็บเป็น .html ไว้ในโฟลเดอร์ของงานนั้น
-    (<b>เลือกโฟลเดอร์ใหม่ได้ทุกครั้ง</b>)</span>
+    <span class="hint" style="margin:0">ตั้งกระดาษเป็น <b>A3 แนวตั้ง</b> · ใน Chrome เลือกปลายทางเป็น
+    <b>บันทึกเป็น PDF</b> ได้เลย · เลือกโฟลเดอร์ปลายทางได้ทุกครั้งในหน้าต่างของ Chrome</span>
   </div>
   <div class="sheet" id="repSheet"></div>
 </div>
@@ -4493,95 +4490,14 @@ function backRender(){
 }
 
 
-/* ═══════════ saving the report as a file ═══════════
+/* The report used to have a บันทึกเป็นไฟล์… button that wrote a self
+   contained .html wherever you pointed it. Taken out again: printing to PDF
+   already asks where to put the file every time, which was the whole point,
+   and a second way to save the same sheet in a format nobody asked for is
+   just another button to read. It is in git if it is ever wanted back.
 
-   Printing already lets Chrome put a PDF wherever you like. This writes the
-   sheet as a self-contained .html instead: the stylesheet travels with it
-   and the mark is inlined as a data URI, so the file still looks like the
-   report after it is moved or mailed, and printing it gives the same A3.
-
-   The destination is asked for every time. An earlier version remembered a
-   folder, which is right for the team folder - that is one place, used all
-   day - and wrong for reports: a report belongs in the folder of the job it
-   is about, and that is a different folder every time. Remembering it would
-   put every report in whichever job was open first.
-
-   showSaveFilePicker rather than showDirectoryPicker, so the same dialog
-   chooses the folder and lets the name be changed, and so overwriting is
-   the browser's own "replace?" rather than something we do quietly.
-
-   Not a PDF: making one by hand means embedding a subsetted Thai font, and
-   this whole tool set has no dependencies. The print button is the way to a
-   PDF.                                                                   */
-function repSay(html, col){
-  var el = $('repSaveHint'); if(!el) return;
-  el.innerHTML = col ? '<b style="color:' + col + '">' + html + '</b>' : html;
-}
-function repFileName(){
-  var p = curP(), s = curS(), o = repOpts();
-  var d = new Date();
-  var day = d.getFullYear() + '-' + csPad(d.getMonth() + 1, 2) + '-' + csPad(d.getDate(), 2);
-  return csSafe(p ? p.name : 'รายงาน') + ' · '
-    + csSafe(o.all ? 'ทุกทางเลือก' : (s ? s.name : '')) + ' · ' + day + '.html';
-}
-/* the sheet on its own, carrying the stylesheet and the mark with it */
-function repStandalone(){
-  var css = [].map.call(document.querySelectorAll('style'), function(st){
-    return st.textContent; }).join('\n');
-  var body = $('repSheet').outerHTML;
-  var p = curP();
-  var title = (p ? p.name : 'รายงาน') + ' · รายงานสรุปงานออกแบบระบบอากาศ';
-  return fetch('logo.png').then(function(r){ return r.blob(); }).then(function(b){
-    return new Promise(function(res){
-      var fr = new FileReader();
-      fr.onload = function(){ res(String(fr.result)); };
-      fr.onerror = function(){ res(''); };
-      fr.readAsDataURL(b);
-    });
-  }).catch(function(){ return ''; }).then(function(dataUri){
-    if(dataUri) body = body.split('src="logo.png"').join('src="' + dataUri + '"');
-    return '<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">'
-      + '<meta name="viewport" content="width=device-width, initial-scale=1">'
-      + '<title>' + esc(title) + '</title><style>' + css
-      + '\n/* standalone · no app around it */\n'
-      + 'body{background:#F7F6F3; margin:0; padding:18px}\n'
-      + '#p-report{display:block !important; max-width:1092px; margin:0 auto}\n'
-      + '@media print{ body{padding:0; background:#fff} }\n'
-      + '</style></head><body>' + body + '</body></html>';
-  });
-}
-function repSaveAs(){
-  var btn = $('repSave'); if(btn) btn.disabled = true;
-  var name = repFileName();
-  repSay('กำลังสร้างไฟล์…');
-  return repStandalone().then(function(html){
-    if(!window.showSaveFilePicker){
-      /* no picker here · at least hand over the file */
-      dl(new Blob([html], { type:'text/html;charset=utf-8' }), name);
-      repSay('เบราว์เซอร์นี้เลือกโฟลเดอร์เองไม่ได้ · ดาวน์โหลดไฟล์ให้แทน');
-      return null;
-    }
-    return window.showSaveFilePicker({
-      suggestedName: name,
-      types: [{ description:'หน้าเว็บ', accept:{ 'text/html':['.html'] } }]
-    }).then(function(fh){
-      return fh.createWritable()
-        .then(function(w){ return w.write(html).then(function(){ return w.close(); }); })
-        .then(function(){ return { name:fh.name, kb:Math.round(html.length/1024) }; });
-    });
-  }).then(function(r){
-    if(r) repSay('บันทึกแล้ว · <span class="fname">' + esc(r.name) + '</span> · '
-      + r.kb + ' KB · เปิดไฟล์นี้แล้วสั่งพิมพ์ได้ A3 เหมือนกัน');
-    if(btn) btn.disabled = false;
-  }).catch(function(err){
-    /* closing the dialog is a decision, not a fault */
-    if(err && err.name === 'AbortError') repSay('ยกเลิกแล้ว');
-    else repSay('บันทึกไม่สำเร็จ · ' + esc(err.message), '#B4291F');
-    if(btn) btn.disabled = false;
-  });
-}
-if($('repSave')) $('repSave').addEventListener('click', repSaveAs);
-/* the folder this used to remember · nothing reads it any more */
+   This one line clears the folder that version remembered · safe to delete
+   once everybody has opened the page since 17 Sep 2569. */
 csIdbPut('reportdir', null);
 
 /* ═══════════ saved, and saved where ═══════════ */
