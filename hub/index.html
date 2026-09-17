@@ -362,7 +362,7 @@ tr.gov td{background:#EDF6FD !important}
    at the repo root, which is the previous mark and the dashboard team's file. */
 .rep-logo{height:72px; width:auto; display:block; flex:0 0 auto; margin-top:1px}
 @media print{ .rep-logo{height:62px} }
-.rep-rooms{display:grid; grid-template-columns:repeat(3,1fr); gap:9px}
+.rep-rooms{display:grid; grid-template-columns:repeat(2,1fr); gap:9px}
 .rep-room{border:1px solid var(--border); border-radius:7px; padding:9px 10px;
   break-inside:avoid; page-break-inside:avoid}
 .rep-room .rc-head{border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom:6px}
@@ -374,21 +374,21 @@ tr.gov td{background:#EDF6FD !important}
 .rc-v{text-align:right; font-variant-numeric:tabular-nums}
 .rc-chart{margin-top:7px}
 .co2svg{width:100%; height:auto; display:block}
-/* the ERV process is drawn once for the scenario, beside the numbers it
-   was drawn from · never split across a page */
-.rep-psy{display:flex; gap:14px; align-items:flex-start;
-  break-inside:avoid; page-break-inside:avoid}
-.psysvg{flex:1 1 auto; min-width:0; max-width:620px; height:auto; display:block}
-.psy-side{flex:0 0 280px; font-size:11px}
+/* the ERV process is drawn once for the scenario, with the numbers it was
+   drawn from under it · chart and table sat side by side while the report
+   was A4 landscape; on portrait there is not the width for both, and the
+   chart squeezed to ~420px put its axis labels below reading size */
+.rep-psy{break-inside:avoid; page-break-inside:avoid}
+.psysvg{width:100%; max-width:560px; height:auto; display:block; margin:0 auto}
+.psy-side{font-size:11px; margin-top:8px}
 .psy-side table{width:100%; border-collapse:collapse}
 .psy-side th, .psy-side td{border-bottom:1px solid var(--border); padding:3px 4px;
   text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
 .psy-side th{font-weight:600; font-size:10px; color:var(--text-secondary)}
 .psy-side td:first-child, .psy-side th:first-child{text-align:left}
-@media(max-width:820px){ .rep-psy{flex-direction:column} .psy-side{flex:1 1 auto} }
 .rc-cap{font-size:9.5px; color:var(--text-secondary); margin-top:3px; line-height:1.4}
 @media (max-width:1100px){ .rep-rooms{grid-template-columns:repeat(2,1fr)} }
-@media print{ .rep-rooms{grid-template-columns:repeat(3,1fr)} }
+@media print{ .rep-rooms{grid-template-columns:repeat(2,1fr)} }
 
 .askback{position:fixed; inset:0; background:rgba(15,23,32,.38); z-index:9000;
   display:flex; align-items:center; justify-content:center; padding:20px}
@@ -580,14 +580,19 @@ tr.gov td{background:#EDF6FD !important}
    landscape sheet, and every number a reviewer needs in the order they
    would ask for it.
    ═══════════════════════════════════════════════════════════════════════ */
-#p-report{max-width:1180px}
+/* the sheet is the width of the paper it prints on: A4 portrait at 96dpi
+   is 794px, 718px of it inside a 10mm margin, plus the sheet's own padding */
+#p-report{max-width:778px}
 .rep-tool{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px}
 .rep-tool .opt{font-size:12.5px; color:var(--text-secondary); display:flex;
   align-items:center; gap:5px; cursor:pointer; user-select:none}
 .sheet{background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:26px 30px}
-.rep-top{display:flex; justify-content:space-between; align-items:flex-start; gap:20px;
-  border-bottom:2px solid var(--text); padding-bottom:9px}
-.rep-top .ttl{flex:1 1 auto; min-width:0}
+/* portrait has no width for mark + title + report meta on one line: the
+   name was left about 220px and wrapped mid-word. Mark and meta share the
+   first row, the project name gets the full width under them. */
+.rep-top{border-bottom:2px solid var(--text); padding-bottom:9px}
+.rep-top .brand{display:flex; justify-content:space-between; align-items:flex-start; gap:20px}
+.rep-top .ttl{margin-top:9px}
 .rep-top h2{font-size:19px; font-weight:700; line-height:1.25}
 .rep-top .meta{font-size:12px; color:var(--text-secondary); margin-top:3px}
 .rep-top .right{text-align:right; font-size:11px; color:var(--text-secondary); white-space:nowrap; line-height:1.7}
@@ -598,8 +603,10 @@ tr.gov td{background:#EDF6FD !important}
 /* the schedule is built for paper; on a narrow screen it scrolls rather than
    squeezing columns that have to stay readable in print */
 .rep-sec.wide{overflow-x:auto}
-.rtab{width:100%; border-collapse:collapse; font-size:11px}
-.rtab th, .rtab td{border:1px solid var(--border); padding:3px 5px; vertical-align:top}
+/* sized so the schedule fits the paper width without a horizontal scrollbar
+   in the preview - at 11px it was 785px against 718px of A4 portrait */
+.rtab{width:100%; border-collapse:collapse; font-size:10px}
+.rtab th, .rtab td{border:1px solid var(--border); padding:2px 3px; vertical-align:top}
 .rtab thead th{background:var(--surface); font-weight:600; text-align:left; font-size:10.5px;
   line-height:1.35}
 .rtab th.num, .rtab td.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
@@ -643,7 +650,7 @@ tr.gov td{background:#EDF6FD !important}
   .rep-sec.wide{break-inside:auto; page-break-inside:auto; overflow:visible}
   .rep-sec > h3{break-after:avoid; page-break-after:avoid}
   *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important}
-  @page{size:A4 landscape; margin:10mm}
+  @page{size:A4 portrait; margin:10mm}
 }
 </style>
 </head>
@@ -928,7 +935,7 @@ tr.gov td{background:#EDF6FD !important}
     <label class="opt"><input type="checkbox" id="repRooms"> รายละเอียดรายห้อง + กราฟ CO₂</label>
     <label class="opt"><input type="checkbox" id="repCalc" checked> แนบเงื่อนไขและข้อสมมติ</label>
     <label class="opt"><input type="checkbox" id="repSign" checked> ช่องลงชื่อ</label>
-    <span class="hint" style="margin:0">ตั้งกระดาษเป็น <b>A4 แนวนอน</b> · ใน Chrome เลือกปลายทางเป็น
+    <span class="hint" style="margin:0">ตั้งกระดาษเป็น <b>A4 แนวตั้ง</b> · ใน Chrome เลือกปลายทางเป็น
     <b>บันทึกเป็น PDF</b> ได้เลย</span>
   </div>
   <div class="sheet" id="repSheet"></div>
@@ -3219,16 +3226,17 @@ function renderReport(){
     + ' ' + now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
 
   var head = '<div class="rep-top">'
+    + '<div class="brand">'
     + '<img class="rep-logo" src="logo.png" alt="Coral Life">'
+    + '<div class="right">'
+    + 'รายงานสรุปงานออกแบบระบบอากาศ<br>'
+    + 'ทีมออกแบบ · ออกรายงาน ' + stamp + '</div></div>'
     + '<div class="ttl">'
     + '<h2>' + esc(p.name) + '</h2>'
     + '<div class="meta">' + (p.client ? 'ลูกค้า ' + esc(p.client) + ' · ' : '')
       + (p.status ? esc(p.status) + ' · ' : '')
       + (o.all ? 'รายงานทุกทางเลือก (' + p.scenarios.length + ')' : 'ทางเลือก ' + esc(s.name))
-      + '</div></div>'
-    + '<div class="right">'
-    + 'รายงานสรุปงานออกแบบระบบอากาศ<br>'
-    + 'ทีมออกแบบ · ออกรายงาน ' + stamp + '</div></div>';
+      + '</div></div></div>';
 
   var body = (o.all && p.scenarios.length > 1 ? repCompare(p) : '')
     + list.map(function(x, i){ return repScnBlock(p, x, o, i === 0 && !(o.all && p.scenarios.length > 1)); }).join('');
