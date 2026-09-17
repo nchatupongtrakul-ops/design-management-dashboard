@@ -356,11 +356,12 @@ tr.gov td{background:#EDF6FD !important}
 .rep-part{font-weight:400; font-size:10.5px; color:var(--text-secondary)}
 /* the mark leads the header; the title block takes the slack so the
    report meta stays pinned to the right edge.
-   hub/logo.jpg is cropped to the mark and the wordmark only - the strapline
-   under it was illegible at header size and stole a third of the height, so
-   the file that is served here is not the full lockup at the repo root */
-.rep-logo{height:64px; width:auto; display:block; flex:0 0 auto; margin-top:1px}
-@media print{ .rep-logo{height:56px} }
+   hub/logo.png is the current brand lockup (1.png in the team's logo folder),
+   cropped to its own ink and nothing else - the wordmark and the line under it
+   are one artwork now and neither is ours to take apart. It is NOT the logo.jpg
+   at the repo root, which is the previous mark and the dashboard team's file. */
+.rep-logo{height:72px; width:auto; display:block; flex:0 0 auto; margin-top:1px}
+@media print{ .rep-logo{height:62px} }
 .rep-rooms{display:grid; grid-template-columns:repeat(3,1fr); gap:9px}
 .rep-room{border:1px solid var(--border); border-radius:7px; padding:9px 10px;
   break-inside:avoid; page-break-inside:avoid}
@@ -3218,7 +3219,7 @@ function renderReport(){
     + ' ' + now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
 
   var head = '<div class="rep-top">'
-    + '<img class="rep-logo" src="logo.jpg" alt="Coral Life">'
+    + '<img class="rep-logo" src="logo.png" alt="Coral Life">'
     + '<div class="ttl">'
     + '<h2>' + esc(p.name) + '</h2>'
     + '<div class="meta">' + (p.client ? 'ลูกค้า ' + esc(p.client) + ' · ' : '')
