@@ -362,7 +362,7 @@ tr.gov td{background:#EDF6FD !important}
    at the repo root, which is the previous mark and the dashboard team's file. */
 .rep-logo{height:72px; width:auto; display:block; flex:0 0 auto; margin-top:1px}
 @media print{ .rep-logo{height:62px} }
-.rep-rooms{display:grid; grid-template-columns:repeat(2,1fr); gap:9px}
+.rep-rooms{display:grid; grid-template-columns:repeat(3,1fr); gap:9px}
 .rep-room{border:1px solid var(--border); border-radius:7px; padding:9px 10px;
   break-inside:avoid; page-break-inside:avoid}
 .rep-room .rc-head{border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom:6px}
@@ -375,12 +375,12 @@ tr.gov td{background:#EDF6FD !important}
 .rc-chart{margin-top:7px}
 .co2svg{width:100%; height:auto; display:block}
 /* the ERV process is drawn once for the scenario, with the numbers it was
-   drawn from under it · chart and table sat side by side while the report
-   was A4 landscape; on portrait there is not the width for both, and the
-   chart squeezed to ~420px put its axis labels below reading size */
-.rep-psy{break-inside:avoid; page-break-inside:avoid}
-.psysvg{width:100%; max-width:560px; height:auto; display:block; margin:0 auto}
-.psy-side{font-size:11px; margin-top:8px}
+   drawn from beside it · the oblique frame needs width, and A3 has it:
+   690 for the sheet and 320 for the table inside 1032 */
+.rep-psy{display:flex; gap:16px; align-items:flex-start;
+  break-inside:avoid; page-break-inside:avoid}
+.psysvg{flex:1 1 auto; min-width:0; max-width:690px; height:auto; display:block}
+.psy-side{flex:0 0 320px; font-size:11px}
 .psy-side table{width:100%; border-collapse:collapse}
 .psy-side th, .psy-side td{border-bottom:1px solid var(--border); padding:3px 4px;
   text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
@@ -388,7 +388,7 @@ tr.gov td{background:#EDF6FD !important}
 .psy-side td:first-child, .psy-side th:first-child{text-align:left}
 .rc-cap{font-size:9.5px; color:var(--text-secondary); margin-top:3px; line-height:1.4}
 @media (max-width:1100px){ .rep-rooms{grid-template-columns:repeat(2,1fr)} }
-@media print{ .rep-rooms{grid-template-columns:repeat(2,1fr)} }
+@media print{ .rep-rooms{grid-template-columns:repeat(3,1fr)} }
 
 .askback{position:fixed; inset:0; background:rgba(15,23,32,.38); z-index:9000;
   display:flex; align-items:center; justify-content:center; padding:20px}
@@ -580,9 +580,9 @@ tr.gov td{background:#EDF6FD !important}
    landscape sheet, and every number a reviewer needs in the order they
    would ask for it.
    ═══════════════════════════════════════════════════════════════════════ */
-/* the sheet is the width of the paper it prints on: A4 portrait at 96dpi
-   is 794px, 718px of it inside a 10mm margin, plus the sheet's own padding */
-#p-report{max-width:778px}
+/* the sheet is the width of the paper it prints on: A3 portrait at 96dpi
+   is 1122px, 1032px of it inside a 12mm margin, plus the sheet's own padding */
+#p-report{max-width:1092px}
 .rep-tool{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px}
 .rep-tool .opt{font-size:12.5px; color:var(--text-secondary); display:flex;
   align-items:center; gap:5px; cursor:pointer; user-select:none}
@@ -603,10 +603,8 @@ tr.gov td{background:#EDF6FD !important}
 /* the schedule is built for paper; on a narrow screen it scrolls rather than
    squeezing columns that have to stay readable in print */
 .rep-sec.wide{overflow-x:auto}
-/* sized so the schedule fits the paper width without a horizontal scrollbar
-   in the preview - at 11px it was 785px against 718px of A4 portrait */
-.rtab{width:100%; border-collapse:collapse; font-size:10px}
-.rtab th, .rtab td{border:1px solid var(--border); padding:2px 3px; vertical-align:top}
+.rtab{width:100%; border-collapse:collapse; font-size:11px}
+.rtab th, .rtab td{border:1px solid var(--border); padding:3px 5px; vertical-align:top}
 .rtab thead th{background:var(--surface); font-weight:600; text-align:left; font-size:10.5px;
   line-height:1.35}
 .rtab th.num, .rtab td.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
@@ -642,15 +640,19 @@ tr.gov td{background:#EDF6FD !important}
   #p-report.active{display:block !important; padding:0 !important; max-width:none !important}
   body:not(.rep) .printonly{display:block; padding:30px; font-size:13px; line-height:1.7}
   .sheet{box-shadow:none; border-radius:0; padding:0; background:#fff}
-  .rtab{font-size:9px}
-  .rtab th, .rtab td{padding:2px 3px}
+  .rtab{font-size:10px}
+  .rtab th, .rtab td{padding:2px 4px}
   .rtab thead{display:table-header-group}
   .rtab tr, .rep-kpi, .rep-cond, .rep-sign{break-inside:avoid; page-break-inside:avoid}
   .rep-sec{break-inside:avoid; page-break-inside:avoid}
   .rep-sec.wide{break-inside:auto; page-break-inside:auto; overflow:visible}
   .rep-sec > h3{break-after:avoid; page-break-after:avoid}
   *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important}
-  @page{size:A4 portrait; margin:10mm}
+  /* one line decides the paper · A3 portrait gives 273mm of content at a
+     12mm margin, which is what the psychrometric sheet and the room
+     schedule are drawn to. Switching back to A4 means changing this AND
+     #p-report's max-width, or the preview stops matching the print. */
+  @page{size:A3 portrait; margin:12mm}
 }
 </style>
 </head>
@@ -935,7 +937,7 @@ tr.gov td{background:#EDF6FD !important}
     <label class="opt"><input type="checkbox" id="repRooms"> รายละเอียดรายห้อง + กราฟ CO₂</label>
     <label class="opt"><input type="checkbox" id="repCalc" checked> แนบเงื่อนไขและข้อสมมติ</label>
     <label class="opt"><input type="checkbox" id="repSign" checked> ช่องลงชื่อ</label>
-    <span class="hint" style="margin:0">ตั้งกระดาษเป็น <b>A4 แนวตั้ง</b> · ใน Chrome เลือกปลายทางเป็น
+    <span class="hint" style="margin:0">ตั้งกระดาษเป็น <b>A3 แนวตั้ง</b> · ใน Chrome เลือกปลายทางเป็น
     <b>บันทึกเป็น PDF</b> ได้เลย</span>
   </div>
   <div class="sheet" id="repSheet"></div>
@@ -2925,6 +2927,20 @@ function rhof(t, W){
   var pw = PATM * W / (0.621945 + W);
   return pw / pws(t);
 }
+function vOf(t, W){ return 0.287042*(t + 273.15)*(1 + 1.607858*W)/PATM; }
+/* eq (33) · humidity ratio along a line of constant thermodynamic wet bulb */
+function WofWB(t, tw){
+  var Ws = Wof(tw, 1);
+  return ((2501 - 2.326*tw)*Ws - 1.006*(t - tw)) / (2501 + 1.86*t - 4.186*tw);
+}
+/* the wet bulb of a state · the same equation, solved the other way round */
+function wbOf(t, W){
+  var lo = -20, hi = t;
+  for(var i = 0; i < 60; i++){ var m = (lo + hi)/2;
+    if(WofWB(t, m) > W) hi = m; else lo = m; }
+  return (lo + hi)/2;
+}
+function WofV(t, v){ return (v*PATM/(0.287042*(t + 273.15)) - 1)/1.607858; }
 
 /* ── where the air actually goes, as three states ──
      Tsa = Toa + ηs (Tr − Toa)        hsa = hoa + ηt (hr − hoa)
@@ -2972,101 +2988,187 @@ function psyModel(s){
            es:es, et:et, drift:drift, over:over };
 }
 
-/* SVG again, so the printer draws it at the printer's resolution */
+/* Drawn the way ASHRAE Chart No.1 is built, in oblique coordinates:
+
+     x = a·(h − K·W) + x0        y = base − c·W        K = 2501 + 1.86·25
+
+   which makes the three properties of the printed sheet fall out on their own
+   rather than being faked · lines of constant W come out horizontal, lines of
+   constant enthalpy come out straight AND parallel to each other, and lines of
+   constant dry bulb come out straight but fanning, because along one of them
+   the enthalpy climbs with W at a rate that depends on the temperature. K is
+   the skew: it is the enthalpy slope at 25 °C, so the 25 °C line stands
+   upright and the rest lean off it.
+
+   The region above saturation does not exist and lands at the upper left,
+   which is what gives the sheet its shape.
+
+   The width is set by the DRY BULB span, not the enthalpy span: after the skew
+   x/a = 1.006t + W(1.86t − 46.5), so the corners of that are what is measured. */
 function psySvg(m){
-  var W = 560, H = 300, L = 46, R = 58, T = 12, B = 34;
-  var Ts = [m.Toa, m.Tsa, m.Tr], Ws = [m.Woa, m.Wsa, m.Wr];
-  m.drift.forEach(function(d){ Ts.push(d.T); Ws.push(d.W); });
-  var x0 = Math.min(15, Math.floor(Math.min.apply(null, Ts)/5)*5 - 5);
-  var x1 = Math.max(45, Math.ceil(Math.max.apply(null, Ts)/5)*5 + 5);
-  var y1 = Math.max(0.030, Math.ceil(Math.max.apply(null, Ws)/0.005)*0.005 + 0.005);
-  function px(t){ return L + (t - x0)/(x1 - x0)*(W - L - R); }
-  function py(w){ return H - B - w/y1*(H - B - T); }
+  var W_ = 700, H_ = 460, T0 = 16, B = 38, Lp = 34, Rp = 64;
+  var y1 = 0.030, tmin = 5, tmax = 50;
+  var i, t, w, h;
+
+  /* let a room that drifted out of the frame widen it rather than vanish */
+  m.drift.forEach(function(dd){
+    if(dd.T > tmax - 2) tmax = Math.ceil((dd.T + 2)/5)*5;
+    if(dd.W > y1 - 0.002) y1 = Math.ceil((dd.W + 0.002)/0.005)*0.005;
+  });
+  if(m.Toa > tmax - 2) tmax = Math.ceil((m.Toa + 2)/5)*5;
+  if(m.Woa > y1 - 0.002) y1 = Math.ceil((m.Woa + 0.002)/0.005)*0.005;
+
+  var K = 2501 + 1.86*25;
+  function u(a1, b1){ return hof(a1, b1) - K*b1; }
+  function tSatOfW(x){ var lo = -15, hi = 60;
+    for(var j = 0; j < 60; j++){ var mm = (lo+hi)/2; if(Wof(mm,1) > x) hi = mm; else lo = mm; }
+    return (lo+hi)/2; }
+  function tSatOfH(x){ var lo = -15, hi = 60;
+    for(var j = 0; j < 60; j++){ var mm = (lo+hi)/2; if(hof(mm, Wof(mm,1)) > x) hi = mm; else lo = mm; }
+    return (lo+hi)/2; }
+  var tTop = tSatOfW(y1);
+  var us = [u(tmin,0), u(tmax,0), u(tmin,Wof(tmin,1)), u(tmax,y1), u(tTop,y1)];
+  var umin = Math.min.apply(null, us), umax = Math.max.apply(null, us);
+  var a = (W_ - Lp - Rp)/(umax - umin);
+  var c = (H_ - T0 - B)/y1;
+  var base = H_ - B;
+  function map(t2, w2){ return [Lp + a*(u(t2, w2) - umin), base - c*w2]; }
+  function mapH(h2, w2){ return [Lp + a*(h2 - K*w2 - umin), base - c*w2]; }
   function f1(n){ return n.toFixed(1); }
-
-  var o = [], t, w;
-  o.push('<rect x="' + L + '" y="' + T + '" width="' + (W-L-R) + '" height="' + (H-B-T)
-    + '" fill="#fff" stroke="#E3E7EB"/>');
-  for(t = x0; t <= x1 + 1e-9; t += 5){
-    o.push('<line x1="' + f1(px(t)) + '" y1="' + T + '" x2="' + f1(px(t)) + '" y2="' + (H-B)
-      + '" stroke="#EDEFF1"/>');
-    o.push('<text x="' + f1(px(t)) + '" y="' + (H-B+12) + '" text-anchor="middle" font-size="8.5"'
-      + ' fill="#6B7280">' + t + '°</text>');
+  function pathOf(pts, col, sw, dash){
+    if(pts.length < 2) return '';
+    return '<path d="' + pts.map(function(q, j){ return (j ? 'L' : 'M') + f1(q[0]) + ' ' + f1(q[1]); }).join(' ')
+      + '" fill="none" stroke="' + col + '" stroke-width="' + sw + '"'
+      + (dash ? ' stroke-dasharray="' + dash + '"' : '') + '/>';
   }
-  for(w = 0; w <= y1 + 1e-9; w += 0.005){
-    o.push('<line x1="' + L + '" y1="' + f1(py(w)) + '" x2="' + (W-R) + '" y2="' + f1(py(w))
-      + '" stroke="#EDEFF1"/>');
-    o.push('<text x="' + (L-5) + '" y="' + f1(py(w)+3) + '" text-anchor="end" font-size="8.5"'
-      + ' fill="#6B7280">' + w.toFixed(3) + '</text>');
+  function tx(x, y, s, o){ o = o || {};
+    return '<text x="' + f1(x) + '" y="' + f1(y) + '" font-size="' + (o.size || 8)
+      + '" fill="' + (o.fill || '#9B9A97') + '"'
+      + (o.anchor ? ' text-anchor="' + o.anchor + '"' : '')
+      + (o.weight ? ' font-weight="' + o.weight + '"' : '') + '>' + s + '</text>'; }
+
+  var sat = [];
+  for(t = tmin; t <= tTop; t += 0.4) sat.push(map(t, Wof(t, 1)));
+  sat.push(map(tTop, y1));
+
+  var out = [];
+  for(t = tmin; t <= tmax; t += 5) out.push(map(t, 0));
+  out.push(map(tmax, 0)); out.push(map(tmax, y1)); out.push(map(tTop, y1));
+  for(i = sat.length - 1; i >= 0; i--) out.push(sat[i]);
+  var outline = 'M' + out.map(function(q){ return f1(q[0]) + ' ' + f1(q[1]); }).join(' L') + ' Z';
+
+  var o = [];
+  o.push('<clipPath id="psyclip"><path d="' + outline + '"/></clipPath>');
+  o.push('<path d="' + outline + '" fill="#fff"/>');
+  o.push('<g clip-path="url(#psyclip)">');
+  for(w = 0.005; w <= y1 + 1e-9; w += 0.005){
+    var g1 = mapH(0, w), g2 = mapH(u(tmax,0) + K*w + 40, w);
+    o.push('<line x1="' + f1(g1[0]) + '" y1="' + f1(g1[1]) + '" x2="' + f1(g2[0]) + '" y2="' + f1(g2[1])
+      + '" stroke="#DFE3E6" stroke-width="0.9"/>');
   }
-  o.push('<text x="' + ((L+W-R)/2) + '" y="' + (H-4) + '" text-anchor="middle" font-size="9"'
-    + ' fill="#6B7280">อุณหภูมิกระเปาะแห้ง °C</text>');
-  o.push('<text x="11" y="' + ((T+H-B)/2) + '" text-anchor="middle" font-size="9" fill="#6B7280"'
-    + ' transform="rotate(-90 11 ' + ((T+H-B)/2) + ')">W  kg/kg</text>');
+  for(h = 10; h <= 160; h += 5){
+    var e1 = mapH(h, -0.004), e2 = mapH(h, y1 + 0.004);
+    o.push('<line x1="' + f1(e1[0]) + '" y1="' + f1(e1[1]) + '" x2="' + f1(e2[0]) + '" y2="' + f1(e2[1])
+      + '" stroke="#BFDCC0" stroke-width="0.8"/>');
+  }
+  for(t = tmin; t <= tmax; t += 2.5){
+    var d1 = map(t, -0.004), d2 = map(t, y1 + 0.004);
+    o.push('<line x1="' + f1(d1[0]) + '" y1="' + f1(d1[1]) + '" x2="' + f1(d2[0]) + '" y2="' + f1(d2[1])
+      + '" stroke="' + ((t*2) % 5 ? '#EFEEEB' : '#DEDCD7') + '" stroke-width="0.9"/>');
+  }
+  for(var tw = 4; tw <= 36; tw += 2){
+    var wb = [];
+    for(t = tw; t <= tmax; t += 0.5){ var ww = WofWB(t, tw); if(ww < -0.001) break; wb.push(map(t, ww)); }
+    o.push(pathOf(wb, '#9EC3D6', 0.8));
+  }
+  for(var rh = 0.1; rh <= 0.901; rh += 0.1){
+    var rc = [];
+    for(t = tmin; t <= tmax; t += 0.5){ var w2 = Wof(t, rh); if(w2 > y1 + 0.004) break; rc.push(map(t, w2)); }
+    o.push(pathOf(rc, '#D2D4D6', 0.9));
+  }
+  for(var v = 0.80; v <= 0.98; v += 0.02){
+    var vc = [];
+    for(t = tmin; t <= tmax; t += 0.5){ var w3 = WofV(t, v);
+      if(!isFinite(w3) || w3 < -0.004) continue; if(w3 > y1 + 0.004) break; vc.push(map(t, w3)); }
+    o.push(pathOf(vc, '#D8B877', 0.8, '4 3'));
+  }
+  o.push('</g>');
+  o.push(pathOf(sat, '#2E7D32', 1.8));
+  o.push('<path d="' + outline + '" fill="none" stroke="#C9CDD1" stroke-width="1"/>');
 
-  /* the relative-humidity family, labelled where each curve leaves the box */
-  [0.2, 0.4, 0.6, 0.8, 1.0].forEach(function(rh){
-    var pts = [], tt;
-    for(tt = x0; tt <= x1 + 1e-9; tt += 0.5){
-      var ww = Wof(tt, rh);
-      if(ww > y1) break;
-      pts.push([px(tt), py(ww)]);
-    }
-    if(pts.length < 2) return;
-    o.push('<path d="' + pts.map(function(q, i){
-        return (i ? 'L' : 'M') + f1(q[0]) + ' ' + f1(q[1]); }).join(' ')
-      + '" fill="none" stroke="' + (rh === 1 ? '#9B9A97' : '#E3E2DE') + '" stroke-width="'
-      + (rh === 1 ? 1.4 : 1) + '"/>');
-    var end = pts[pts.length - 1];
-    o.push('<text x="' + f1(end[0] + 3) + '" y="' + f1(end[1] + (end[1] < T + 14 ? 11 : -3))
-      + '" font-size="8" fill="#9B9A97">' + Math.round(rh*100) + '%</text>');
-  });
+  for(t = Math.ceil(tmin/5)*5; t <= tmax; t += 5){
+    var bt = map(t, 0);
+    o.push(tx(bt[0], base + 13, t + '°', { anchor:'middle', size:9, fill:'#6B7280' }));
+  }
+  for(w = 0.005; w <= y1 + 1e-9; w += 0.005){
+    var rt = map(tmax, w);
+    o.push(tx(rt[0] + 5, rt[1] + 3, w.toFixed(3), { size:8.5, fill:'#6B7280' }));
+  }
+  for(h = 30; h <= 130; h += 10){
+    var ts = tSatOfH(h); if(ts > tTop + 0.5 || ts < tmin) continue;
+    var q = map(ts, Wof(ts, 1));
+    o.push(tx(q[0] - 13, q[1] - 7, h + '', { size:8, fill:'#2E7D32', anchor:'middle' }));
+  }
+  for(var tw2 = 10; tw2 <= 34; tw2 += 5){
+    var ws2 = Wof(tw2, 1); if(ws2 > y1 || tw2 < tmin) continue;
+    var q2 = map(tw2, ws2);
+    o.push(tx(q2[0] + 5, q2[1] + 10, tw2 + '', { size:8, fill:'#5B8AA6', weight:600 }));
+  }
+  o.push(tx((Lp + W_ - Rp)/2, H_ - 5, 'อุณหภูมิกระเปาะแห้ง °C', { anchor:'middle', size:9.5, fill:'#6B7280' }));
+  o.push(tx(W_ - 4, T0 + 30, 'W kg/kg', { anchor:'end', size:9, fill:'#6B7280' }));
+  o.push(tx(Lp + 2, T0 + 8,  'เอนทัลปี kJ/kg', { size:9, fill:'#2E7D32' }));
+  o.push(tx(Lp + 2, T0 + 20, 'กระเปาะเปียก °C', { size:9, fill:'#5B8AA6' }));
+  o.push(tx(Lp + 2, T0 + 32, 'ปริมาตรจำเพาะ m³/kg', { size:9, fill:'#B08A3E' }));
 
-  var P = { oa:[px(m.Toa), py(m.Woa)], sa:[px(m.Tsa), py(m.Wsa)], rm:[px(m.Tr), py(m.Wr)] };
-  o.push('<line x1="' + f1(P.oa[0]) + '" y1="' + f1(P.oa[1]) + '" x2="' + f1(P.sa[0])
-    + '" y2="' + f1(P.sa[1]) + '" stroke="#6940A5" stroke-width="2.6"/>');
-  o.push('<line x1="' + f1(P.sa[0]) + '" y1="' + f1(P.sa[1]) + '" x2="' + f1(P.rm[0])
-    + '" y2="' + f1(P.rm[1]) + '" stroke="#2383E2" stroke-width="2" stroke-dasharray="5 4"/>');
-
-  m.drift.forEach(function(d){
-    var x = px(d.T), y = py(d.W);
-    o.push('<line x1="' + f1(P.rm[0]) + '" y1="' + f1(P.rm[1]) + '" x2="' + f1(x) + '" y2="' + f1(y)
+  /* rooms that ran away from the design point */
+  m.drift.forEach(function(dd){
+    var p0 = map(m.Tr, m.Wr), p1 = map(dd.T, dd.W);
+    o.push('<line x1="' + f1(p0[0]) + '" y1="' + f1(p0[1]) + '" x2="' + f1(p1[0]) + '" y2="' + f1(p1[1])
       + '" stroke="#D44C47" stroke-width="1" stroke-dasharray="2 2"/>');
-    o.push('<circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="3.2" fill="#fff" stroke="#D44C47"'
-      + ' stroke-width="1.6"/>');
-    o.push('<text x="' + f1(x + 5) + '" y="' + f1(y + 3) + '" font-size="8" fill="#D44C47">'
-      + d.n + '</text>');
+    o.push('<circle cx="' + f1(p1[0]) + '" cy="' + f1(p1[1]) + '" r="3.4" fill="#fff" stroke="#D44C47" stroke-width="1.6"/>');
+    o.push(tx(p1[0] + 5, p1[1] + 3, dd.n, { size:8.5, fill:'#D44C47' }));
   });
 
+  var P = { oa:map(m.Toa, m.Woa), sa:map(m.Tsa, m.Wsa), rm:map(m.Tr, m.Wr) };
+  o.push('<line x1="' + f1(P.oa[0]) + '" y1="' + f1(P.oa[1]) + '" x2="' + f1(P.sa[0]) + '" y2="' + f1(P.sa[1])
+    + '" stroke="#6940A5" stroke-width="2.8"/>');
+  o.push('<line x1="' + f1(P.sa[0]) + '" y1="' + f1(P.sa[1]) + '" x2="' + f1(P.rm[0]) + '" y2="' + f1(P.rm[1])
+    + '" stroke="#2383E2" stroke-width="2.2" stroke-dasharray="5 4"/>');
   function dot(p, col, label, anchor, dx){
-    return '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="4" fill="' + col + '"/>'
-      + '<text x="' + f1(p[0] + dx) + '" y="' + f1(p[1] - 7) + '" text-anchor="' + anchor
-      + '" font-size="9" font-weight="600" fill="' + col + '">' + label + '</text>';
+    return '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="4.2" fill="' + col + '"/>'
+      + tx(p[0] + dx, p[1] - 8, label, { size:9.5, fill:col, weight:600, anchor:anchor });
   }
-  o.push(dot(P.oa, '#6940A5', 'อากาศนอก', 'start', 7));
+  o.push(dot(P.oa, '#6940A5', 'อากาศภายนอก', 'start', 7));
   o.push(dot(P.sa, '#6940A5', 'หลังแกน ERV', 'end', -7));
   o.push(dot(P.rm, '#2383E2', 'อากาศในห้อง', 'end', -7));
 
-  return '<svg class="psysvg" viewBox="0 0 ' + W + ' ' + H + '" role="img">' + o.join('') + '</svg>';
+  return '<svg class="psysvg" viewBox="0 0 ' + W_ + ' ' + H_ + '" role="img">' + o.join('') + '</svg>';
 }
 
 /* ── the chart plus the numbers behind it ── */
 function repPsy(s){
   var m = psyModel(s);
   if(!m) return '';
-  function row(n, T, rh, w, h, cls){
-    return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + n + '</td>'
-      + '<td>' + fmt(T,1) + ' °C</td><td>' + fmt(rh*100,0) + ' %</td>'
-      + '<td>' + w.toFixed(4) + '</td><td>' + fmt(h,1) + '</td></tr>';
+  /* every column the chart draws a family of lines for, so a figure read off
+     the sheet can be checked against the number it came from */
+  function row(n, T, rh, w, h){
+    return '<tr><td>' + n + '</td>'
+      + '<td>' + fmt(T,1) + '</td><td>' + fmt(rh*100,0) + '</td>'
+      + '<td>' + w.toFixed(4) + '</td><td>' + fmt(h,1) + '</td>'
+      + '<td>' + fmt(wbOf(T, w),1) + '</td><td>' + vOf(T, w).toFixed(3) + '</td></tr>';
   }
   var cut = m.hoa - m.hsa, all = m.hoa - m.hr;
-  var side = '<table><thead><tr><th>จุด</th><th>T</th><th>RH</th>'
-      + '<th>W kg/kg</th><th>h kJ/kg</th></tr></thead><tbody>'
+  var side = '<table><thead><tr><th>จุด</th><th>T °C</th><th>RH %</th>'
+      + '<th>W kg/kg</th><th>h kJ/kg</th><th>Twb °C</th><th>v m³/kg</th></tr></thead><tbody>'
     + row('อากาศภายนอก', m.Toa, m.RHoa, m.Woa, m.hoa)
     + row('หลังแกน ERV', m.Tsa, m.RHsa, m.Wsa, m.hsa)
     + row('อากาศในห้อง', m.Tr,  m.RHr,  m.Wr,  m.hr)
     + '</tbody></table>'
     + '<div class="rep-note" style="margin-top:7px">'
+    + 'เส้นบนแผนภูมิ — <b style="color:#2E7D32">เขียวหนา</b> เส้นอิ่มตัว · '
+    + '<b style="color:#5B8AA6">ฟ้า</b> กระเปาะเปียก · '
+    + '<b style="color:#2E7D32">เขียวบาง</b> เอนทัลปี · '
+    + '<b style="color:#B08A3E">ทองประ</b> ปริมาตรจำเพาะ · เทา ความชื้นสัมพัทธ์<br>'
     + '<b>เส้นม่วง</b> คือระยะที่แกนแลกเปลี่ยนทำให้เองโดยไม่ใช้ไฟ '
     + (all > 0 ? '<b>' + fmt(cut,1) + '</b> จาก <b>' + fmt(all,1) + '</b> kJ/kg' : '')
     + ' · <b>เส้นประน้ำเงิน</b> คือส่วนที่ยังเหลือให้คอยล์ของแอร์รับไป<br>'
@@ -3083,7 +3185,8 @@ function repPsy(s){
     + '</div>';
 
   return '<div class="rep-sec"><h3>แผนภูมิไซโครเมตริก'
-    + '<span class="n">ASHRAE 2021 Fundamentals บทที่ 1</span></h3>'
+    + '<span class="n">พิกัดเฉียงตาม ASHRAE Psychrometric Chart No.1 · '
+    + 'สมการจาก ASHRAE 2021 Fundamentals บทที่ 1</span></h3>'
     + '<div class="rep-psy">' + psySvg(m) + '<div class="psy-side">' + side + '</div></div></div>';
 }
 
