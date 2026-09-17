@@ -3359,19 +3359,40 @@ function co2Svg(c){
   o.push('<text x="14" y="' + ((T+H-B)/2) + '" text-anchor="middle" font-size="10.5" fill="#6B7280"'
     + ' transform="rotate(-90 14 ' + ((T+H-B)/2) + ')">CO₂ ppm</text>');
 
-  /* the levels this room is judged against, named on the right where there
-     is room for a word rather than squeezed onto the plot */
+  /* The levels this room is judged against, named on the right where there
+     is room for a word rather than squeezed onto the plot.
+
+     Two of them land on the same line more often than you would guess: a
+     Bedroom/living room's 62.1 ceiling is outdoor + 600, which with outdoor
+     at 400 is exactly the 1,000 ppm target, and the two labels printed on
+     top of each other. The lines stay where they belong - they are
+     different criteria that happen to agree - but the labels step apart.
+     The CO2 tool has done this since it was written; the report did not. */
+  var rules = [];
   function rule(v, col, dash, label){
     if(v == null || v < lo || v > hi) return;
-    var yy = f1(py(v));
-    o.push('<line x1="' + L + '" y1="' + yy + '" x2="' + (W-R) + '" y2="' + yy + '" stroke="' + col
-      + '" stroke-width="1.2" stroke-dasharray="' + dash + '" opacity=".8"/>');
-    o.push('<text x="' + (W-R+6) + '" y="' + (+yy + 3.5) + '" font-size="10" fill="' + col + '">'
-      + label + '</text>');
+    rules.push({ v:v, col:col, dash:dash, label:label });
   }
   rule(c.ceil, '#D44C47', '4 3', 'เพดาน ' + fmt(Math.round(c.ceil || 0)));
   rule(1000, '#C7A008', '4 3', 'เป้าหมาย 1,000');
   rule(c.Co, '#8A9199', '1 4', 'อากาศนอก ' + fmt(Math.round(c.Co)));
+  rules.sort(function(a, b){ return b.v - a.v; });
+  var lastLy = -99;
+  rules.forEach(function(r){
+    var yy = py(r.v);
+    o.push('<line x1="' + L + '" y1="' + f1(yy) + '" x2="' + (W-R) + '" y2="' + f1(yy)
+      + '" stroke="' + r.col + '" stroke-width="1.2" stroke-dasharray="' + r.dash
+      + '" opacity=".8"/>');
+    var ly = yy + 3.5;
+    if(ly - lastLy < 12) ly = lastLy + 12;
+    lastLy = ly;
+    /* a label nudged down must still say which line it belongs to */
+    if(Math.abs(ly - (yy + 3.5)) > 1)
+      o.push('<line x1="' + (W-R) + '" y1="' + f1(yy) + '" x2="' + (W-R+4) + '" y2="' + f1(ly-3.5)
+        + '" stroke="' + r.col + '" stroke-width="0.8" opacity=".6"/>');
+    o.push('<text x="' + (W-R+6) + '" y="' + f1(ly) + '" font-size="10" fill="' + r.col + '">'
+      + r.label + '</text>');
+  });
 
   var d = c.pts.map(function(p, i){
     return (i ? 'L' : 'M') + f1(px(p[0])) + ' ' + f1(py(p[1])); }).join(' ');
