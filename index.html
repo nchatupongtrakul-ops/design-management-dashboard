@@ -694,6 +694,28 @@ const DISPLAY_NAMES = {
 };
 function dName(e) { return DISPLAY_NAMES[e] || e; }
 
+// ---- shared jobs -----------------------------------------------------------
+// Some projects are designed by two people. Sheet 2 already splits the charts by
+// "Split %" (Engineer 1's share); these two helpers keep everything that counts
+// projects out of DATA.projects telling the same story.
+function engShare(p, e) {
+  const s = (p.share1 == null ? 1 : p.share1);
+  if (p.engineer === e) return s;
+  if (p.engineer2 && p.engineer2 === e) return 1 - s;
+  return 0;
+}
+function engLabel(p) {
+  const n1 = dName(p.engineer) || '\u2014';
+  if (!p.engineer2) return n1;
+  const s = Math.round((p.share1 == null ? 1 : p.share1) * 100);
+  return n1 + ' ' + s + '% + ' + dName(p.engineer2) + ' ' + (100 - s) + '%';
+}
+// A share reads better as "50%" than "0.5", and not at all when nothing is shared.
+function shareTag(p, e) {
+  if (!p.engineer2) return '';
+  return ' (' + Math.round(engShare(p, e) * 100) + '%)';
+}
+
 // Engineers that get KPI tabs
 const KPI_ENGINEERS = ['Ping', 'Wich', 'Mic'];
 
@@ -1120,7 +1142,8 @@ function renderOntime() {
   const delivered = scored.filter(p => (p.designStatus || '').toLowerCase() === 'done');
   const overdue = scored.filter(p => (p.designStatus || '').toLowerCase() !== 'done')
     .map(p => ({
-      project: p.project, engineer: p.engineer, designStatus: p.designStatus,
+      project: p.project, engineer: p.engineer, engineer2: p.engineer2, share1: p.share1,
+      designStatus: p.designStatus,
       due: p.lastReviseEndDate,
       days: Math.floor((today - new Date(p.lastReviseEndDate).getTime()) / 86400000)
     }))
@@ -1137,7 +1160,7 @@ function renderOntime() {
         return '<tr>'
           + '<td>' + (i + 1) + '</td>'
           + '<td>' + r.project + '</td>'
-          + '<td>' + (dName(r.engineer) || '\u2014') + '</td>'
+          + '<td>' + engLabel(r) + '</td>'
           + '<td>' + (r.designStatus || '\u2014') + '</td>'
           + '<td>' + fmtDate(r.due) + '</td>'
           + '<td style="text-align:right;color:' + c + ';font-weight:600;">' + r.days + '</td>'
@@ -1198,7 +1221,7 @@ function renderWeeklyReport() {
     : done.map((p, i) => '<tr>'
         + '<td>' + (i + 1) + '</td>'
         + '<td>' + p.project + '</td>'
-        + '<td>' + (dName(p.engineer) || '\u2014') + '</td>'
+        + '<td>' + engLabel(p) + '</td>'
         + '<td>' + (p.buildingType || '\u2014') + '</td>'
         + '<td style="text-align:right;">' + fmt(Math.round(p.area || 0)) + '</td>'
         + '<td>' + fmtDate(p.lastReviseStartDate) + '</td>'
@@ -1220,7 +1243,7 @@ function renderWeeklyReport() {
         return '<tr>'
           + '<td>' + (i + 1) + '</td>'
           + '<td>' + p.project + '</td>'
-          + '<td>' + (dName(p.engineer) || '\u2014') + '</td>'
+          + '<td>' + engLabel(p) + '</td>'
           + '<td>' + (p.buildingType || '\u2014') + '</td>'
           + '<td style="text-align:right;">' + fmt(Math.round(p.area || 0)) + '</td>'
           + '<td>' + fmtDate(p.lastReviseStartDate) + '</td>'
@@ -1282,11 +1305,11 @@ function buildWeeklyReportText() {
   lines.push('');
   lines.push('\u0e07\u0e32\u0e19\u0e17\u0e35\u0e48\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e43\u0e19\u0e23\u0e2d\u0e1a\u0e19\u0e35\u0e49 (' + done.length + '):');
   if (done.length === 0) lines.push('- \u0e44\u0e21\u0e48\u0e21\u0e35');
-  done.forEach(p => lines.push('- ' + p.project + ' \u2014 ' + (dName(p.engineer) || '?') + ' (\u0e40\u0e2a\u0e23\u0e47\u0e08 ' + fmtDate(p.lastReviseEndDate) + ')'));
+  done.forEach(p => lines.push('- ' + p.project + ' \u2014 ' + engLabel(p) + ' (\u0e40\u0e2a\u0e23\u0e47\u0e08 ' + fmtDate(p.lastReviseEndDate) + ')'));
   lines.push('');
   lines.push('\u0e07\u0e32\u0e19\u0e17\u0e35\u0e48\u0e01\u0e33\u0e25\u0e31\u0e07\u0e17\u0e33 (' + inprog.length + '):');
   if (inprog.length === 0) lines.push('- \u0e44\u0e21\u0e48\u0e21\u0e35');
-  inprog.forEach(p => lines.push('- ' + p.project + ' \u2014 ' + (dName(p.engineer) || '?') + (p.endDate ? ' (\u0e01\u0e33\u0e2b\u0e19\u0e14\u0e2a\u0e48\u0e07 ' + fmtDate(p.endDate) + ')' : '')));
+  inprog.forEach(p => lines.push('- ' + p.project + ' \u2014 ' + engLabel(p) + (p.endDate ? ' (\u0e01\u0e33\u0e2b\u0e19\u0e14\u0e2a\u0e48\u0e07 ' + fmtDate(p.endDate) + ')' : '')));
   const sc = statusChangesIn(m, s);
   lines.push('');
   lines.push('เปลี่ยนสถานะในรอบนี้ (' + sc.length + '):');
@@ -1597,16 +1620,22 @@ function openUtilDetail(eng, monthIdx) {
   var YEAR = uYear ? new Date(uYear).getFullYear() : 2026;
   var wd = weekdaysInMonth(YEAR, monthIdx);
   var rows = [];
-  DATA.projects.filter(function (p) { return p.engineer === eng; }).forEach(function (p) {
-    if (p.startMonthNum === month && (p.area || 0) > 0)
-      rows.push({ project: p.project, type: 'Design (New)', amount: fmt(Math.round(p.area)) + ' m\u00b2', days: cap ? p.area / cap : 0 });
+  DATA.projects.filter(function (p) { return engShare(p, eng) > 0; }).forEach(function (p) {
+    // Only this engineer's share of a shared job counts against their days.
+    var w = engShare(p, eng);
+    if (p.startMonthNum === month && (p.area || 0) > 0) {
+      var a = p.area * w;
+      rows.push({ project: p.project + shareTag(p, eng), type: 'Design (New)', amount: fmt(Math.round(a)) + ' m\u00b2', days: cap ? a / cap : 0 });
+    }
     (p.reviseByMonth || []).forEach(function (ev) {
-      if (ev[0] === month && (ev[1] || 0) > 0)
-        rows.push({ project: p.project, type: 'Design (Revised)', amount: fmt(Math.round(ev[1])) + ' m\u00b2', days: cap ? ev[1] / cap : 0 });
+      if (ev[0] === month && (ev[1] || 0) > 0) {
+        var ra = ev[1] * w;
+        rows.push({ project: p.project + shareTag(p, eng), type: 'Design (Revised)', amount: fmt(Math.round(ra)) + ' m\u00b2', days: cap ? ra / cap : 0 });
+      }
     });
     if (p.projectType === 'Internal') {
-      var h = (p.hoursByMonth || {})[month] || 0;
-      if (h > 0) rows.push({ project: p.project, type: 'Internal (hrs)', amount: h + ' h', days: h / 8 });
+      var h = ((p.hoursByMonth || {})[month] || 0) * w;
+      if (h > 0) rows.push({ project: p.project + shareTag(p, eng), type: 'Internal (hrs)', amount: (Math.round(h * 10) / 10) + ' h', days: h / 8 });
     }
   });
   rows.sort(function (a, b) { return b.days - a.days; });
@@ -1632,10 +1661,12 @@ function openKpiDetail(eng, monthIdx, type) {
   var month = monthIdx + 1;
   var isArea = type === 'area';
   var rows = [];
-  DATA.projects.filter(function (p) { return p.engineer === eng; }).forEach(function (p) {
+  DATA.projects.filter(function (p) { return isArea ? engShare(p, eng) > 0 : p.engineer === eng; }).forEach(function (p) {
+    // Area splits with the work; money stays whole with Engineer 1, who owns the deal.
+    var w = engShare(p, eng);
     if (isArea) {
-      if (p.startMonthNum === month && (p.area || 0) > 0) rows.push({ project: p.project, kind: 'New', bt: p.buildingType, val: p.area || 0 });
-      (p.reviseByMonth || []).forEach(function (ev) { if (ev[0] === month && (ev[1] || 0) > 0) rows.push({ project: p.project, kind: 'Revised', bt: p.buildingType, val: ev[1] }); });
+      if (p.startMonthNum === month && (p.area || 0) > 0) rows.push({ project: p.project + shareTag(p, eng), kind: 'New', bt: p.buildingType, val: (p.area || 0) * w });
+      (p.reviseByMonth || []).forEach(function (ev) { if (ev[0] === month && (ev[1] || 0) > 0) rows.push({ project: p.project + shareTag(p, eng), kind: 'Revised', bt: p.buildingType, val: ev[1] * w }); });
     } else {
       if (p.startMonthNum === month && (p.designFeeActual || 0) > 0) rows.push({ project: p.project, kind: 'Design Fee', bt: p.buildingType, val: p.designFeeActual });
       if (p.projectStatus === 'Win' && (p.revenueActual || 0) > 0) {
@@ -1668,30 +1699,33 @@ function openWorkloadDetail(eng, monthIdx, kind) {
   // and total rounds (matches the stacked bar which counts revision events).
   let rows, totalCount, extraHead, extraCell;
   if (isNew) {
-    rows = DATA.projects.filter(p => p.engineer === eng && p.startMonthNum === month);
-    totalCount = rows.length;
+    rows = DATA.projects.filter(p => engShare(p, eng) > 0 && p.startMonthNum === month);
+    // A job shared 50/50 adds half a project to each person's bar, so the count
+    // under the title has to be weighted the same way or it will not match.
+    totalCount = rows.reduce((s, p) => s + engShare(p, eng), 0);
     extraHead = ''; extraCell = () => '';
   } else {
-    rows = DATA.projects.filter(p => p.engineer === eng && (p.reviseMonths || []).includes(month))
-      .map(p => ({ p: p, rounds: (p.reviseMonths || []).filter(m => m === month).length }));
+    rows = DATA.projects.filter(p => engShare(p, eng) > 0 && (p.reviseMonths || []).includes(month))
+      .map(p => ({ p: p, rounds: (p.reviseMonths || []).filter(m => m === month).length * engShare(p, eng) }));
     totalCount = rows.reduce((s, r) => s + r.rounds, 0);
     extraHead = '<th style="text-align:right;">Rounds</th>';
     extraCell = r => '<td style="text-align:right;">' + r.rounds + '</td>';
     rows = rows.map(r => Object.assign({}, r.p, { _rounds: r.rounds }));
   }
   const title = dName(eng) + ' — ' + MONTHS[monthIdx] + ' — ' + (isNew ? 'New Projects' : 'Revised Work');
-  document.getElementById('pipelineModalTitle').textContent = title + ' (' + totalCount + ')';
+  document.getElementById('pipelineModalTitle').textContent = title + ' (' + (Math.round(totalCount * 100) / 100) + ')';
   document.getElementById('pipelineHead').innerHTML =
-    '<th>#</th><th>Project</th><th>Building Type</th><th style="text-align:right;">Area (m²)</th><th>Start Date</th>' + extraHead;
+    '<th>#</th><th>Project</th><th>Building Type</th><th style="text-align:right;">Area (m²)</th><th>Start Date</th><th style="text-align:right;">Share</th>' + extraHead;
   document.getElementById('pipelineBody').innerHTML = rows.length === 0
-    ? '<tr><td colspan="6" style="color:#787774;">No projects</td></tr>'
+    ? '<tr><td colspan="7" style="color:#787774;">No projects</td></tr>'
     : rows.map((p, i) => '<tr>'
         + '<td>' + (i + 1) + '</td>'
         + '<td>' + p.project + '</td>'
         + '<td>' + (p.buildingType || '—') + '</td>'
-        + '<td style="text-align:right;">' + fmt(Math.round(p.area || 0)) + '</td>'
+        + '<td style="text-align:right;">' + fmt(Math.round((p.area || 0) * engShare(p, eng))) + '</td>'
         + '<td>' + fmtDate(p.startDate) + '</td>'
-        + (isNew ? '' : '<td style="text-align:right;">' + (p._rounds || 1) + '</td>')
+        + '<td style="text-align:right;">' + Math.round(engShare(p, eng) * 100) + '%</td>'
+        + (isNew ? '' : '<td style="text-align:right;">' + (Math.round((p._rounds || 1) * 100) / 100) + '</td>')
         + '</tr>').join('');
   document.getElementById('pipelineModal').classList.add('open');
 }
@@ -1767,13 +1801,15 @@ function renderWorkloadByMember(projects) {
   const dropdown = document.getElementById('dropdown-' + canvasId);
   dropdown.innerHTML = DATA.engineers.map(e => {
     const checked = !wbmExcluded.has(e);
-    const n = projects.filter(p => p.engineer === e).length;
+    const n = Math.round(projects.reduce((s, p) => s + engShare(p, e), 0) * 100) / 100;
     return `<label><input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleWbmEngineer('${e}')"> ${dName(e)} (${n})</label>`;
   }).join('');
 
   const engineers = DATA.engineers.filter(e => !wbmExcluded.has(e));
-  const intCounts = engineers.map(e => projects.filter(p => p.engineer === e && p.projectType === 'Internal').length);
-  const extCounts = engineers.map(e => projects.filter(p => p.engineer === e && p.projectType === 'External').length);
+  const wsum = (e, type) => Math.round(projects.reduce(
+    (s, p) => s + (p.projectType === type ? engShare(p, e) : 0), 0) * 100) / 100;
+  const intCounts = engineers.map(e => wsum(e, 'Internal'));
+  const extCounts = engineers.map(e => wsum(e, 'External'));
 
   charts[canvasId] = new Chart(document.getElementById(canvasId), {
     type: 'bar',
@@ -1997,9 +2033,13 @@ function renderWorkload() {
   const intHours = {};
   engineers.forEach(e => { intHours[e] = {}; });
   DATA.projects.forEach(p => {
-    if (p.projectType !== 'Internal' || !engineers.includes(p.engineer)) return;
+    if (p.projectType !== 'Internal') return;
     const hbm = p.hoursByMonth || {};
-    Object.keys(hbm).forEach(m => { intHours[p.engineer][m] = (intHours[p.engineer][m] || 0) + hbm[m]; });
+    engineers.forEach(e => {
+      const w = engShare(p, e);
+      if (!w) return;
+      Object.keys(hbm).forEach(m => { intHours[e][m] = (intHours[e][m] || 0) + hbm[m] * w; });
+    });
   });
   renderGroupedBar('chartUtilization', MONTHS, engineers.map((e,i) => {
     const cap = DATA.designCapacity[e] || 0;
@@ -2028,8 +2068,9 @@ function renderWorkload() {
   })(engineers);
 
   // Win Rate by engineer
+  // Ratios, not volumes: a shared job counts as one project for BOTH engineers.
   const winRateData = engineers.map(e => {
-    const ep = projects.filter(p => p.engineer === e);
+    const ep = projects.filter(p => engShare(p, e) > 0);
     const win = ep.filter(p => p.projectStatus === 'Win').length;
     const total = ep.filter(p => ['Win','Loss','Pending'].includes(p.projectStatus)).length;
     return total > 0 ? Math.round(win/total*100) : 0;
@@ -2064,7 +2105,7 @@ function renderWorkload() {
 
   // Revision rate: avg revisions per project + share of projects revised
   const revAvg = engineers.map(e => {
-    const ep = projects.filter(p => p.engineer === e);
+    const ep = projects.filter(p => engShare(p, e) > 0);
     if (!ep.length) return 0;
     const total = ep.reduce((s, p) => s + (p.reviseCount || 0), 0);
     return Math.round(total / ep.length * 10) / 10;
@@ -2072,7 +2113,7 @@ function renderWorkload() {
   renderSingleBar('chartRevisionRate', engineers, revAvg, ' rev/proj');
 
   const revShare = engineers.map(e => {
-    const ep = projects.filter(p => p.engineer === e);
+    const ep = projects.filter(p => engShare(p, e) > 0);
     if (!ep.length) return 0;
     return Math.round(ep.filter(p => (p.reviseCount || 0) > 0).length / ep.length * 100);
   });
@@ -2295,11 +2336,11 @@ function renderKpiPages() {
   const daData = DATA.designAreaMonthly;
 
   KPI_ENGINEERS.forEach(eng => {
-    const projects = DATA.projects.filter(p => p.engineer === eng);
+    const projects = DATA.projects.filter(p => engShare(p, eng) > 0);
 
-    // KPI cards
-    const totalProjects = projects.length;
-    const totalArea = projects.reduce((s,p) => s + (p.area||0), 0);
+    // KPI cards — project count and area follow the split, win rate does not.
+    const totalProjects = Math.round(projects.reduce((s, p) => s + engShare(p, eng), 0) * 100) / 100;
+    const totalArea = projects.reduce((s,p) => s + (p.area||0) * engShare(p, eng), 0);
     const m2day = DATA.designCapacity[eng] || 0;
     const winCount = projects.filter(p => p.projectStatus === 'Win').length;
     const statusCount = projects.filter(p => ['Win','Loss','Pending'].includes(p.projectStatus)).length;
