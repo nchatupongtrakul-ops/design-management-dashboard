@@ -1797,18 +1797,96 @@ function csDirFlush(){
     });
   });
 
-  if(!jobs.length){ csDirState = 'linked'; csFileTell(); return Promise.resolve(true); }
+  if(!jobs.length){ csDirState = 'linked'; csFileTell(); csBackupDaily(db); return Promise.resolve(true); }
   return jobs.reduce(function(c, j){ return c.then(j); }, Promise.resolve())
     .then(function(){
       csDirState = 'linked';
       try { localStorage.setItem('coral.dir.at', new Date().toISOString()); } catch(e){}
       csFileTell();
+      csBackupDaily(db);
       return true;
     })
     .catch(function(){
       csDirState = 'needsPermission'; csFileTell();
       return false;
     });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SNAPSHOTS, IN THE TEAM FOLDER
+
+   Backing up used to mean remembering to press a button, and the file
+   landed in whatever the browser calls its download folder - somewhere
+   nobody else can see and the person themselves forgets. So the same
+   payload goes into _backup/ beside the projects instead: once on the
+   first folder write of a day, and again whenever somebody asks for one.
+
+   The project files are a MIRROR - delete a project in the tool and its
+   file goes too. These snapshots are the part that remembers yesterday.
+
+   Pruning only ever touches files inside _backup whose names this code
+   wrote. Anything else in there belongs to a person and is not ours to
+   remove. A failed snapshot is never allowed to fail the save it rode in
+   on, because losing today's work to protect last week's would be absurd.
+   ═══════════════════════════════════════════════════════════════════════ */
+var CS_BDIR = '_backup';
+var CS_BPAT = /^coral-backup-(\d{4}-\d{2}-\d{2})-\d{4}\.json$/;
+var CS_BKEEP = 30;                 /* days */
+
+function csPad(n, w){ var s = String(n); while(s.length < w) s = '0' + s; return s; }
+function csBackupName(d){
+  return 'coral-backup-' + d.getFullYear() + '-' + csPad(d.getMonth() + 1, 2)
+    + '-' + csPad(d.getDate(), 2) + '-' + csPad(d.getHours(), 2) + csPad(d.getMinutes(), 2)
+    + '.json';
+}
+function csBackupAt(){
+  try { return localStorage.getItem('coral.backup.at') || ''; } catch(e){ return ''; }
+}
+function csDirBackup(db, why){
+  if(csDirState !== 'linked' || !csDirHandle)
+    return Promise.reject(new Error('ยังไม่ได้เชื่อมโฟลเดอร์ทีม'));
+  var now = new Date(), name = csBackupName(now), dir = null;
+  var payload = { format:'coral.projects', v:2, savedAt:now.toISOString(),
+                  why: why || '', projects: db.projects };
+  return csDirHandle.getDirectoryHandle(CS_BDIR, { create:true })
+    .then(function(d){ dir = d; return d.getFileHandle(name, { create:true }); })
+    .then(function(fh){ return fh.createWritable(); })
+    .then(function(w){
+      return w.write(JSON.stringify(payload, null, 1)).then(function(){ return w.close(); });
+    })
+    .then(function(){
+      try { localStorage.setItem('coral.backup.at', now.toISOString()); } catch(e){}
+      return csDirPrune(dir, now);
+    })
+    .then(function(gone){ return { name:name, pruned:gone }; });
+}
+/* only files inside _backup that match the name this code writes */
+function csDirPrune(dir, now){
+  var cutoff = now.getTime() - CS_BKEEP * 86400000, doomed = [];
+  var it = dir.values();
+  function step(){
+    return it.next().then(function(r){
+      if(r.done) return;
+      var e = r.value;
+      if(e.kind === 'file'){
+        var m = CS_BPAT.exec(e.name);
+        if(m && new Date(m[1] + 'T00:00:00').getTime() < cutoff) doomed.push(e.name);
+      }
+      return step();
+    });
+  }
+  return step().then(function(){
+    return doomed.reduce(function(c, n){
+      return c.then(function(){ return dir.removeEntry(n).catch(function(){}); });
+    }, Promise.resolve());
+  }).then(function(){ return doomed.length; });
+}
+/* the first folder write of a day leaves one behind · quiet either way */
+function csBackupDaily(db){
+  if(!db || csDirState !== 'linked') return;
+  var today = new Date().toISOString().slice(0, 10);
+  if(csBackupAt().slice(0, 10) === today) return;
+  csDirBackup(db, 'อัตโนมัติ · ครั้งแรกของวัน').catch(function(){});
 }
 /* ═══════════════════════════════════════════════════════════════════════
    KEEP LISTS — one declaration, both directions

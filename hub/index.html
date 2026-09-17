@@ -676,6 +676,8 @@ tr.gov td{background:#EDF6FD !important}
   กดปุ่ม <b>รายงาน</b> ที่มุมขวาบน เปิดรายงานที่จัดหน้าไว้แล้ว แล้วค่อยสั่งพิมพ์
 </div>
 
+<div class="note warn" id="frameBar" hidden style="margin:0 0 12px"></div>
+
 <div class="tabs">
   <button class="tab active" data-p="list">โปรเจคทั้งหมด<span id="cProj" class="tabcount"></span></button>
   <button class="tab" data-p="detail">ภาพรวมโปรเจค</button>
@@ -698,6 +700,7 @@ tr.gov td{background:#EDF6FD !important}
         <div class="hint" style="margin:0">ข้อมูลอยู่ในเบราว์เซอร์นี้เสมอ · ผูกไฟล์เพื่อให้มีสำเนาที่ไม่หายไปกับเครื่อง</div>
       </div>
       <div class="fstate" id="fileState"></div>
+      <div class="hint" id="backHint"></div>
       <div class="hint" id="fileHint"></div>
     </div>
   </div>
@@ -1669,18 +1672,96 @@ function csDirFlush(){
     });
   });
 
-  if(!jobs.length){ csDirState = 'linked'; csFileTell(); return Promise.resolve(true); }
+  if(!jobs.length){ csDirState = 'linked'; csFileTell(); csBackupDaily(db); return Promise.resolve(true); }
   return jobs.reduce(function(c, j){ return c.then(j); }, Promise.resolve())
     .then(function(){
       csDirState = 'linked';
       try { localStorage.setItem('coral.dir.at', new Date().toISOString()); } catch(e){}
       csFileTell();
+      csBackupDaily(db);
       return true;
     })
     .catch(function(){
       csDirState = 'needsPermission'; csFileTell();
       return false;
     });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SNAPSHOTS, IN THE TEAM FOLDER
+
+   Backing up used to mean remembering to press a button, and the file
+   landed in whatever the browser calls its download folder - somewhere
+   nobody else can see and the person themselves forgets. So the same
+   payload goes into _backup/ beside the projects instead: once on the
+   first folder write of a day, and again whenever somebody asks for one.
+
+   The project files are a MIRROR - delete a project in the tool and its
+   file goes too. These snapshots are the part that remembers yesterday.
+
+   Pruning only ever touches files inside _backup whose names this code
+   wrote. Anything else in there belongs to a person and is not ours to
+   remove. A failed snapshot is never allowed to fail the save it rode in
+   on, because losing today's work to protect last week's would be absurd.
+   ═══════════════════════════════════════════════════════════════════════ */
+var CS_BDIR = '_backup';
+var CS_BPAT = /^coral-backup-(\d{4}-\d{2}-\d{2})-\d{4}\.json$/;
+var CS_BKEEP = 30;                 /* days */
+
+function csPad(n, w){ var s = String(n); while(s.length < w) s = '0' + s; return s; }
+function csBackupName(d){
+  return 'coral-backup-' + d.getFullYear() + '-' + csPad(d.getMonth() + 1, 2)
+    + '-' + csPad(d.getDate(), 2) + '-' + csPad(d.getHours(), 2) + csPad(d.getMinutes(), 2)
+    + '.json';
+}
+function csBackupAt(){
+  try { return localStorage.getItem('coral.backup.at') || ''; } catch(e){ return ''; }
+}
+function csDirBackup(db, why){
+  if(csDirState !== 'linked' || !csDirHandle)
+    return Promise.reject(new Error('ยังไม่ได้เชื่อมโฟลเดอร์ทีม'));
+  var now = new Date(), name = csBackupName(now), dir = null;
+  var payload = { format:'coral.projects', v:2, savedAt:now.toISOString(),
+                  why: why || '', projects: db.projects };
+  return csDirHandle.getDirectoryHandle(CS_BDIR, { create:true })
+    .then(function(d){ dir = d; return d.getFileHandle(name, { create:true }); })
+    .then(function(fh){ return fh.createWritable(); })
+    .then(function(w){
+      return w.write(JSON.stringify(payload, null, 1)).then(function(){ return w.close(); });
+    })
+    .then(function(){
+      try { localStorage.setItem('coral.backup.at', now.toISOString()); } catch(e){}
+      return csDirPrune(dir, now);
+    })
+    .then(function(gone){ return { name:name, pruned:gone }; });
+}
+/* only files inside _backup that match the name this code writes */
+function csDirPrune(dir, now){
+  var cutoff = now.getTime() - CS_BKEEP * 86400000, doomed = [];
+  var it = dir.values();
+  function step(){
+    return it.next().then(function(r){
+      if(r.done) return;
+      var e = r.value;
+      if(e.kind === 'file'){
+        var m = CS_BPAT.exec(e.name);
+        if(m && new Date(m[1] + 'T00:00:00').getTime() < cutoff) doomed.push(e.name);
+      }
+      return step();
+    });
+  }
+  return step().then(function(){
+    return doomed.reduce(function(c, n){
+      return c.then(function(){ return dir.removeEntry(n).catch(function(){}); });
+    }, Promise.resolve());
+  }).then(function(){ return doomed.length; });
+}
+/* the first folder write of a day leaves one behind · quiet either way */
+function csBackupDaily(db){
+  if(!db || csDirState !== 'linked') return;
+  var today = new Date().toISOString().slice(0, 10);
+  if(csBackupAt().slice(0, 10) === today) return;
+  csDirBackup(db, 'อัตโนมัติ · ครั้งแรกของวัน').catch(function(){});
 }
 /* ═══════════════════════════════════════════════════════════════════════
    KEEP LISTS — one declaration, both directions
@@ -4368,6 +4449,40 @@ $('stamp').textContent = new Date().toLocaleDateString('th-TH',
   { year:'numeric', month:'short', day:'numeric' });
 
 
+/* The portal embeds this page in an iframe, and Chrome gives an iframe its
+   own storage bucket: work done in the portal is a different set of
+   projects from work done on the page directly, and the folder cannot be
+   linked there at all. That was silent, and somebody was going to lose an
+   afternoon to it. IN_FRAME was already known - it was only being used to
+   hide the install button. */
+(function(){
+  if(!IN_FRAME) return;
+  var el = document.getElementById('frameBar'); if(!el) return;
+  el.hidden = false;
+  el.innerHTML = '<b>กำลังเปิดในพอร์ทัล</b> · เบราว์เซอร์แยกที่เก็บข้อมูลของหน้าในพอร์ทัล'
+    + 'ออกจากหน้าเต็ม <b>งานที่ทำตรงนี้เป็นคนละชุดกัน</b> และ'
+    + '<b>เชื่อมโฟลเดอร์ทีมไม่ได้</b> ไฟล์จึงไม่ถูกเขียน'
+    + ' · <a href="' + location.href + '" target="_blank" rel="noopener"><b>เปิดหน้าเต็ม →</b></a>';
+})();
+
+/* Snapshots live in the team folder now, so say when the last one was
+   taken · the daily one is written by the store on the first folder write
+   of a day, and this line is the only place a person sees that happened. */
+function backRender(){
+  var el = $('backHint'); if(!el) return;
+  var f = csFileInfo();
+  if(f.state !== 'linked' || f.kind !== 'dir'){
+    el.innerHTML = 'สำรองอัตโนมัติจะเริ่มทำงานเมื่อ<b>เชื่อมโฟลเดอร์ทีม</b>แล้ว';
+    return;
+  }
+  var at = csBackupAt();
+  el.innerHTML = 'สำรองอัตโนมัติวันละครั้งลงโฟลเดอร์ <span class="fname">'
+    + esc(CS_BDIR) + '</span> · เก็บย้อนหลัง ' + CS_BKEEP + ' วัน · '
+    + (at ? 'ล่าสุด ' + new Date(at).toLocaleString('th-TH')
+          : '<b>ยังไม่เคยสำรอง</b> จะเขียนให้เองตอนบันทึกครั้งต่อไป')
+    + ' · กด <b>สำรองเดี๋ยวนี้</b> ได้ตลอด ไม่จำกัดวันละครั้ง';
+}
+
 /* ═══════════ saved, and saved where ═══════════ */
 var SAVE_T = null;
 function chip(cls, txt){
@@ -4376,12 +4491,15 @@ function chip(cls, txt){
   el.className = 'savechip' + (cls ? ' ' + cls : '');
   el.innerHTML = '<span class="d"></span>' + txt;
 }
+/* The chip used to name three places to keep work, which is three too
+   many to hold in your head. It reports one thing now: whether what you
+   just did reached the team folder. The browser copy is machinery. */
 function chipIdle(){
   var f = csFileInfo();
   var t = new Date().toLocaleTimeString('th-TH');
-  if(f.state === 'linked') chip('', 'บันทึกแล้ว ' + t + ' · ลงไฟล์ด้วย');
-  else if(f.state === 'needsPermission') chip('warn', 'บันทึกในเครื่องแล้ว · ไฟล์ยังไม่ได้เขียน');
-  else chip('', 'บันทึกแล้ว ' + t + ' · ในเครื่องนี้เท่านั้น');
+  if(f.state === 'linked') chip('', 'บันทึกลงโฟลเดอร์แล้ว ' + t);
+  else if(f.state === 'needsPermission') chip('warn', 'ยังไม่ได้เขียนลงโฟลเดอร์ · กดอนุญาตอีกครั้ง');
+  else chip('', 'บันทึกแล้ว ' + t + ' · ยังไม่ได้เชื่อมโฟลเดอร์');
 }
 function markSaving(){
   chip('busy', 'กำลังบันทึก…');
@@ -4403,6 +4521,7 @@ function fileRender(f){
          + (f.kind === 'dir' ? ' · หนึ่งโปรเจคหนึ่งไฟล์' : '')
          + (f.at ? ' · เขียนล่าสุด ' + new Date(f.at).toLocaleString('th-TH') : '');
     acts = '<button class="btn ghost" id="fSaveNow">บันทึกเดี๋ยวนี้</button>'
+         + (f.kind === 'dir' ? '<button class="btn ghost" id="fBackup">สำรองเดี๋ยวนี้</button>' : '')
          + '<button class="btn ghost" id="fRe">อ่านใหม่จาก' + (f.kind === 'dir' ? 'โฟลเดอร์' : 'ไฟล์') + '</button>'
          + installBtn()
          + '<button class="btn ghost" id="fUnlink">ยกเลิกการเชื่อม</button>';
@@ -4436,7 +4555,21 @@ function fileRender(f){
       + 'แต่<b>ถ้าสองคนแก้โปรเจคเดียวกันพร้อมกัน คนที่บันทึกทีหลังจะทับ</b> '
       + 'และ OneDrive อาจสร้างไฟล์ชนกัน · ระบบจะตรวจเจอและบอกให้ตอนอ่าน';
 
+  backRender();
   var b;
+  if((b = $('fBackup'))) b.addEventListener('click', function(){
+    var btn = this; btn.disabled = true;
+    $('backHint').textContent = 'กำลังเขียนไฟล์สำรอง…';
+    csDirBackup(DB, 'กดเอง').then(function(r){
+      $('backHint').innerHTML = '<b style="color:#2E7D32">สำรองแล้ว</b> · '
+        + '<span class="fname">' + esc(CS_BDIR + '/' + r.name) + '</span>'
+        + (r.pruned ? ' · ลบไฟล์สำรองที่เกิน ' + CS_BKEEP + ' วันไป ' + r.pruned + ' ไฟล์' : '');
+      btn.disabled = false;
+    }).catch(function(err){
+      $('backHint').innerHTML = '<b style="color:#B4291F">สำรองไม่สำเร็จ</b> · ' + esc(err.message);
+      btn.disabled = false;
+    });
+  });
   if((b = $('dLink'))) b.addEventListener('click', function(){
     csDirLink().then(function(){ return csDirRead(); }).then(function(got){
       if(!got) throw new Error('อ่านโฟลเดอร์ไม่ได้');
