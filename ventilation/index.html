@@ -127,7 +127,9 @@ body {
 .chart-modal-close:hover { color: #37352F; }
 .chart-modal-body { flex: 1; position: relative; min-height: 0; }
 
-.canvas-wrap { position: relative; width: 100%; height: 300px; }
+/* the same room the psychrometric sheet gets · a CO2 decay curve in a
+   4:1 letterbox reads as a flat line no matter how the axis is scaled */
+.canvas-wrap { position: relative; width: 100%; height: 450px; }
 .canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 .canvas-wrap canvas:active { cursor: grabbing; }
 .chart-modal-body .canvas-wrap { height: 100%; }
@@ -2151,8 +2153,20 @@ function draw(canvas){
     a = at(s,t,s.Q); b = at(s,t,s.base);
     main.push(a); ghost.push(b);
     if(a<lo) lo=a; if(a>hi) hi=a;
-    if(b<lo) lo=b; if(b>hi) hi=b;
   }
+  /* The comparison line used to set the top of the axis as well. With no
+     existing system it climbs with nothing to hold it down - 7,200 ppm
+     against an answer of 997 - and the curve actually being designed was
+     squashed into the bottom eighth of a 300px plot, about 25px of it.
+     Worse, the better the ventilation, the lower the answer and the higher
+     the comparison, so the chart got harder to read as the design got
+     better. The axis now follows the room and the levels it is judged
+     against; the comparison is drawn as far as it fits and then labelled
+     where it leaves. */
+  activeRefs(s).forEach(function(r){
+    if(r.v < lo) lo = r.v;
+    if(r.v > hi) hi = r.v;
+  });
   if(!isFinite(lo)||!isFinite(hi)){ lo=s.Co; hi=s.Co+1000; }
   hi = Math.min(hi, 20000);
   var pad = Math.max(80, (hi-lo)*0.12);
@@ -2233,7 +2247,36 @@ function draw(canvas){
   ctx.fillStyle = 'rgba(35,131,226,0.07)'; ctx.fill();
   ctx.restore();
 
-  line(ghost, C.red, [6,5], 1.5);
+  /* the comparison, only while it is on the chart · a line pinned flat
+     along the top edge by clamping would read as a real value */
+  var gOut = -1;
+  for(var g=0; g<=n; g++){ if(ghost[g] > ymax){ gOut = g; break; } }
+  if(gOut !== 0){
+    var gEnd = (gOut < 0) ? n : gOut;
+    ctx.save(); ctx.beginPath(); ctx.setLineDash([6,5]);
+    ctx.strokeStyle = C.red; ctx.lineWidth = 1.5; ctx.lineJoin='round'; ctx.lineCap='round';
+    for(var g2=0; g2<=gEnd; g2++){
+      var gx = px(v.t0 + (v.t1-v.t0)*g2/n), gy = py(ghost[g2]);
+      if(g2===0) ctx.moveTo(gx,gy); else ctx.lineTo(gx,gy);
+    }
+    ctx.stroke(); ctx.restore();
+  }
+  if(gOut > 0){
+    var ox = px(v.t0 + (v.t1-v.t0)*gOut/n);
+    var endG = at(s, s.dur, s.base);
+    var gl = (s.base > 0 ? 'ระบบเดิม' : 'ไม่มีระบบ') + ' · ไต่ออกนอกกราฟ จบที่ '
+      + fmt(Math.round(endG)) + ' ppm';
+    ctx.save();
+    ctx.font = '11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var glw = ctx.measureText(gl).width, glx = ox + 8;
+    if(glx + glw > W - R) glx = Math.max(L + 6, ox - 8 - glw);
+    ctx.fillStyle = '#fff'; ctx.globalAlpha = .85;
+    ctx.fillRect(glx - 4, T + 4, glw + 8, 15);
+    ctx.globalAlpha = 1; ctx.fillStyle = C.red;
+    ctx.fillText(gl, glx, T + 11);
+    ctx.restore();
+  }
   line(main, C.blue, null, 2.5);
 
   /* end marker */
