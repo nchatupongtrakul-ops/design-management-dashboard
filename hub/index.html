@@ -1997,7 +1997,8 @@ function renderList(){
         + STATUS.map(function(s){ return '<option value="'+esc(s)+'"'
             + (s === (p.status||'') ? ' selected':'') + '>' + (s || '—') + '</option>'; }).join('')
         + '</select></td>'
-      + '<td colspan="6"></td>'
+      /* ห้อง · พื้นที่ · คน · ลม · ภาระ · ประหยัด · คืนทุน · ความครบ = 8 */
+      + '<td colspan="8"></td>'
       + '<td style="white-space:nowrap">'
         + '<button class="btn ghost" data-sadd="'+i+'">+ ทางเลือก</button> '
         + '<button class="btn ghost" data-cp="'+i+'">คัดลอก</button> '
@@ -2011,6 +2012,10 @@ function renderList(){
           + '<input class="s-nm" data-sn="'+i+'|'+j+'" value="' + esc(s.name) + '" '
           + 'aria-label="ชื่อทางเลือก" spellcheck="false">'
           + (j === 0 ? ' <span class="s-tagmain">หลัก</span>' : '') + '</td>'
+        /* สถานะงาน belongs to the project · the scenario row still owes the
+           column a cell, and skipping it shifted every figure one heading
+           to the left all the way to the end of the row */
+        + '<td></td>'
         + '<td class="num">' + r.rows + (r.rooms !== r.rows ? ' <span class="qn">(' + r.rooms + ')</span>' : '') + '</td>'
         + '<td class="num">' + fmt(r.area,1) + '</td>'
         + '<td class="num">' + fmt(r.people) + '</td>'
@@ -2028,8 +2033,9 @@ function renderList(){
     });
   });
   $('listBody').innerHTML = rows.length ? rows.join('')
-    : '<tr><td colspan="11" style="text-align:center;color:var(--gray);padding:26px">ไม่มีโปรเจคในตัวกรองนี้</td></tr>';
+    : '<tr><td colspan="12" style="text-align:center;color:var(--gray);padding:26px">ไม่มีโปรเจคในตัวกรองนี้</td></tr>';
   $('listFoot').innerHTML = '<tr><td colspan="2"><b>รวมทางเลือกหลักของ ' + on + ' โปรเจคที่เปิด</b></td>'
+    + '<td></td>'
     + '<td class="num"><b>' + fmt(tRooms) + '</b></td>'
     + '<td class="num"><b>' + fmt(tA,1) + '</b></td>'
     + '<td class="num"><b>' + fmt(tP) + '</b></td>'
