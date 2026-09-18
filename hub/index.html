@@ -2150,6 +2150,13 @@ function renderScnBar(p){
       + '<button class="btn ghost" id="sDup">คัดลอกทางเลือก</button>'
       + '<button class="btn ghost" id="sRen" title="ชื่อทางเลือกพิมพ์ทับได้ในแท็บรายการโปรเจค">เปลี่ยนชื่อ</button>'
       + '<button class="btn ghost" id="sDel">ลบทางเลือก</button>'
+      /* ROI belongs to the scenario, not to a room, so it never appeared in
+         the room table the way the other four tools do. The only link to it
+         in the whole hub was inside the "ยังไม่ได้คิด" row of the project
+         overview - which disappears the moment you compute it, leaving no
+         way back in to change a price. */
+      + '<button class="btn ghost" id="sRoi" title="ERV Energy Saving · ค่าไฟ ประหยัดต่อปี และระยะคืนทุนของทางเลือกนี้">'
+        + (roll(p.scenarios[CURS]).roi ? 'แก้ ROI' : 'คิด ROI') + '</button>'
       + '<button class="btn" id="sRep" title="รายงานของทางเลือกนี้ พร้อมห้องทุกห้อง · สั่งพิมก์หรือบันทึก PDF ได้">รายงานของทางเลือกนี้</button>'
     + '</div></div>'
     + '<div class="hint" style="margin-top:6px">ทางเลือกคือ<b>ชุดเงื่อนไขออกแบบหนึ่งชุดของอาคารเดียวกัน</b> '
@@ -2671,7 +2678,9 @@ function renderRoll(r, s){
                  r.roi.capexKnown ? 'เทียบกับพัดลมระบายอากาศธรรมดา'
                                   : 'ต้องใส่ราคา ERV ที่ติดตั้งก่อนจึงจะคิดได้')
           + rowr('ลดขนาดแอร์ได้', fmt(r.roi.rtSaved,2) + ' RT',
-                 'ที่สภาวะออกแบบ · ใช้ได้เมื่อยังไม่ได้สั่งเครื่อง')
+                 'ที่สภาวะออกแบบ · ใช้ได้เมื่อยังไม่ได้สั่งเครื่อง · '
+                 + '<a href="../ervroi/?p=' + encodeURIComponent(curP().id)
+                 + '&s=' + encodeURIComponent(s.id) + '">แก้ในเครื่องมือ →</a>')
         : rowr('ROI ของทางเลือกนี้', 'ยังไม่ได้คิด',
                '<a href="../ervroi/?p=' + encodeURIComponent(curP().id)
                + '&s=' + encodeURIComponent(s.id) + '">เปิด ERV Energy Saving →</a>'));
@@ -3686,6 +3695,12 @@ $('scnBar').addEventListener('click', function(e){
     return;
   }
   if(b.id === 'sDel'){ delScenario(CUR, CURS); return; }
+  if(b.id === 'sRoi'){
+    var pr = curP(), sc = curS();
+    if(pr && sc) location.href = '../ervroi/?p=' + encodeURIComponent(pr.id)
+      + '&s=' + encodeURIComponent(sc.id);
+    return;
+  }
   if(b.id === 'sRep'){ openReport(); }
 });
 
