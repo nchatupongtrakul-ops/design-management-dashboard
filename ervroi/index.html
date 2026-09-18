@@ -3840,12 +3840,15 @@ csFileInit();
 
 /* style ids, in the order they are written into styles.xml below */
 var S = { plain:0, title:1, head:2, label:3, input:4, n2:5, n0:6, note:7,
-          eq:8, w5:9, check:10, sub:11, tot:12, n1:13, pct:14 };
+          eq:8, w5:9, check:10, sub:11, tot:12, n1:13, pct:14, acc:15 };
 
 function tplStyles(){
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    + '<numFmts count="1"><numFmt numFmtId="170" formatCode="0.00000"/></numFmts>'
+    + '<numFmts count="2">'
+      + '<numFmt numFmtId="170" formatCode="0.00000"/>'
+      + '<numFmt numFmtId="171" formatCode="_(* #,##0_);[Red]_(* (#,##0);_(* &quot;-&quot;_);_(@_)"/>'
+    + '</numFmts>'
     + '<fonts count="6">'
       + '<font><sz val="11"/><name val="Tahoma"/></font>'
       + '<font><b/><sz val="15"/><name val="Tahoma"/></font>'
@@ -3866,7 +3869,7 @@ function tplStyles(){
         + '<bottom style="thin"><color rgb="FFD8DCE0"/></bottom><diagonal/></border>'
     + '</borders>'
     + '<cellStyleXfs count="1"><xf/></cellStyleXfs>'
-    + '<cellXfs count="15">'
+    + '<cellXfs count="16">'
       + '<xf xfId="0"/>'                                                        /* 0 plain */
       + '<xf xfId="0" fontId="1" applyFont="1"/>'                               /* 1 title */
       + '<xf xfId="0" fontId="2" fillId="2" applyFont="1" applyFill="1"'
@@ -3887,6 +3890,7 @@ function tplStyles(){
         + ' applyFont="1" applyFill="1" applyBorder="1" applyNumberFormat="1"/>' /* 12 tot */
       + '<xf xfId="0" borderId="1" numFmtId="2" applyBorder="1" applyNumberFormat="1"/>'  /* 13 */
       + '<xf xfId="0" borderId="1" numFmtId="10" applyBorder="1" applyNumberFormat="1"/>' /* 14 pct */
+      + '<xf xfId="0" borderId="1" numFmtId="171" applyBorder="1" applyNumberFormat="1"/>' /* 15 acc */
     + '</cellXfs>'
     + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
     + '</styleSheet>';
@@ -3914,9 +3918,12 @@ function tplWrite(sheets){
       }).join('');
       return '<row r="' + (ri + 1) + '">' + cells + '</row>';
     }).join('');
+    var view = !sh.freeze ? '' : '<sheetViews><sheetView workbookViewId="0">'
+      + '<pane ySplit="' + sh.freeze + '" topLeftCell="A' + (sh.freeze + 1)
+      + '" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
     sheetXml.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-      + cols + '<sheetData>' + rows + '</sheetData></worksheet>');
+      + view + cols + '<sheetData>' + rows + '</sheetData></worksheet>');
   });
   var wbSheets = sheets.map(function(s2, i){
     return '<sheet name="' + xesc(s2.name) + '" sheetId="' + (i+1) + '" r:id="rId' + (i+1) + '"/>';
@@ -3962,65 +3969,60 @@ function tplWrite(sheets){
 }
 
 /* ─────────── the sheets ─────────── */
-/* Shaped after the team's own 26-xx_EaaS Template: an Info sheet that builds
-   the investment and the energy picture, and a Finance sheet that runs the
-   cash flow out year by year across several contract lengths, ending in
-   Breakeven / NPV / IRR / Carbon. Yellow cells are the ones to type in,
-   which is the convention that file already uses.
+/* Second attempt. The first followed the EaaS workbook, with six contract
+   lengths side by side and a financing frame around them - and that was
+   the wrong question. ERV is sold outright: the client pays once and owns
+   it. What they want to know is how much comes back each year and when the
+   money is back, so there is one year-by-year table, not six.
 
-   What is deliberately NOT here: minimum guarantee, shared saving, the
-   Coral/client investment split, debt and equity. Those are the EaaS
-   financing layer and they live in that file, which stays the only copy of
-   the firm's financial model. This workbook feeds it - the last sheet lays
-   the numbers out in the order that file's Info sheet wants them. */
+   Styling follows the EaaS file where it earns its keep: accounting number
+   format so the digits line up and negatives read as (1,234), yellow for
+   the cells to type in, banded section headers. */
 var TPL_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
                   'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 var TPL_DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
-var TPL_YEARS = 30;                         /* rows of cash flow */
-var TPL_PERIODS = [5, 7, 10, 15, 20, 25];   /* the scenario columns */
-var TPL_COLS = ['C','D','E','F','G','H'];
+var TPL_YEARS = 20;
 
 function tplBuild(){
   var m = model(), pb = m.pay;
-  var INFO = "Info!", FIN = "Finance!";
-  function H(a){ return a.map(function(x){ return { v:x, s:S.head }; }); }
-  function money(f){ return { f:f, s:S.n0 }; }
+  var IN = "'ค่าที่กรอก'!";
+  function band(t, n){
+    var a = [{ v:t, s:S.head }];
+    for(var i = 1; i < (n || 4); i++) a.push({ v:'', s:S.head });
+    return a;
+  }
 
-  /* ═══ Info ═══ · rows are numbered as they are pushed, so a formula can
-     never point at the wrong line after an edit above it */
+  /* ═══ ค่าที่กรอก · every other sheet points here ═══ */
   var iRows = [], R = {};
   function put(key, cells){ iRows.push(cells); if(key) R[key] = iRows.length; return iRows.length; }
-  function head(t){ put(null, [{ v:t, s:S.head }, { v:'', s:S.head },
-                               { v:'', s:S.head }, { v:'', s:S.head }]); }
   function inp(key, label, val, unit, note){
     put(key, [label, { v:val, s:S.input }, unit, { v:note || '', s:S.note }]); }
-  function calc(key, label, formula, unit, note, st){
-    put(key, [label, { f:formula, s:(st || S.n0) }, unit, { v:note || '', s:S.note }]); }
+  function calc(key, label, f, unit, note, st){
+    put(key, [label, { f:f, s:(st || S.acc) }, unit, { v:note || '', s:S.note }]); }
 
-  put(null, [{ v:'Info · ค่าที่กรอกและภาพรวมพลังงาน', s:S.title }]);
-  put(null, [{ v:($('pjName').value || 'ยังไม่ได้ตั้งชื่อโครงการ'), s:S.sub }]);
-  put(null, [{ v:'ช่องพื้นเหลืองคือช่องที่แก้ได้ · ช่องอื่นเป็นสูตร', s:S.note }]);
+  put(null, [{ v:'ค่าที่กรอก', s:S.title }]);
+  put(null, [{ v:'ช่องพื้นเหลืองแก้ได้ · ช่องอื่นเป็นสูตรที่คิดต่อจากช่องเหลือง', s:S.note }]);
   put(null, []);
-
-  head('ค่าที่ใช้ร่วมกันทั้งแฟ้ม');
+  put(null, band('อากาศและการใช้งาน'));
   inp('q',    'ปริมาณลมภายนอก Q', m.Q, 'CMH', 'มาจากเครื่องมือ CO₂ ของแต่ละห้องรวมกัน');
   inp('et',   'ประสิทธิภาพแกน ηt', m.et*100, '%', 'ที่อัตราลมใช้งานจริง ไม่ใช่เลขสูงสุดในโบรชัวร์');
   inp('hpd',  'ชั่วโมงต่อวัน', nv('hpd'), 'ชม.', '');
   inp('dpy',  'วันต่อปี', nv('dpy'), 'วัน', '');
   inp('cop',  'COP ของระบบทำความเย็น', m.cop, '', '');
-  inp('wb',   'กำลังไฟพัดลมเทียบ · รวม', m.fb.W, 'W',
+  inp('wb',   'กำลังไฟพัดลมเดิม · รวม', m.fb.W, 'W',
       m.fb.manual ? 'กรอกเอง × ' + m.fb.n + ' ตัว' : 'Q/1000 × Δp / η × ' + m.fb.n + ' ตัว');
   inp('we',   'กำลังไฟพัดลม ERV · รวม', m.fe.W, 'W',
       m.fe.manual ? 'กรอกเองทั้งเครื่อง' : 'Q/1000 × Δp / η × ' + m.fe.n + ' ตัว');
-  inp('rate', 'ค่าไฟ', m.rate, 'บาท/หน่วย', '4.15 คือค่าเฉลี่ยรวม Ft ม.ค.–เม.ย. 2568 · Ft ปรับทุก 4 เดือน');
+  inp('rate', 'ค่าไฟ', m.rate, 'บาท/หน่วย', '4.15 คือค่าเฉลี่ยรวม Ft ม.ค.–เม.ย. 2568');
+  inp('ft',   'ค่าไฟขึ้นปีละ', pb.g*100, '%', 'ใส่ 0 ถ้าไม่อยากเดาอนาคต · ตารางรายปีจะเท่ากันทุกปี');
   calc('hours', 'ชั่วโมงใช้งานต่อปี', 'B' + R.hpd + '*B' + R.dpy, 'ชม./ปี', '');
   put(null, []);
 
-  head('สภาวะอากาศที่ใช้คำนวณ · เป็นค่า ไม่ใช่สูตร');
-  put(null, [{ v:'มาจากสมการ ASHRAE 2021 Fundamentals บทที่ 1 (IAPWS-IF97) บนหน้าเว็บ · '
-    + 'ยัดลงเซลล์จะตรวจยากกว่าตัวสมการ · เทียบกับแผนภูมิไซโครเมตริกแทน', s:S.note }]);
-  put(null, H(['จุด','T °C','RH %','W kg/kg','h kJ/kg']));
-  R.air = iRows.length;
+  put(null, band('สภาวะอากาศ · เป็นค่าจากเครื่องมือ ไม่ใช่สูตร', 5));
+  put(null, [{ v:'สมการ ASHRAE 2021 Fundamentals บทที่ 1 (IAPWS-IF97) · '
+    + 'ตรวจได้โดยเทียบกับแผนภูมิไซโครเมตริก', s:S.note }]);
+  put(null, [{ v:'จุด', s:S.sub }, { v:'T °C', s:S.sub }, { v:'RH %', s:S.sub },
+             { v:'W kg/kg', s:S.sub }, { v:'h kJ/kg', s:S.sub }]);
   put('airPk', ['ภายนอก · สภาวะออกแบบ', { v:nv('tpk'), s:S.n1 }, { v:nv('rpk'), s:S.n0 },
       { v:Wof(nv('tpk'), nv('rpk')/100), s:S.w5 }, { v:m.hpk, s:S.n2 }]);
   put('airAv', ['ภายนอก · เฉลี่ยทั้งปี', { v:nv('tav'), s:S.n1 }, { v:nv('rav'), s:S.n0 },
@@ -4029,239 +4031,112 @@ function tplBuild(){
       { v:Wof(m.Tr, nv('rr')/100), s:S.w5 }, { v:m.hr, s:S.n2 }]);
   put(null, []);
 
-  head('เงินลงทุน');
+  put(null, band('เงินที่ลูกค้าจ่ายเพิ่ม'));
   inp('cErv', 'ระบบ ERV พร้อมติดตั้ง', pb.ce, 'บาท', '');
   inp('cFan', 'หัก · ระบบพัดลมธรรมดาที่ไม่ต้องทำแล้ว', pb.cf, 'บาท',
-      'ลูกค้าต้องจ่ายค่าระบบเติมอากาศอยู่แล้ว จึงคิดเฉพาะส่วนต่าง');
-  inp('bRt',  'ราคาแอร์ต่อ RT', nv('baht_rt'), 'บาท/RT', 'ใช้ได้เมื่อยังไม่ได้สั่งเครื่อง · เว้นศูนย์ได้');
+      'ลูกค้าต้องมีระบบเติมอากาศอยู่แล้ว จึงคิดเฉพาะส่วนต่าง');
+  inp('bRt',  'ราคาแอร์ต่อ RT', nv('baht_rt'), 'บาท/RT', 'ใช้ได้เมื่อยังไม่ได้สั่งแอร์ · เว้นศูนย์ได้');
   calc('rtSaved', 'ลดขนาดแอร์ได้',
     '1.2*B' + R.q + '/3.6*(E' + R.airPk + '-E' + R.airRm + ')*B' + R.et + '/100/3517',
     'RT', 'ASHRAE ch.18 eq (7) ที่สภาวะออกแบบ · 1 RT = 3517 W', S.n2);
-  calc('cAc', 'หัก · แอร์ที่ลดขนาดได้',
-    'B' + R.rtSaved + '*B' + R.bRt, 'บาท', '');
-  calc('sub', 'รวมส่วนต่างลงทุน',
-    'B' + R.cErv + '-B' + R.cFan + '-B' + R.cAc, 'บาท', '');
-  inp('prelim', 'Preliminary', 0, '%', 'ค่าดำเนินการ · ตั้งต้น 0 ให้ใส่เองตามงาน');
-  calc('cPre', 'Preliminary', 'B' + R.sub + '*B' + R.prelim + '/100', 'บาท', '');
-  inp('grant', 'Grant / เงินสนับสนุน', 0, 'บาท', '');
-  calc('inv', 'Investment Cost',
-    'B' + R.sub + '+B' + R.cPre + '-B' + R.grant, 'บาท', 'ตัวนี้คือตัวที่ชีต Finance ใช้');
+  calc('cAc', 'หัก · ค่าแอร์ที่ลดขนาดได้', 'B' + R.rtSaved + '*B' + R.bRt, 'บาท', '');
+  calc('inv', 'เงินลงทุนส่วนต่าง', 'B' + R.cErv + '-B' + R.cFan + '-B' + R.cAc, 'บาท',
+    'ตัวนี้คือก้อนที่ต้องคืนทุน');
   put(null, []);
 
-  head('ค่าบริการและบำรุงรักษา');
-  put(null, [{ v:'⚠ เครื่องมือบนเว็บยังไม่มีช่องพวกนี้ · ตั้งต้นเป็นศูนย์ทั้งหมด ให้กรอกเองในแฟ้ม '
-    + 'ถ้าใส่ ค่าคืนทุนในชีต Finance จะยาวขึ้นกว่าที่หน้าเว็บบอก ซึ่งถูกต้องกว่า', s:S.note }]);
-  inp('svcLab', 'ค่าแรงต่อครั้ง', 0, 'บาท/ครั้ง', '');
-  inp('svcFil', 'ค่าไส้กรองต่อครั้ง', 0, 'บาท/ครั้ง', '');
-  inp('svcOth', 'อื่น ๆ ต่อครั้ง', 0, 'บาท/ครั้ง', '');
-  calc('svcTime', 'รวมต่อครั้ง',
-    'B' + R.svcLab + '+B' + R.svcFil + '+B' + R.svcOth, 'บาท/ครั้ง', '');
-  inp('svcN', 'จำนวนครั้งต่อปี', 1, 'ครั้ง/ปี', '');
-  calc('svcYr', 'ค่าบริการต่อปี',
-    'B' + R.svcTime + '*B' + R.svcN, 'บาท/ปี', '');
+  put(null, band('ค่าดูแลรักษาต่อปี'));
+  put(null, [{ v:'⚠ เครื่องมือบนเว็บยังไม่มีช่องพวกนี้ · ตั้งต้นเป็นศูนย์ ให้กรอกเองในแฟ้ม · '
+    + 'ใส่แล้วคืนทุนจะยาวขึ้นกว่าที่หน้าเว็บบอก ซึ่งใกล้ความจริงกว่า', s:S.note }]);
+  inp('svcT', 'ค่าแรง + ไส้กรอง ต่อครั้ง', 0, 'บาท/ครั้ง', '');
+  inp('svcN', 'จำนวนครั้งต่อปี', 2, 'ครั้ง/ปี', '');
+  calc('svcYr', 'รวมต่อปี', 'B' + R.svcT + '*B' + R.svcN, 'บาท/ปี', '');
   put(null, []);
 
-  head('พลังงาน');
+  put(null, band('พลังงาน'));
   calc('qav', 'ภาระอากาศนอกที่สภาวะเฉลี่ย',
     '1.2*B' + R.q + '/3.6*(E' + R.airAv + '-E' + R.airRm + ')', 'W',
     'สภาวะเฉลี่ยทั้งปีเป็นตัวที่คิดค่าไฟ ไม่ใช่สภาวะออกแบบ');
-  put(null, [{ v:'แบบเดิม · พัดลมระบายอากาศธรรมดา', s:S.sub }]);
-  calc('kcB', 'ไฟทำความเย็น',
+  calc('kcB', 'ไฟทำความเย็น · ไม่มี ERV',
     'B' + R.qav + '/1000/B' + R.cop + '*B' + R.hours, 'kWh/ปี', '');
-  calc('kfB', 'ไฟพัดลม', 'B' + R.wb + '/1000*B' + R.hours, 'kWh/ปี', '');
-  calc('ktB', 'รวม', 'B' + R.kcB + '+B' + R.kfB, 'kWh/ปี', '');
-  calc('bB',  'ค่าไฟ', 'B' + R.ktB + '*B' + R.rate, 'บาท/ปี', '');
-  put(null, [{ v:'แบบที่เสนอ · ERV', s:S.sub }]);
-  calc('kcE', 'ไฟทำความเย็น',
+  calc('kcE', 'ไฟทำความเย็น · มี ERV',
     'B' + R.qav + '*(1-B' + R.et + '/100)/1000/B' + R.cop + '*B' + R.hours, 'kWh/ปี', '');
-  calc('kfE', 'ไฟพัดลม', 'B' + R.we + '/1000*B' + R.hours, 'kWh/ปี', '');
-  calc('ktE', 'รวม', 'B' + R.kcE + '+B' + R.kfE, 'kWh/ปี', '');
-  calc('bE',  'ค่าไฟ', 'B' + R.ktE + '*B' + R.rate, 'บาท/ปี', '');
-  put(null, [{ v:'ประหยัดได้', s:S.sub }]);
-  calc('savK', 'พลังงาน', 'B' + R.ktB + '-B' + R.ktE, 'kWh/ปี', '');
-  calc('savB', 'ค่าไฟ', 'B' + R.bB + '-B' + R.bE, 'บาท/ปี',
-    'ยังไม่หักค่าบริการ · ชีต Finance หักให้');
-  var sInfo = { name:'Info', w:[38, 16, 13, 56], rows:iRows };
+  calc('kfB', 'ไฟพัดลมเดิม', 'B' + R.wb + '/1000*B' + R.hours, 'kWh/ปี', '');
+  calc('kfE', 'ไฟพัดลม ERV', 'B' + R.we + '/1000*B' + R.hours, 'kWh/ปี', '');
+  calc('savK', 'พลังงานที่ประหยัดได้',
+    'B' + R.kcB + '-B' + R.kcE + '-(B' + R.kfE + '-B' + R.kfB + ')', 'kWh/ปี',
+    'หักไฟพัดลมที่เพิ่มขึ้นแล้ว');
+  calc('savB', 'ค่าไฟที่ประหยัดได้ · ปีแรก', 'B' + R.savK + '*B' + R.rate, 'บาท/ปี', '');
+  calc('net1', 'เหลือสุทธิ · ปีแรก', 'B' + R.savB + '-B' + R.svcYr, 'บาท/ปี',
+    'หักค่าดูแลรักษาแล้ว · ตัวนี้คือตัวที่คืนทุน');
+  var sIn = { name:'ค่าที่กรอก', w:[36, 16, 13, 54], rows:iRows, freeze:2 };
 
-  /* ═══ Finance ═══ */
-  var fRows = [], F = {};
-  function fput(key, cells){ fRows.push(cells); if(key) F[key] = fRows.length; return fRows.length; }
-  function across(key, label, unit, make, st){
-    var row = [label];
-    TPL_COLS.forEach(function(c, i){ row.push(make(c, i, st)); });
-    row.push(unit);
-    fput(key, row);
-  }
-  fput(null, [{ v:'Finance · กระแสเงินสดและผลตอบแทน', s:S.title }]);
-  fput(null, [{ v:'วิธีใช้ · 1) แก้ช่องเหลืองในชีต Info  2) แก้อายุที่ใช้วิเคราะห์แถวล่าง  '
-    + '3) ดู Breakeven / NPV / IRR ท้ายชีต', s:S.note }]);
-  fput(null, [{ v:'เงินไหลออกเป็นลบ เงินไหลเข้าเป็นบวก · ปีที่ 0 คือวันลงทุน', s:S.note }]);
-  fput(null, []);
-
-  fput(null, [{ v:'พารามิเตอร์', s:S.head }, { v:'', s:S.head }, { v:'', s:S.head }]);
-  fput('ft',    ['ค่าไฟขึ้นปีละ', { v:pb.g*100, s:S.input }, '%', { v:'Ft ของไทยปรับทุก 4 เดือน · ไฟล์ EaaS ของทีมใช้ 3 %', s:S.note }]);
-  fput('every', ['ขึ้นทุก', { v:3, s:S.input }, 'ปี', { v:'ไฟล์ EaaS ของทีมใช้ทุก 3 ปี', s:S.note }]);
-  fput('carb',  ['แฟกเตอร์คาร์บอน', { v:0.475, s:S.input }, 'kgCO₂e/kWh',
-    { v:'TGO ประกาศ 30 พ.ย. 2568 มีผล 1 ม.ค. 2569 · ไฟล์ EaaS ของทีมยังใช้ 0.4682', s:S.note }]);
-  fput(null, []);
-
-  var hdr = [{ v:'', s:S.head }];
-  TPL_PERIODS.forEach(function(y, i){ hdr.push({ v:'Scenario ' + (i+1), s:S.head }); });
-  hdr.push({ v:'', s:S.head });
-  fput(null, hdr);
-  across('per', 'อายุที่ใช้วิเคราะห์', 'ปี',
-    function(c, i){ return { v:TPL_PERIODS[i], s:S.input }; });
-  across('inv', 'เงินลงทุน (Investment Cost)', 'บาท',
-    function(){ return money('-' + INFO + 'B' + R.inv); });
-  across('svc', 'ค่าบริการต่อปี', 'บาท/ปี',
-    function(){ return money('-' + INFO + 'B' + R.svcYr); });
-  across('sav', 'ประหยัดค่าไฟ ปีที่ 1', 'บาท/ปี',
-    function(){ return money(INFO + 'B' + R.savB); });
-  across('net1', 'กระแสเงินสดสุทธิ ปีที่ 1', 'บาท/ปี',
-    function(c){ return money(c + F.sav + '+' + c + F.svc); });
-  fput(null, []);
-
-  /* the cash flow · Ft steps up every N years, the way the EaaS file does it */
-  fput(null, [{ v:'กระแสเงินสดรายปี', s:S.head }].concat(
-    TPL_COLS.map(function(){ return { v:'', s:S.head }; })).concat([{ v:'', s:S.head }]));
-  var y0 = null;
+  /* ═══ รายปี · the one table this file exists for ═══ */
+  var yRows = [], Y = {};
+  function yput(key, cells){ yRows.push(cells); if(key) Y[key] = yRows.length; return yRows.length; }
+  yput(null, [{ v:'ประหยัดและคืนทุน รายปี', s:S.title }]);
+  yput(null, [{ v:'ค่าไฟที่ประหยัดโตขึ้นทุกปีตามค่าไฟที่ขึ้น (ตั้งใน ค่าที่กรอก) · '
+    + 'ปีที่ 0 คือวันที่จ่ายเงิน', s:S.note }]);
+  yput(null, []);
+  yput(null, [{ v:'ปีที่', s:S.head }, { v:'ค่าไฟที่ประหยัด', s:S.head },
+              { v:'ค่าดูแลรักษา', s:S.head }, { v:'เหลือสุทธิปีนั้น', s:S.head },
+              { v:'สะสม', s:S.head }, { v:'สถานะ', s:S.head }]);
+  var first = null;
   for(var y = 0; y <= TPL_YEARS; y++){
-    var row = ['ปีที่ ' + y];
-    TPL_COLS.forEach(function(c){
-      row.push(y === 0
-        ? money(c + F.inv)
-        : money('IF(' + y + '>' + c + F.per + ',0,' + c + F.net1
-            + '*(1+$B$' + F.ft + '/100*ROUNDDOWN((' + y + '-1)/$B$' + F.every + ',0)))'));
-    });
-    row.push('บาท');
-    var rn = fput(null, row);
-    if(y === 0) y0 = rn;
+    var rw;
+    if(y === 0){
+      rw = yput(null, [{ v:0, s:S.n0 }, '', '',
+        { f:'-' + IN + 'B' + R.inv, s:S.acc }, { f:'D' + (yRows.length + 1), s:S.acc },
+        { v:'จ่ายค่าเครื่อง', s:S.note }]);
+      first = rw;
+    } else {
+      rw = yRows.length + 1;
+      yput(null, [{ v:y, s:S.n0 },
+        { f:IN + 'B' + R.savB + '*(1+' + IN + 'B' + R.ft + '/100)^' + (y - 1), s:S.acc },
+        { f:'-' + IN + 'B' + R.svcYr, s:S.acc },
+        { f:'B' + rw + '+C' + rw, s:S.acc },
+        { f:'E' + (rw - 1) + '+D' + rw, s:S.acc },
+        { f:'IF(E' + rw + '>=0,IF(E' + (rw-1) + '<0,"◀ คืนทุนปีนี้","คืนทุนแล้ว"),"")',
+          s:S.note }]);
+    }
   }
-  var yN = fRows.length;
-  fput(null, []);
+  var last = yRows.length;
+  yput(null, []);
+  yput(null, band('สรุป', 6));
+  yput('bev', ['คืนทุนโดยประมาณ',
+    { f:'IF(' + IN + 'B' + R.net1 + '>0,' + IN + 'B' + R.inv + '/' + IN + 'B' + R.net1 + ',"")',
+      s:S.n1 }, 'ปี', { v:'ที่ค่าไฟปีแรก ยังไม่คิดค่าไฟที่จะขึ้น', s:S.note }]);
+  yput('bevY', ['ปีที่เงินกลับมาครบ',
+    { f:'IFERROR(MATCH(TRUE,INDEX($E$' + (first+1) + ':$E$' + last + '>=0,0),0),"ยังไม่คืนใน '
+      + TPL_YEARS + ' ปี")', s:S.n0 }, 'ปีที่',
+    { v:'อ่านจากคอลัมน์สะสม · คิดค่าไฟที่ขึ้นแล้ว', s:S.note }]);
+  yput(null, ['ประหยัดสะสม 5 ปี', { f:'E' + (first+5), s:S.acc }, 'บาท', '']);
+  yput(null, ['ประหยัดสะสม 10 ปี', { f:'E' + (first+10), s:S.acc }, 'บาท', '']);
+  yput(null, ['ประหยัดสะสม ' + TPL_YEARS + ' ปี', { f:'E' + last, s:S.acc }, 'บาท',
+    { v:'สุทธิหลังหักเงินลงทุนแล้ว', s:S.note }]);
+  yput('disc', ['อัตราคิดลด', { v:7, s:S.input }, '%',
+    { v:'ต้นทุนเงินของลูกค้า · ใส่ 0 ถ้าไม่ต้องการคิด', s:S.note }]);
+  yput(null, ['NPV',
+    { f:'NPV(B' + (yRows.length) + '/100,D' + (first+1) + ':D' + last + ')+D' + first, s:S.acc },
+    'บาท', { v:'บวก = คุ้มกว่าเอาเงินไปลงทุนที่อัตรานี้', s:S.note }]);
+  yput(null, ['IRR', { f:'IFERROR(IRR(D' + first + ':D' + last + '),"")', s:S.pct }, '',
+    { v:'ผลตอบแทนที่แท้จริงของเงินก้อนนี้ · ว่าง = ไม่คืนทุนใน ' + TPL_YEARS + ' ปี', s:S.note }]);
+  yput('carb', ['แฟกเตอร์คาร์บอน', { v:0.475, s:S.input }, 'kgCO₂e/kWh',
+    { v:'TGO ประกาศ 30 พ.ย. 2568 มีผล 1 ม.ค. 2569', s:S.note }]);
+  yput(null, ['คาร์บอนที่ลดได้',
+    { f:IN + 'B' + R.savK + '*B' + (yRows.length) + '/1000', s:S.n1 }, 'tCO₂e/ปี', '']);
+  var sYr = { name:'รายปี', w:[10, 18, 16, 18, 18, 22], rows:yRows, freeze:4 };
 
-  /* cumulative · the line that tells you which year it turns positive */
-  fput(null, [{ v:'ยอดสะสม', s:S.head }].concat(
-    TPL_COLS.map(function(){ return { v:'', s:S.head }; })).concat([{ v:'', s:S.head }]));
-  var c0 = null;
-  for(var y2 = 0; y2 <= TPL_YEARS; y2++){
-    var row2 = ['ปีที่ ' + y2];
-    TPL_COLS.forEach(function(c){
-      row2.push(y2 === 0
-        ? money(c + y0)
-        : money(c + (c0 + y2 - 1) + '+' + c + (y0 + y2)));
-    });
-    row2.push('บาท');
-    var rn2 = fput(null, row2);
-    if(y2 === 0) c0 = rn2;
-  }
-  fput(null, []);
-
-  fput(null, [{ v:'ผลตอบแทน', s:S.head }].concat(
-    TPL_COLS.map(function(){ return { v:'', s:S.head }; })).concat([{ v:'', s:S.head }]));
-  across('bev', 'Breakeven แบบง่าย', 'ปี',
-    function(c){ return { f:'IF(' + c + F.net1 + '>0,ABS(' + c + F.inv + ')/' + c + F.net1 + ',"")',
-                          s:S.n1 }; });
-  across('rate', 'อัตราคิดลด', '', function(){ return { v:7, s:S.input }; });
-  across('npv', 'NPV', 'บาท',
-    function(c){ return money('NPV(' + c + F.rate + '/100,' + c + (y0+1) + ':' + c + yN + ')+' + c + y0); });
-  across('irr', 'IRR', '',
-    function(c){ return { f:'IFERROR(IRR(' + c + y0 + ':' + c + yN + '),"")', s:S.pct }; });
-  across('co2', 'คาร์บอนที่ลดได้', 'tCO₂e/ปี',
-    function(){ return { f:INFO + 'B' + R.savK + '*$B$' + F.carb + '/1000', s:S.n1 }; });
-  fput(null, []);
-  fput(null, [{ v:'NPV และ IRR คิดจากกระแสเงินสด 0–' + TPL_YEARS + ' ปี · '
-    + 'ปีที่เลยอายุที่ใช้วิเคราะห์เป็นศูนย์ จึงไม่ถูกนับ · '
-    + 'IRR ว่างแปลว่ากระแสเงินสดไม่เปลี่ยนเครื่องหมาย หาคำตอบไม่ได้', s:S.note }]);
-  var sFin = { name:'Finance', w:[30, 15, 15, 15, 15, 15, 15, 12], rows:fRows };
-
-  /* ═══ the audit · unchanged in spirit, now pointing at Info ═══ */
-  var aRows = [
-    [{ v:'ตรวจการคำนวณ', s:S.title }],
-    [{ v:'ช่อง "คำนวณโดย Excel" เป็นสูตร · ถ้าช่อง "ต่าง" ไม่เป็นศูนย์ แปลว่ามีฝ่ายหนึ่งผิด '
-       + 'และเห็นว่าผิดขั้นไหน', s:S.note }],
-    H(['ขั้น','สูตร','คำนวณโดย Excel','ค่าจากเครื่องมือ','ต่าง','ที่มา'])
-  ];
-  var ar = 4;
-  function astep(label, eq, formula, toolVal, src, st){
-    aRows.push([label, { v:eq, s:S.eq }, { f:formula, s:(st || S.n2) },
-      { v:toolVal, s:(st || S.n2) }, { f:'C' + ar + '-D' + ar, s:S.check },
-      { v:src, s:S.note }]);
-    ar++;
-  }
-  astep('ลม L/s', 'Q / 3.6', INFO + 'B' + R.q + '/3.6', m.Ql, 'CMH เป็น L/s');
-  astep('ภาระที่สภาวะออกแบบ W', '1.2 × Ls × (h นอก − h ห้อง)',
-    '1.2*C4*(' + INFO + 'E' + R.airPk + '-' + INFO + 'E' + R.airRm + ')', m.qBasePk,
-    'ASHRAE ch.18 eq (7)');
-  astep('ลดขนาดแอร์ได้ RT', 'ภาระออกแบบ × ηt / 3517',
-    'C5*' + INFO + 'B' + R.et + '/100/3517', m.rtSaved, '1 RT = 3517 W');
-  astep('ภาระที่สภาวะเฉลี่ย W', '1.2 × Ls × (h เฉลี่ย − h ห้อง)',
-    INFO + 'B' + R.qav, m.qBaseAv, 'ตัวนี้คือตัวที่คิดค่าไฟ');
-  astep('ชั่วโมงใช้งานต่อปี', 'ชม./วัน × วัน/ปี', INFO + 'B' + R.hours, m.hours, '', S.n0);
-  astep('ไฟทำความเย็น ไม่มี ERV kWh', 'ภาระ / 1000 / COP × ชม.',
-    INFO + 'B' + R.kcB, m.kwhCoolBase, '', S.n0);
-  astep('ไฟทำความเย็น มี ERV kWh', 'ภาระ × (1−ηt) / 1000 / COP × ชม.',
-    INFO + 'B' + R.kcE, m.kwhCoolErv, '', S.n0);
-  astep('ไฟทำความเย็นที่ประหยัด kWh', 'ไม่มี ERV − มี ERV',
-    INFO + 'B' + R.kcB + '-' + INFO + 'B' + R.kcE, m.kwhCoolSaved, '', S.n0);
-  astep('ไฟพัดลมเทียบ kWh', 'W / 1000 × ชม.', INFO + 'B' + R.kfB, m.kwhFanBase, '', S.n0);
-  astep('ไฟพัดลม ERV kWh', 'W / 1000 × ชม.', INFO + 'B' + R.kfE, m.kwhFanErv, '', S.n0);
-  var aNet = ar;
-  astep('ประหยัดสุทธิ บาท/ปี', 'ค่าไฟแบบเดิม − ค่าไฟแบบ ERV (รวมพัดลมทั้งสองฝั่งแล้ว)',
-    INFO + 'B' + R.savB, m.net, 'ตรงกับตัวเลขบนหน้าเว็บ', S.n0);
-  var aInv = ar;
-  astep('ส่วนต่างลงทุนสุทธิ บาท', 'ERV − พัดลม − (RT × ราคาแอร์/RT)',
-    INFO + 'B' + R.sub, pb.extra, '', S.n0);
-  astep('คืนทุนแบบง่าย ปี', 'ส่วนต่างลงทุน / ประหยัดสุทธิ',
-    'IF(C' + aNet + '>0,C' + aInv + '/C' + aNet + ',"")',
-    (pb.years === null ? '' : pb.years), 'ยังไม่คิดค่าบริการและค่าไฟที่จะขึ้น · '
-      + 'ชีต Finance คิดให้ครบกว่า');
-  var sAudit = { name:'ตรวจการคำนวณ', w:[32, 42, 18, 18, 12, 44], rows:aRows };
-
-  /* ═══ the hand-off ═══ */
-  var sOut = { name:'ส่งเข้า EaaS', w:[34, 18, 13, 20, 40], rows:[
-    [{ v:'ตัวเลขสำหรับกรอกลงไฟล์ EaaS ของทีม', s:S.title }],
-    [{ v:'คัดลอกลงชีต Info ของ 26-xx_EaaS Template ตามช่องที่ระบุ · '
-       + 'ไฟล์ EaaS ยังเป็นเจ้าของโมเดลการเงินเพียงเจ้าเดียว แฟ้มนี้แค่ป้อนตัวเลขให้', s:S.note }],
-    H(['รายการในไฟล์ EaaS','ค่า','หน่วย','ลงช่อง','หมายเหตุ']),
-    ['Investment Cost', money(INFO + 'B' + R.inv), 'THB', 'Info!D13',
-      { v:'งาน ERV เป็นบรรทัดหนึ่งของแพ็กเกจ · ถ้ามีงานอื่นด้วยให้บวกเพิ่มในไฟล์นั้น', s:S.note }],
-    ['Cost per time', money(INFO + 'B' + R.svcTime), 'THB/time', 'Info!D22', ''],
-    ['Electricity Cost', { f:INFO + 'B' + R.rate, s:S.n2 }, 'THB/kWh', 'Info!C25', ''],
-    ['Conventional · Power Consumption', money(INFO + 'B' + R.ktB), 'kWh/yr', 'Info!D27', ''],
-    ['Coral Solution · Power Consumption', money(INFO + 'B' + R.ktE), 'kWh/yr', 'Info!D30', ''],
-    ['Saving · Power Consumption', money(INFO + 'B' + R.savK), 'kWh/yr', 'Info!D33',
-      { v:'ไฟล์ EaaS คิดให้เองจาก D27−D30 · ใส่ไว้เทียบ', s:S.note }],
-    ['Saving · Electricity Bill', money(INFO + 'B' + R.savB), 'THB/yr', 'Info!D34',
-      { v:'เช่นเดียวกัน คิดเองจาก D28−D31', s:S.note }],
-    [],
-    [{ v:'สิ่งที่แฟ้มนี้ไม่มีให้ และเป็นของไฟล์ EaaS', s:S.head },
-     { v:'', s:S.head }, { v:'', s:S.head }, { v:'', s:S.head }, { v:'', s:S.head }],
-    [{ v:'Min Guarantee · Shared Saving % · สัดส่วนลงทุน Coral กับลูกค้า · Debt/Equity · '
-       + 'ดอกเบี้ย · IRR แยกสองฝั่ง', s:S.note }],
-    [{ v:'พวกนี้เป็นการตัดสินใจเชิงพาณิชย์ ไม่ใช่ตัวเลขที่ออกมาจากการออกแบบ · '
-       + 'ทำซ้ำไว้สองที่เมื่อไรมันจะเพี้ยนจากกันวันที่แก้ที่เดียว', s:S.note }],
-    [],
-    [{ v:'ข้อสังเกตจากตัวเลข', s:S.head }, { v:'', s:S.head }, { v:'', s:S.head },
-     { v:'', s:S.head }, { v:'', s:S.head }],
-    [{ v:'งาน ERV เดี่ยว ๆ ทุนเล็กแต่คืนทุนยาว เพราะเก็บกลับได้แค่ส่วนหนึ่งของภาระอากาศนอก '
-       + 'ไม่ได้ตัดเครื่องทำความเย็นทิ้งทั้งตัว · ตามปกติจึงเป็นบรรทัดหนึ่งในแพ็กเกจ '
-       + 'ไม่ใช่ดีล EaaS ของตัวเอง — ดูค่า Breakeven และ NPV ในชีต Finance ก่อนตัดสิน', s:S.note }]
-  ]};
-
-  /* ═══ month by month · Finance answers "which year", this answers
-     "which month", and the two are not substitutes ═══ */
+  /* ═══ รายเดือน ═══ */
   var sumDays = TPL_DAYS.reduce(function(a, b){ return a + b; }, 0);
   var mRows = [
-    [{ v:'รายเดือน', s:S.title }],
-    [{ v:'วันทำงานกระจายตามจำนวนวันในปฏิทิน แล้วปรับให้รวมเท่ากับวันต่อปีใน Info · แก้ได้', s:S.note }],
-    [{ v:'ตัวคูณตามฤดูตั้งไว้ 1.00 ทุกเดือน เพราะเครื่องมือไม่มีแบบจำลองฤดูกาล · '
-       + 'มีข้อมูลอากาศรายเดือนจริงเมื่อไรให้ใส่เอง', s:S.note }],
-    H(['เดือน','วันทำงาน','ตัวคูณตามฤดู','ชั่วโมง','ไฟที่ประหยัด kWh',
-       'ค่าไฟที่ประหยัด','ค่าไฟพัดลมที่เพิ่ม','ประหยัดสุทธิ','สะสม'])
+    [{ v:'ปีแรก แยกรายเดือน', s:S.title }],
+    [{ v:'วันทำงานกระจายตามปฏิทิน แล้วปรับให้รวมเท่ากับวันต่อปี · แก้ได้ทั้งคอลัมน์', s:S.note }],
+    [{ v:'ตัวคูณตามฤดูตั้งไว้ 1.00 เพราะเครื่องมือไม่มีแบบจำลองฤดูกาล · '
+       + 'มีข้อมูลอากาศรายเดือนจริงเมื่อไรใส่เอง', s:S.note }],
+    [{ v:'เดือน', s:S.head }, { v:'วันทำงาน', s:S.head }, { v:'ตัวคูณตามฤดู', s:S.head },
+     { v:'ชั่วโมง', s:S.head }, { v:'ค่าไฟที่ประหยัด', s:S.head },
+     { v:'ค่าดูแลรักษา', s:S.head }, { v:'เหลือสุทธิ', s:S.head }, { v:'สะสม', s:S.head }]
   ];
-  /* December takes the remainder, or the twelve months do not add back to
-     the year and the check row starts life non-zero */
   var spread = [], acc = 0;
   TPL_MONTHS.forEach(function(x, i){
     if(i < 11){
@@ -4271,32 +4146,64 @@ function tplBuild(){
   });
   TPL_MONTHS.forEach(function(name, i){
     var rw = 5 + i;
-    mRows.push([
-      name,
-      { v:spread[i], s:S.input },
-      { v:1, s:S.input },
-      { f:'B' + rw + '*' + INFO + 'B' + R.hpd, s:S.n1 },
-      { f:'(' + INFO + 'B' + R.kcB + '-' + INFO + 'B' + R.kcE + ')/' + INFO + 'B' + R.hours
-          + '*D' + rw + '*C' + rw, s:S.n0 },
-      { f:'E' + rw + '*' + INFO + 'B' + R.rate, s:S.n0 },
-      { f:'(' + INFO + 'B' + R.we + '-' + INFO + 'B' + R.wb + ')/1000*D' + rw
-          + '*' + INFO + 'B' + R.rate, s:S.n0 },
-      { f:'F' + rw + '-G' + rw, s:S.n0 },
-      { f:(i === 0 ? 'H5' : 'I' + (rw-1) + '+H' + rw), s:S.n0 }
-    ]);
+    mRows.push([ name,
+      { v:spread[i], s:S.input }, { v:1, s:S.input },
+      { f:'B' + rw + '*' + IN + 'B' + R.hpd, s:S.n1 },
+      { f:IN + 'B' + R.savB + '/' + IN + 'B' + R.hours + '*D' + rw + '*C' + rw, s:S.acc },
+      { f:'-' + IN + 'B' + R.svcYr + '/12', s:S.acc },
+      { f:'E' + rw + '+F' + rw, s:S.acc },
+      { f:(i === 0 ? 'G5' : 'H' + (rw-1) + '+G' + rw), s:S.acc } ]);
   });
-  mRows.push([{ v:'รวมทั้งปี', s:S.sub },
-    { f:'SUM(B5:B16)', s:S.tot }, '', { f:'SUM(D5:D16)', s:S.tot },
-    { f:'SUM(E5:E16)', s:S.tot }, { f:'SUM(F5:F16)', s:S.tot },
-    { f:'SUM(G5:G16)', s:S.tot }, { f:'SUM(H5:H16)', s:S.tot }, '']);
+  mRows.push([{ v:'รวมทั้งปี', s:S.sub }, { f:'SUM(B5:B16)', s:S.tot }, '',
+    { f:'SUM(D5:D16)', s:S.tot }, { f:'SUM(E5:E16)', s:S.tot },
+    { f:'SUM(F5:F16)', s:S.tot }, { f:'SUM(G5:G16)', s:S.tot }, '']);
   mRows.push([]);
-  mRows.push([{ v:'ตรวจกับยอดรายปี', s:S.sub }, '', '', '', '', '',
-    { v:'ต่างจากประหยัดสุทธิใน Info', s:S.note },
-    { f:'H17-' + INFO + 'B' + R.savB, s:S.check }, '']);
+  /* รายปี row 5 is year 0 - the investment · year 1 is row 6, and that is
+     the number these twelve months have to add back to */
+  mRows.push([{ v:'ตรวจกับปีที่ 1 ในชีตรายปี', s:S.sub }, '', '', '', '',
+    { v:'ต่างกัน', s:S.note }, { f:"G17-'รายปี'!D6", s:S.check }, '']);
   mRows.push([{ v:'ถ้าไม่ได้แก้วันทำงานหรือตัวคูณ ช่องนี้ต้องเป็นศูนย์', s:S.note }]);
-  var sMon = { name:'รายเดือน', w:[16, 12, 14, 12, 16, 16, 18, 16, 16], rows:mRows };
+  var sMon = { name:'รายเดือน', w:[16, 12, 14, 12, 18, 16, 18, 18], rows:mRows, freeze:4 };
 
-  return [sInfo, sFin, sAudit, sMon, sOut];
+  /* ═══ ตรวจการคำนวณ ═══ */
+  var aRows = [
+    [{ v:'ตรวจการคำนวณ', s:S.title }],
+    [{ v:'ช่อง "คำนวณโดย Excel" เป็นสูตร · ถ้าช่อง "ต่าง" ไม่เป็นศูนย์ แปลว่ามีฝ่ายหนึ่งผิด '
+       + 'และเห็นว่าผิดขั้นไหน', s:S.note }],
+    [{ v:'ขั้น', s:S.head }, { v:'สูตร', s:S.head }, { v:'คำนวณโดย Excel', s:S.head },
+     { v:'ค่าจากเครื่องมือ', s:S.head }, { v:'ต่าง', s:S.head }, { v:'ที่มา', s:S.head }]
+  ];
+  var ar = 4;
+  function astep(label, eq, f, tool, src, st){
+    aRows.push([label, { v:eq, s:S.eq }, { f:f, s:(st || S.n2) },
+      { v:tool, s:(st || S.n2) }, { f:'C' + ar + '-D' + ar, s:S.check },
+      { v:src, s:S.note }]);
+    ar++;
+  }
+  astep('ลม L/s', 'Q / 3.6', IN + 'B' + R.q + '/3.6', m.Ql, 'CMH เป็น L/s');
+  astep('ภาระที่สภาวะออกแบบ W', '1.2 × Ls × (h นอก − h ห้อง)',
+    '1.2*C4*(' + IN + 'E' + R.airPk + '-' + IN + 'E' + R.airRm + ')', m.qBasePk,
+    'ASHRAE ch.18 eq (7)');
+  astep('ลดขนาดแอร์ได้ RT', 'ภาระออกแบบ × ηt / 3517', IN + 'B' + R.rtSaved, m.rtSaved,
+    '1 RT = 3517 W');
+  astep('ภาระที่สภาวะเฉลี่ย W', '1.2 × Ls × (h เฉลี่ย − h ห้อง)', IN + 'B' + R.qav, m.qBaseAv,
+    'ตัวนี้คือตัวที่คิดค่าไฟ');
+  astep('ชั่วโมงใช้งานต่อปี', 'ชม./วัน × วัน/ปี', IN + 'B' + R.hours, m.hours, '', S.n0);
+  astep('ไฟทำความเย็น ไม่มี ERV kWh', 'ภาระ / 1000 / COP × ชม.', IN + 'B' + R.kcB,
+    m.kwhCoolBase, '', S.n0);
+  astep('ไฟทำความเย็น มี ERV kWh', 'ภาระ × (1−ηt) / 1000 / COP × ชม.', IN + 'B' + R.kcE,
+    m.kwhCoolErv, '', S.n0);
+  astep('ไฟพัดลมเดิม kWh', 'W / 1000 × ชม.', IN + 'B' + R.kfB, m.kwhFanBase, '', S.n0);
+  astep('ไฟพัดลม ERV kWh', 'W / 1000 × ชม.', IN + 'B' + R.kfE, m.kwhFanErv, '', S.n0);
+  astep('พลังงานที่ประหยัด kWh', 'ทำความเย็นที่ประหยัด − พัดลมที่เพิ่ม', IN + 'B' + R.savK,
+    m.kwhCoolSaved - (m.kwhFanErv - m.kwhFanBase), '', S.n0);
+  astep('ค่าไฟที่ประหยัด บาท/ปี', 'พลังงานที่ประหยัด × ค่าไฟ', IN + 'B' + R.savB, m.net,
+    'ตรงกับตัวเลขบนหน้าเว็บ', S.n0);
+  astep('เงินลงทุนส่วนต่าง บาท', 'ERV − พัดลม − (RT × ราคาแอร์/RT)', IN + 'B' + R.inv,
+    pb.extra, '', S.n0);
+  var sAud = { name:'ตรวจการคำนวณ', w:[30, 40, 18, 18, 12, 40], rows:aRows, freeze:3 };
+
+  return [sYr, sIn, sMon, sAud];
 }
 
 function tplExport(){
