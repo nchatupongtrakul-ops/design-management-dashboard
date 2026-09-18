@@ -726,7 +726,26 @@ table.dtable td.st{white-space:nowrap}
         <input type="number" id="cap_erv" value="0" step="10000" min="0"></div>
       <div class="field"><label class="flabel">ราคาระบบพัดลมธรรมดาพร้อมติดตั้ง · บาท</label>
         <input type="number" id="cap_fan" value="0" step="5000" min="0"></div>
+      <div class="grid2">
+        <div class="field"><label class="flabel">ค่าไฟขึ้นปีละ · %</label>
+          <input type="number" id="esc" value="0" step="0.5" min="0" max="20"></div>
+        <div class="field"><label class="flabel">อัตราคิดลด · %</label>
+          <input type="number" id="disc" value="0" step="0.5" min="0" max="20"></div>
+      </div>
       <div class="hint" id="capHint"></div>
+      <div class="hint" id="pbDisc" hidden></div>
+      <div class="srcline"><b>ค่าไฟขึ้นปีละ % กับ อัตราคิดลด % ตั้งต้นเป็นศูนย์ทั้งคู่</b>
+      ปล่อยไว้แบบนั้นจะได้ <b>จุดคืนทุนแบบง่าย</b> คือส่วนต่างลงทุนหารด้วยประหยัดต่อปี ·
+      <b>ตัวเลขนี้ไม่ได้ผิดเพราะไม่คิดเงินเฟ้อ</b> — ทั้งเศษและส่วนเป็นเงินวันนี้ทั้งคู่
+      ถ้าค่าไฟขึ้นเท่ากับที่เงินเสียค่า เงินเฟ้อจะหักล้างกันหายไปจากอัตราส่วนเอง<br>
+      ที่ทำให้เพี้ยนคือสองอย่างที่<b>ดึงคนละทาง</b> — ค่าไฟที่ขึ้นเร็วกว่าเงินเฟ้อทำให้
+      <b>คืนทุนเร็วขึ้น</b> ส่วนต้นทุนเงินทำให้เงินปีหน้ามีค่าน้อยกว่าปีนี้ จึง<b>ช้าลง</b> ·
+      <b>สิ่งที่มีผลเกือบทั้งหมดคือส่วนต่างของสองค่านี้ ไม่ใช่ตัวเลขของแต่ละตัว</b>
+      ใส่เท่ากันเมื่อไรสองอย่างหักล้างกันหมด · <b>แต่จะไม่กลับไปเท่าจุดคืนทุนแบบง่ายพอดี</b>
+      มันจะยาวกว่า (1 + อัตราคิดลด) เท่า เพราะ<b>จ่ายเงินวันนี้ แต่เงินก้อนแรกที่ประหยัดได้
+      มาถึงปีหน้า</b> ระยะห่างหนึ่งปีนี้แบบง่ายไม่ได้นับ แต่การคิดลดเลี่ยงไม่ได้<br>
+      <b>ทั้งสองค่าเป็นการเดาอนาคตของผู้ใช้เอง ไม่ใช่ค่าจากมาตรฐานไหน</b>
+      ใส่แล้วต้องบอกลูกค้าด้วยว่าใส่เท่าไร</div>
       <div class="srcline"><b>ใส่ราคาที่รวมงานท่อและงานติดตั้งของทั้งสองทางเลือก</b>
       จุดคืนทุนคิดจากส่วนต่างของสองตัวนี้ ไม่ใช่ราคา ERV ทั้งก้อน
       เพราะยังไงลูกค้าก็ต้องจ่ายค่าระบบเติมอากาศอยู่แล้ว ·
@@ -1237,13 +1256,53 @@ function model(etOverride){
 
 /* Extra investment is the ERV above the plain fan, less whatever a smaller
    chiller saves - that last part only counts when the AC has not been
-   ordered yet, which is why its price per RT defaults to zero. */
+   ordered yet, which is why its price per RT defaults to zero.
+
+   ── why simple payback is not automatically wrong ──
+   Both halves are in today's baht: today's price over today's tariff. If
+   electricity rose at exactly the rate money loses value, inflation would
+   cancel out of the ratio and the simple figure WOULD be the real one.
+
+   Two things break that, and they pull opposite ways: a tariff that climbs
+   faster than money decays makes the saving grow, and the cost of capital
+   makes next year's saving worth less than this year's. Both are the
+   user's own guesses about the future, so both default to zero and the
+   headline number is unchanged until somebody decides otherwise.
+
+   ALMOST ONLY THE GAP MATTERS. With escalation g and discount d, the
+   year-t saving is worth S(1+g)^(t-1)/(1+d)^t, so everything turns on
+   k = (1+g)/(1+d). When g = d every year is worth the same S/(1+d) - the
+   two cancel - but NOT back to the simple figure: it comes out (1+d) times
+   longer. I claimed exact equality first and the test said 14.2 against
+   13.8, which is 13.8 x 1.03 to the decimal.
+
+   That leftover is real and is not inflation. It is the one-year lag: the
+   money goes out today and the first saving arrives a year later. Simple
+   payback ignores it; discounting cannot.
+
+     k = 1 :  n = C(1+d)/S
+     else  :  n = ln(1 − C(1+d)(1−k)/S) / ln(k)
+
+   and when k < 1 the series converges, so an extra cost above
+   S/((1+d)(1−k)) never pays back however long you wait. */
 function payback(acSaving, net){
   var ce = nv('cap_erv'), cf = nv('cap_fan');
   var known = ce > 0;
   var extra = ce - cf - acSaving;
   var years = (net > 0 && extra > 0) ? extra/net : null;
+  var g = nv('esc')/100, d = nv('disc')/100;
+  var dy = years, capped = false;
+  if(years !== null && (g !== 0 || d !== 0)){
+    var k = (1 + g)/(1 + d);
+    if(Math.abs(k - 1) < 1e-9) dy = extra*(1 + d)/net;
+    else {
+      var arg = 1 - extra*(1 + d)*(1 - k)/net;
+      if(arg <= 0){ dy = null; capped = true; }      /* converges below the cost */
+      else dy = Math.log(arg)/Math.log(k);
+    }
+  }
   return { known:known, ce:ce, cf:cf, acSaving:acSaving, extra:extra, years:years,
+           g:g, d:d, disc:dy, discOn:(g !== 0 || d !== 0), capped:capped,
            immediate: known && extra <= 0, never: known && net <= 0 && extra > 0 };
 }
 
@@ -1655,6 +1714,29 @@ function render(){
     k4.className = 'kpi-value ' + (pb.years <= 5 ? 'ok' : pb.years <= 10 ? 'warn' : 'bad');
     $('k4n').textContent = 'ส่วนต่างลงทุนสุทธิ ' + baht(pb.extra) + ' บาท · ลดแอร์ได้ '
       + fmt(m.rtSaved,2) + ' RT';
+  }
+  /* the discounted figure never replaces the headline · it sits beside it,
+     because it rests on two guesses about the future and the simple one
+     does not */
+  var dEl = $('pbDisc');
+  if(!pb.known || !pb.discOn || pb.years === null){
+    dEl.hidden = true;
+  } else {
+    dEl.hidden = false;
+    var same = Math.abs(pb.g - pb.d) < 1e-9;
+    dEl.innerHTML = pb.capped
+      ? '<b>ไม่คืนทุน</b>เมื่อคิดลด · ค่าไฟที่ขึ้นปีละ ' + fmt(pb.g*100,1)
+        + ' % ตามไม่ทันอัตราคิดลด ' + fmt(pb.d*100,1) + ' % · '
+        + 'ผลรวมมูลค่าปัจจุบันของทุกปีรวมกันยังไม่ถึงส่วนต่างลงทุน'
+      : 'คิดลดแล้ว <b>' + fmt(pb.disc,1) + ' ปี</b> '
+        + '<span class="n">(ค่าไฟขึ้นปีละ ' + fmt(pb.g*100,1)
+        + ' % · คิดลด ' + fmt(pb.d*100,1) + ' %)</span>'
+        + (same ? ' · <b>สองค่าหักล้างกันหมดแล้ว</b> ที่ยังยาวกว่าอีก '
+                  + fmt(pb.disc - pb.years,1) + ' ปี ไม่ใช่เงินเฟ้อ '
+                  + 'แต่เป็นเพราะ<b>จ่ายเงินวันนี้ แต่เริ่มประหยัดปีหน้า</b>'
+                : (pb.disc > pb.years ? ' · ช้ากว่าแบบไม่คิดลด '
+                                      : ' · เร็วกว่าแบบไม่คิดลด ')
+                  + fmt(Math.abs(pb.disc - pb.years),1) + ' ปี');
   }
   $('capHint').textContent = pb.known
     ? 'ส่วนต่าง ' + baht(pb.ce - pb.cf) + ' บาท' + (pb.acSaving > 0
@@ -2821,7 +2903,7 @@ function csKeepAudit(list, skip, label, barId){
 var DB = null;   /* the whole registry, held open while this page is up */
 var FIELDS = ['pjName','pjArea','pjBy','oa','et','ervpick','tpk','rpk','tav','rav','tr','rr',
               'hpd','dpy','rate','cop','baht_rt','dp_b','eta_b','nf_b','w_b',
-              'dp_e','eta_e','nf_e','w_e','cap_erv','cap_fan'];
+              'dp_e','eta_e','nf_e','w_e','cap_erv','cap_fan','esc','disc'];
 var FIELD_TH = {
   pjName:'ชื่อโครงการ', pjArea:'พื้นที่ปรับอากาศ ตร.ม.', pjBy:'ผู้จัดทำ',
   oa:'ลมภายนอก CMH', et:'ประสิทธิภาพแกน %', ervpick:'รุ่น ERV ที่เลือก',
@@ -2829,6 +2911,7 @@ var FIELD_TH = {
   tav:'อุณหภูมิเฉลี่ย C', rav:'ความชื้นเฉลี่ย %',
   tr:'อุณหภูมิห้อง C', rr:'ความชื้นห้อง %',
   hpd:'ชั่วโมงต่อวัน', dpy:'วันต่อปี', rate:'ค่าไฟ บาทต่อหน่วย', cop:'COP',
+  esc:'ค่าไฟขึ้นปีละ %', disc:'อัตราคิดลด %',
   baht_rt:'ราคาแอร์ต่อ RT', dp_b:'ความดันพัดลมเทียบ Pa', eta_b:'ประสิทธิภาพพัดลมเทียบ %',
   nf_b:'จำนวนพัดลมเทียบ', w_b:'กำลังไฟพัดลมเทียบ W',
   dp_e:'ความดัน ERV Pa', eta_e:'ประสิทธิภาพพัดลม ERV %',
@@ -3015,6 +3098,8 @@ function renderRoomPanel(){
 }
 function outOf(m){
   return { net:m.net, years:(m.pay.years === null ? null : m.pay.years),
+           yearsDisc:(m.pay.discOn && m.pay.disc != null ? m.pay.disc : null),
+           esc:m.pay.g*100, disc:m.pay.d*100, discCapped:!!(m.pay.discOn && m.pay.capped),
            immediate:!!m.pay.immediate, never:!!m.pay.never,
            capexKnown:!!m.pay.known, rtSaved:m.rtSaved, q:m.Q,
            bahtBase:m.bahtBase, bahtErv:m.bahtErv,
@@ -3416,9 +3501,11 @@ $('basebar').addEventListener('click', function(e){
   else             { $('nf_b').value = 2; $('dp_b').value = 250; }
   render();
 });
-['tpk','rpk','tav','rav','tr','rr','et','hpd','dpy','rate','cop','baht_rt',
- 'dp_b','eta_b','nf_b','w_b','dp_e','eta_e','nf_e','w_e','oa',
- 'cap_erv','cap_fan','pjName','pjArea','pjBy'].forEach(function(id){
+/* This was a second hand-written list of the same ids as FIELDS, and adding
+   an input to one without the other gives a box that saves its value and
+   never redraws anything - which is exactly what happened first time round.
+   FIELDS is the list; ervpick is the one entry with a handler of its own. */
+FIELDS.filter(function(id){ return id !== 'ervpick'; }).forEach(function(id){
   $(id).addEventListener('input', render);
 });
 $('oanum').addEventListener('input', function(){
