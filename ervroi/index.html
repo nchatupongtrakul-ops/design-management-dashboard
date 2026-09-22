@@ -3840,36 +3840,51 @@ csFileInit();
 
 /* style ids, in the order they are written into styles.xml below */
 var S = { plain:0, title:1, head:2, label:3, input:4, n2:5, n0:6, note:7,
-          eq:8, w5:9, check:10, sub:11, tot:12, n1:13, pct:14, acc:15 };
+          eq:8, w5:9, check:10, sub:11, tot:12, n1:13, pct:14, acc:15,
+          banner:16, bannerSub:17, kpiNum:18, kpiLab:19, h2:20, kpiYr:21,
+          kpiInt:22, tnote:23, in4:24 };
 
 function tplStyles(){
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    + '<numFmts count="2">'
+    + '<numFmts count="3">'
       + '<numFmt numFmtId="170" formatCode="0.00000"/>'
+      + '<numFmt numFmtId="172" formatCode="0.0000"/>'
       + '<numFmt numFmtId="171" formatCode="_(* #,##0_);[Red]_(* (#,##0);_(* &quot;-&quot;_);_(@_)"/>'
     + '</numFmts>'
-    + '<fonts count="6">'
+    + '<fonts count="11">'
       + '<font><sz val="11"/><name val="Tahoma"/></font>'
       + '<font><b/><sz val="15"/><name val="Tahoma"/></font>'
       + '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Tahoma"/></font>'
       + '<font><b/><sz val="11"/><name val="Tahoma"/></font>'
       + '<font><sz val="9"/><color rgb="FF6B7280"/><name val="Tahoma"/></font>'
       + '<font><sz val="10"/><color rgb="FF2E5AAC"/><name val="Consolas"/></font>'
+      + '<font><b/><sz val="18"/><color rgb="FFFFFFFF"/><name val="Tahoma"/></font>'
+      + '<font><sz val="10"/><color rgb="FFC8D6E2"/><name val="Tahoma"/></font>'
+      + '<font><b/><sz val="20"/><color rgb="FF31506B"/><name val="Tahoma"/></font>'
+      + '<font><sz val="9"/><color rgb="FF6B7280"/><name val="Tahoma"/></font>'
+      + '<font><b/><sz val="12"/><color rgb="FF31506B"/><name val="Tahoma"/></font>'
     + '</fonts>'
-    + '<fills count="5">'
+    + '<fills count="6">'
       + '<fill><patternFill patternType="none"/></fill>'
       + '<fill><patternFill patternType="gray125"/></fill>'
       + '<fill><patternFill patternType="solid"><fgColor rgb="FF31506B"/></patternFill></fill>'
       + '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF3D0"/></patternFill></fill>'
       + '<fill><patternFill patternType="solid"><fgColor rgb="FFEAF3EA"/></patternFill></fill>'
+      + '<fill><patternFill patternType="solid"><fgColor rgb="FFF4F7FA"/></patternFill></fill>'
     + '</fills>'
-    + '<borders count="2"><border/>'
+    + '<borders count="4"><border/>'
       + '<border><left/><right/><top/>'
         + '<bottom style="thin"><color rgb="FFD8DCE0"/></bottom><diagonal/></border>'
+      + '<border><left style="thin"><color rgb="FFC9D3DC"/></left>'
+        + '<right style="thin"><color rgb="FFC9D3DC"/></right>'
+        + '<top style="thin"><color rgb="FFC9D3DC"/></top><bottom/><diagonal/></border>'
+      + '<border><left style="thin"><color rgb="FFC9D3DC"/></left>'
+        + '<right style="thin"><color rgb="FFC9D3DC"/></right><top/>'
+        + '<bottom style="thin"><color rgb="FFC9D3DC"/></bottom><diagonal/></border>'
     + '</borders>'
     + '<cellStyleXfs count="1"><xf/></cellStyleXfs>'
-    + '<cellXfs count="16">'
+    + '<cellXfs count="25">'
       + '<xf xfId="0"/>'                                                        /* 0 plain */
       + '<xf xfId="0" fontId="1" applyFont="1"/>'                               /* 1 title */
       + '<xf xfId="0" fontId="2" fillId="2" applyFont="1" applyFill="1"'
@@ -3891,6 +3906,27 @@ function tplStyles(){
       + '<xf xfId="0" borderId="1" numFmtId="2" applyBorder="1" applyNumberFormat="1"/>'  /* 13 */
       + '<xf xfId="0" borderId="1" numFmtId="10" applyBorder="1" applyNumberFormat="1"/>' /* 14 pct */
       + '<xf xfId="0" borderId="1" numFmtId="171" applyBorder="1" applyNumberFormat="1"/>' /* 15 acc */
+      + '<xf xfId="0" fontId="6" fillId="2" applyFont="1" applyFill="1" applyAlignment="1">'
+        + '<alignment horizontal="left" vertical="center" indent="1"/></xf>'
+      + '<xf xfId="0" fontId="7" fillId="2" applyFont="1" applyFill="1" applyAlignment="1">'
+        + '<alignment horizontal="left" vertical="center" indent="1"/></xf>'
+      + '<xf xfId="0" fontId="8" fillId="5" borderId="2" numFmtId="171" applyFont="1"'
+        + ' applyFill="1" applyBorder="1" applyNumberFormat="1" applyAlignment="1">'
+        + '<alignment horizontal="center" vertical="center"/></xf>'
+      + '<xf xfId="0" fontId="9" fillId="5" borderId="3" applyFont="1" applyFill="1"'
+        + ' applyBorder="1" applyAlignment="1">'
+        + '<alignment horizontal="center" vertical="center"/></xf>'
+      + '<xf xfId="0" fontId="10" applyFont="1"/>'
+      + '<xf xfId="0" fontId="8" fillId="5" borderId="2" numFmtId="2" applyFont="1"'
+        + ' applyFill="1" applyBorder="1" applyNumberFormat="1" applyAlignment="1">'
+        + '<alignment horizontal="center" vertical="center"/></xf>'
+      + '<xf xfId="0" fontId="8" fillId="5" borderId="2" numFmtId="3" applyFont="1"'
+        + ' applyFill="1" applyBorder="1" applyNumberFormat="1" applyAlignment="1">'
+        + '<alignment horizontal="center" vertical="center"/></xf>'
+      + '<xf xfId="0" fontId="9" borderId="1" applyFont="1" applyBorder="1"'
+        + ' applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>'
+      + '<xf xfId="0" fontId="3" fillId="3" borderId="1" numFmtId="172"'
+        + ' applyFont="1" applyFill="1" applyBorder="1" applyNumberFormat="1"/>'
     + '</cellXfs>'
     + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
     + '</styleSheet>';
@@ -3932,7 +3968,7 @@ function chartXml(ch, sheetName){
       + '</c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/>'
     + '<c:plotArea><c:layout/>' + body
     + '<c:catAx><c:axId val="111111111"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
-      + '<c:delete val="0"/><c:axPos val="b"/>'
+      + '<c:delete val="0"/><c:axPos val="b"/><c:tickLblPos val="low"/>'
       + '<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p>'
         + '<a:r><a:rPr lang="th-TH" sz="900"/><a:t>' + xesc(ch.catTitle || 'ปีที่') + '</a:t></a:r>'
       + '</a:p></c:rich></c:tx><c:overlay val="0"/></c:title>'
@@ -3941,7 +3977,9 @@ function chartXml(ch, sheetName){
       + '<c:delete val="0"/><c:axPos val="l"/>'
       + '<c:numFmt formatCode="#,##0" sourceLinked="0"/>'
       + '<c:majorGridlines/><c:crossAx val="111111111"/></c:valAx>'
-    + '</c:plotArea><c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>'
+    + '</c:plotArea>'
+    + (ch.legend === false ? '<c:legend><c:legendPos val="b"/><c:delete val="1"/></c:legend>'
+        : '<c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>')
     + '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart></c:chartSpace>';
 }
 function drawingXml(charts){
@@ -3988,15 +4026,32 @@ function tplWrite(sheets){
         return '<c r="' + ref + '"' + st + ' t="inlineStr"><is><t xml:space="preserve">'
           + xesc(o.v) + '</t></is></c>';
       }).join('');
-      return '<row r="' + (ri + 1) + '">' + cells + '</row>';
+      var ht = (sh.heights && sh.heights[ri + 1])
+        ? ' ht="' + sh.heights[ri + 1] + '" customHeight="1"' : '';
+      return '<row r="' + (ri + 1) + '"' + ht + '>' + cells + '</row>';
     }).join('');
-    var view = !sh.freeze ? '' : '<sheetViews><sheetView workbookViewId="0">'
-      + '<pane ySplit="' + sh.freeze + '" topLeftCell="A' + (sh.freeze + 1)
-      + '" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+    /* gridlines are the loudest "this is a spreadsheet" signal there is ·
+       off on anything a client sees */
+    var gl = (sh.grid === false) ? ' showGridLines="0"' : '';
+    var view = (!sh.freeze && !gl) ? '' : '<sheetViews><sheetView' + gl + ' workbookViewId="0">'
+      + (sh.freeze ? '<pane ySplit="' + sh.freeze + '" topLeftCell="A' + (sh.freeze + 1)
+          + '" activePane="bottomLeft" state="frozen"/>' : '')
+      + '</sheetView></sheetViews>';
+    var merges = !(sh.merges && sh.merges.length) ? '' : '<mergeCells count="'
+      + sh.merges.length + '">' + sh.merges.map(function(rr){
+          return '<mergeCell ref="' + rr + '"/>'; }).join('') + '</mergeCells>';
+    /* a sheet somebody will hand over gets a page setup, so Ctrl+P is not
+       a lottery · order inside <worksheet> is fixed: sheetPr first, and
+       pageMargins/pageSetup must come before <drawing> */
+    var pr = !sh.page ? '' : '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>';
+    var pg = !sh.page ? '' : '<pageMargins left="0.4" right="0.4" top="0.5"'
+      + ' bottom="0.5" header="0.3" footer="0.3"/>'
+      + '<pageSetup paperSize="9" orientation="' + (sh.page.land ? 'landscape' : 'portrait')
+      + '" fitToWidth="1" fitToHeight="' + (sh.page.tall ? 0 : 1) + '"/>';
     sheetXml.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
       + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-      + view + cols + '<sheetData>' + rows + '</sheetData>'
+      + pr + view + cols + '<sheetData>' + rows + '</sheetData>' + merges + pg
       + ((sh.charts && sh.charts.length) ? '<drawing r:id="rIdDr"/>' : '')
       + '</worksheet>');
   });
@@ -4063,7 +4118,8 @@ function tplWrite(sheets){
     var rels = '';
     s2.charts.forEach(function(ch, j){
       cn++;
-      parts.push({ name:'xl/charts/chart' + cn + '.xml', text:chartXml(ch, s2.name) });
+      parts.push({ name:'xl/charts/chart' + cn + '.xml',
+        text:chartXml(ch, ch.src || s2.name) });
       rels += '<Relationship Id="rId' + (j+1) + '" Type="http://schemas.openxmlformats.org/'
         + 'officeDocument/2006/relationships/chart" Target="../charts/chart' + cn + '.xml"/>';
     });
@@ -4096,22 +4152,36 @@ function tplBuild(){
   var IN = "'ค่าที่กรอก'!";
   function band(t, n){
     var a = [{ v:t, s:S.head }];
-    for(var i = 1; i < (n || 4); i++) a.push({ v:'', s:S.head });
+    for(var i = 1; i < (n || 6); i++) a.push({ v:'', s:S.head });
     return a;
   }
 
   /* ═══ ค่าที่กรอก · every other sheet points here ═══ */
-  var iRows = [], R = {};
+  var iRows = [], R = {}, iMerge = [], iHt = {};
   function put(key, cells){ iRows.push(cells); if(key) R[key] = iRows.length; return iRows.length; }
   function inp(key, label, val, unit, note){
-    put(key, [label, { v:val, s:S.input }, unit, { v:note || '', s:S.note }]); }
+    put(key, [label, { v:val, s:S.input }, unit, '', '', { v:note || '', s:S.tnote }]); }
   function calc(key, label, f, unit, note, st){
-    put(key, [label, { f:f, s:(st || S.acc) }, unit, { v:note || '', s:S.note }]); }
+    put(key, [label, { f:f, s:(st || S.acc) }, unit, '', '',
+      { v:note || '', s:S.tnote }]); }
+  /* a line of prose is not a cell · give it the whole width and a height,
+     or wrapText turns it into a tall sliver inside column A */
+  /* a section header is one line across the sheet, not text crammed into
+     column A - which wraps and spills out of the coloured band */
+  function sect(t){
+    var rr = put(null, band(t));
+    iMerge.push('A' + rr + ':F' + rr);
+  }
+  function say(text, ht){
+    var rr = put(null, [{ v:text, s:S.note }]);
+    iMerge.push('A' + rr + ':F' + rr); iHt[rr] = ht || 14;
+  }
 
   put(null, [{ v:'ค่าที่กรอก', s:S.title }]);
-  put(null, [{ v:'ช่องพื้นเหลืองแก้ได้ · ช่องอื่นเป็นสูตรที่คิดต่อจากช่องเหลือง', s:S.note }]);
+  iMerge.push('A1:F1'); iHt[1] = 22;
+  say('ช่องพื้นเหลืองแก้ได้ · ช่องอื่นเป็นสูตรที่คิดต่อจากช่องเหลือง');
   put(null, []);
-  put(null, band('อากาศและการใช้งาน'));
+  sect('อากาศและการใช้งาน');
   inp('q',    'ปริมาณลมภายนอก Q', m.Q, 'CMH', 'มาจากเครื่องมือ CO₂ ของแต่ละห้องรวมกัน');
   inp('et',   'ประสิทธิภาพแกน ηt', m.et*100, '%', 'ที่อัตราลมใช้งานจริง ไม่ใช่เลขสูงสุดในโบรชัวร์');
   inp('hpd',  'ชั่วโมงต่อวัน', nv('hpd'), 'ชม.', '');
@@ -4126,9 +4196,9 @@ function tplBuild(){
   calc('hours', 'ชั่วโมงใช้งานต่อปี', 'B' + R.hpd + '*B' + R.dpy, 'ชม./ปี', '');
   put(null, []);
 
-  put(null, band('สภาวะอากาศ · เป็นค่าจากเครื่องมือ ไม่ใช่สูตร', 5));
-  put(null, [{ v:'สมการ ASHRAE 2021 Fundamentals บทที่ 1 (IAPWS-IF97) · '
-    + 'ตรวจได้โดยเทียบกับแผนภูมิไซโครเมตริก', s:S.note }]);
+  sect('สภาวะอากาศ · เป็นค่าจากเครื่องมือ ไม่ใช่สูตร');
+  say('สมการ ASHRAE 2021 Fundamentals บทที่ 1 (IAPWS-IF97) · '
+    + 'ตรวจได้โดยเทียบกับแผนภูมิไซโครเมตริก');
   put(null, [{ v:'จุด', s:S.sub }, { v:'T °C', s:S.sub }, { v:'RH %', s:S.sub },
              { v:'W kg/kg', s:S.sub }, { v:'h kJ/kg', s:S.sub }]);
   put('airPk', ['ภายนอก · สภาวะออกแบบ', { v:nv('tpk'), s:S.n1 }, { v:nv('rpk'), s:S.n0 },
@@ -4139,7 +4209,7 @@ function tplBuild(){
       { v:Wof(m.Tr, nv('rr')/100), s:S.w5 }, { v:m.hr, s:S.n2 }]);
   put(null, []);
 
-  put(null, band('เงินที่ลูกค้าจ่ายเพิ่ม'));
+  sect('เงินที่ลูกค้าจ่ายเพิ่ม');
   inp('cErv', 'ระบบ ERV พร้อมติดตั้ง', pb.ce, 'บาท', '');
   inp('cFan', 'หัก · ระบบพัดลมธรรมดาที่ไม่ต้องทำแล้ว', pb.cf, 'บาท',
       'ลูกค้าต้องมีระบบเติมอากาศอยู่แล้ว จึงคิดเฉพาะส่วนต่าง');
@@ -4152,15 +4222,15 @@ function tplBuild(){
     'ตัวนี้คือก้อนที่ต้องคืนทุน');
   put(null, []);
 
-  put(null, band('ค่าดูแลรักษาต่อปี'));
-  put(null, [{ v:'⚠ เครื่องมือบนเว็บยังไม่มีช่องพวกนี้ · ตั้งต้นเป็นศูนย์ ให้กรอกเองในแฟ้ม · '
-    + 'ใส่แล้วคืนทุนจะยาวขึ้นกว่าที่หน้าเว็บบอก ซึ่งใกล้ความจริงกว่า', s:S.note }]);
+  sect('ค่าดูแลรักษาต่อปี');
+  say('⚠ เครื่องมือบนเว็บยังไม่มีช่องพวกนี้ · ตั้งต้นเป็นศูนย์ ให้กรอกเองในแฟ้ม · '
+    + 'ใส่แล้วคืนทุนจะยาวขึ้นกว่าที่หน้าเว็บบอก ซึ่งใกล้ความจริงกว่า');
   inp('svcT', 'ค่าแรง + ไส้กรอง ต่อครั้ง', 0, 'บาท/ครั้ง', '');
   inp('svcN', 'จำนวนครั้งต่อปี', 2, 'ครั้ง/ปี', '');
   calc('svcYr', 'รวมต่อปี', 'B' + R.svcT + '*B' + R.svcN, 'บาท/ปี', '');
   put(null, []);
 
-  put(null, band('พลังงาน'));
+  sect('พลังงาน');
   calc('qav', 'ภาระอากาศนอกที่สภาวะเฉลี่ย',
     '1.2*B' + R.q + '/3.6*(E' + R.airAv + '-E' + R.airRm + ')', 'W',
     'สภาวะเฉลี่ยทั้งปีเป็นตัวที่คิดค่าไฟ ไม่ใช่สภาวะออกแบบ');
@@ -4176,14 +4246,17 @@ function tplBuild(){
   calc('savB', 'ค่าไฟที่ประหยัดได้ · ปีแรก', 'B' + R.savK + '*B' + R.rate, 'บาท/ปี', '');
   calc('net1', 'เหลือสุทธิ · ปีแรก', 'B' + R.savB + '-B' + R.svcYr, 'บาท/ปี',
     'หักค่าดูแลรักษาแล้ว · ตัวนี้คือตัวที่คืนทุน');
-  var sIn = { name:'ค่าที่กรอก', w:[36, 16, 13, 54], rows:iRows, freeze:2 };
+  var sIn = { name:'ค่าที่กรอก', w:[36, 16, 13, 14, 14, 44], rows:iRows, freeze:2,
+    grid:false, merges:iMerge, heights:iHt, page:{ tall:true } };
 
   /* ═══ รายปี · the one table this file exists for ═══ */
-  var yRows = [], Y = {};
+  var yRows = [], Y = {}, yMerge = [], yHt = { 2:15 };
   function yput(key, cells){ yRows.push(cells); if(key) Y[key] = yRows.length; return yRows.length; }
   yput(null, [{ v:'ประหยัดและคืนทุน รายปี', s:S.title }]);
+  yMerge.push('A1:F1'); yHt[1] = 22;
   yput(null, [{ v:'ค่าไฟที่ประหยัดโตขึ้นทุกปีตามค่าไฟที่ขึ้น (ตั้งใน ค่าที่กรอก) · '
     + 'ปีที่ 0 คือวันที่จ่ายเงิน', s:S.note }]);
+  yMerge.push('A2:F2');
   yput(null, []);
   yput(null, [{ v:'ปีที่', s:S.head }, { v:'ค่าไฟที่ประหยัด', s:S.head },
               { v:'ค่าดูแลรักษา', s:S.head }, { v:'เหลือสุทธิปีนั้น', s:S.head },
@@ -4210,39 +4283,37 @@ function tplBuild(){
   var last = yRows.length;
   yput(null, []);
   yput(null, band('สรุป', 6));
-  yput('bev', ['คืนทุนโดยประมาณ',
+  /* label across A:B so it is not cut off by the value · value in C */
+  function srow(key, lab, cell, unit, note){
+    var rr = yRows.length + 1;
+    yput(key, [{ v:lab, s:S.label }, { v:'', s:S.label }, cell,
+      { v:unit, s:S.label }, { v:note || '', s:S.tnote }, { v:'', s:S.tnote }]);
+    yMerge.push('A' + rr + ':B' + rr); yMerge.push('E' + rr + ':F' + rr);
+    yHt[rr] = 24;
+  }
+  srow('bev', 'คืนทุนโดยประมาณ',
     { f:'IF(' + IN + 'B' + R.net1 + '>0,' + IN + 'B' + R.inv + '/' + IN + 'B' + R.net1 + ',"")',
-      s:S.n1 }, 'ปี', { v:'ที่ค่าไฟปีแรก ยังไม่คิดค่าไฟที่จะขึ้น', s:S.note }]);
-  yput('bevY', ['ปีที่เงินกลับมาครบ',
+      s:S.n1 }, 'ปี', 'ที่ค่าไฟปีแรก ยังไม่คิดค่าไฟที่จะขึ้น');
+  srow('bevY', 'ปีที่เงินกลับมาครบ',
     { f:'IFERROR(MATCH(TRUE,INDEX($E$' + (first+1) + ':$E$' + last + '>=0,0),0),"ยังไม่คืนใน '
-      + TPL_YEARS + ' ปี")', s:S.n0 }, 'ปีที่',
-    { v:'อ่านจากคอลัมน์สะสม · คิดค่าไฟที่ขึ้นแล้ว', s:S.note }]);
-  yput(null, ['ประหยัดสะสม 5 ปี', { f:'E' + (first+5), s:S.acc }, 'บาท', '']);
-  yput(null, ['ประหยัดสะสม 10 ปี', { f:'E' + (first+10), s:S.acc }, 'บาท', '']);
-  yput(null, ['ประหยัดสะสม ' + TPL_YEARS + ' ปี', { f:'E' + last, s:S.acc }, 'บาท',
-    { v:'สุทธิหลังหักเงินลงทุนแล้ว', s:S.note }]);
-  yput('disc', ['อัตราคิดลด', { v:7, s:S.input }, '%',
-    { v:'ต้นทุนเงินของลูกค้า · ใส่ 0 ถ้าไม่ต้องการคิด', s:S.note }]);
-  yput(null, ['NPV',
-    { f:'NPV(B' + (yRows.length) + '/100,D' + (first+1) + ':D' + last + ')+D' + first, s:S.acc },
-    'บาท', { v:'บวก = คุ้มกว่าเอาเงินไปลงทุนที่อัตรานี้', s:S.note }]);
-  yput(null, ['IRR', { f:'IFERROR(IRR(D' + first + ':D' + last + '),"")', s:S.pct }, '',
-    { v:'ผลตอบแทนที่แท้จริงของเงินก้อนนี้ · ว่าง = ไม่คืนทุนใน ' + TPL_YEARS + ' ปี', s:S.note }]);
-  yput('carb', ['แฟกเตอร์คาร์บอน', { v:0.475, s:S.input }, 'kgCO₂e/kWh',
-    { v:'TGO ประกาศ 30 พ.ย. 2568 มีผล 1 ม.ค. 2569', s:S.note }]);
-  yput(null, ['คาร์บอนที่ลดได้',
-    { f:IN + 'B' + R.savK + '*B' + (yRows.length) + '/1000', s:S.n1 }, 'tCO₂e/ปี', '']);
-  var sYr = { name:'รายปี', w:[10, 18, 16, 18, 18, 22], rows:yRows, freeze:4,
-    charts:[
-      { type:'line', title:'เงินกลับมาครบเมื่อไร · กระแสเงินสดสะสม',
-        name:'$E$4', cat:'$A$' + (first+1) + ':$A$' + last,
-        val:'$E$' + (first+1) + ':$E$' + last, color:'31506B',
-        at:[6, 3, 14, 21] },
-      { type:'bar', title:'แต่ละปีประหยัดเท่าไร · ค่าไฟที่ประหยัดได้',
-        name:'$B$4', cat:'$A$' + (first+1) + ':$A$' + last,
-        val:'$B$' + (first+1) + ':$B$' + last, color:'2E7D32',
-        at:[6, 22, 14, 40] }
-    ] };
+      + TPL_YEARS + ' ปี")', s:S.n0 }, 'ปีที่', 'อ่านจากคอลัมน์สะสม · คิดค่าไฟที่ขึ้นแล้ว');
+  srow('c5', 'ประหยัดสะสม 5 ปี', { f:'E' + (first+5), s:S.acc }, 'บาท', '');
+  srow('c10', 'ประหยัดสะสม 10 ปี', { f:'E' + (first+10), s:S.acc }, 'บาท', '');
+  srow('c20', 'ประหยัดสะสม ' + TPL_YEARS + ' ปี', { f:'E' + last, s:S.acc }, 'บาท',
+    'สุทธิหลังหักเงินลงทุนแล้ว');
+  srow('disc', 'อัตราคิดลด', { v:7, s:S.input }, '%',
+    'ต้นทุนเงินของลูกค้า · ใส่ 0 ถ้าไม่ต้องการคิด');
+  srow('npv', 'NPV',
+    { f:'NPV(C' + Y.disc + '/100,D' + (first+1) + ':D' + last + ')+D' + first, s:S.acc },
+    'บาท', 'บวก = คุ้มกว่าเอาเงินไปลงทุนที่อัตรานี้');
+  srow('irr', 'IRR', { f:'IFERROR(IRR(D' + first + ':D' + last + '),"")', s:S.pct }, '',
+    'ผลตอบแทนที่แท้จริงของเงินก้อนนี้ · ว่าง = ไม่คืนทุนใน ' + TPL_YEARS + ' ปี');
+  srow('carb', 'แฟกเตอร์คาร์บอน', { v:0.475, s:S.in4 }, 'kgCO₂e/kWh',
+    'TGO ประกาศ 30 พ.ย. 2568 มีผล 1 ม.ค. 2569');
+  srow('co2', 'คาร์บอนที่ลดได้',
+    { f:IN + 'B' + R.savK + '*C' + Y.carb + '/1000', s:S.n1 }, 'tCO₂e/ปี', '');
+  var sYr = { name:'รายปี', w:[10, 18, 16, 18, 18, 30], rows:yRows, freeze:4,
+    grid:false, merges:yMerge, heights:yHt, page:{ tall:true } };
 
   /* ═══ รายเดือน ═══ */
   var sumDays = TPL_DAYS.reduce(function(a, b){ return a + b; }, 0);
@@ -4281,7 +4352,13 @@ function tplBuild(){
   mRows.push([{ v:'ตรวจกับปีที่ 1 ในชีตรายปี', s:S.sub }, '', '', '', '',
     { v:'ต่างกัน', s:S.note }, { f:"G17-'รายปี'!D6", s:S.check }, '']);
   mRows.push([{ v:'ถ้าไม่ได้แก้วันทำงานหรือตัวคูณ ช่องนี้ต้องเป็นศูนย์', s:S.note }]);
-  var sMon = { name:'รายเดือน', w:[16, 12, 14, 12, 18, 16, 18, 18], rows:mRows, freeze:4 };
+  /* the three lines of prose span the sheet · left in column A they wrap
+     into a 16-character sliver */
+  var mMerge = ['A1:H1', 'A2:H2', 'A3:H3', 'A' + mRows.length + ':H' + mRows.length];
+  var mHt = { 1:22, 2:14, 3:14 };
+  mHt[mRows.length] = 14;
+  var sMon = { name:'รายเดือน', w:[16, 12, 14, 12, 18, 16, 18, 18], rows:mRows,
+    freeze:4, grid:false, merges:mMerge, heights:mHt, page:{ land:true } };
 
   /* ═══ ตรวจการคำนวณ ═══ */
   var aRows = [
@@ -4319,41 +4396,57 @@ function tplBuild(){
     'ตรงกับตัวเลขบนหน้าเว็บ', S.n0);
   astep('เงินลงทุนส่วนต่าง บาท', 'ERV − พัดลม − (RT × ราคาแอร์/RT)', IN + 'B' + R.inv,
     pb.extra, '', S.n0);
-  var sAud = { name:'ตรวจการคำนวณ', w:[30, 40, 18, 18, 12, 40], rows:aRows, freeze:3 };
+  var sAud = { name:'ตรวจการคำนวณ', w:[30, 40, 18, 18, 12, 40], rows:aRows,
+    freeze:3, grid:false, merges:['A1:F1', 'A2:F2'], heights:{ 1:22, 2:14 },
+    page:{ land:true } };
 
   /* ═══ เงินเฟ้อกับค่าไฟ ═══
      Asked for directly. The short version is that inflation is already out
      of the simple number and Ft is not - and the two get confused because
      both are "things going up". The table underneath is live, so the
      sentences are not asking to be believed. */
-  var xRows = [], X = {};
+  var xRows = [], X = {}, xMerge = [], xHt = {};
   function xput(key, cells){ xRows.push(cells); if(key) X[key] = xRows.length; return xRows.length; }
-  function para(t){ xput(null, [{ v:t, s:S.note }]); }
+  /* prose gets the whole width and a height that fits it · left in column A
+     alone it wraps inside 22 characters and the sheet becomes a column of
+     shredded sentences */
+  function para(t){
+    var rr = xput(null, [{ v:t, s:S.note }]);
+    xMerge.push('A' + rr + ':D' + rr);
+    xHt[rr] = 14 * Math.max(1, Math.ceil(t.length / 78));
+  }
+  function xsect(t){
+    var rr = xput(null, band(t, 4));
+    xMerge.push('A' + rr + ':D' + rr);
+  }
   xput(null, [{ v:'เงินเฟ้อกับค่าไฟ · ส่งผลกับตัวเลขยังไง', s:S.title }]);
+  xMerge.push('A1:D1'); xHt[1] = 22;
   xput(null, []);
-  xput(null, band('สามอย่างนี้คนละตัวกัน', 3));
-  xput(null, [{ v:'เงินเฟ้อทั่วไป', s:S.sub },
-    { v:'ข้าวของแพงขึ้น เงินก้อนเดิมซื้อของได้น้อยลง', s:S.note }]);
-  xput(null, [{ v:'ค่าไฟ (Ft)', s:S.sub },
-    { v:'ราคาต่อหน่วยไฟฟ้า · ของไทยปรับทุก 4 เดือน ขึ้นลงไม่ตรงกับเงินเฟ้อทั่วไป', s:S.note }]);
-  xput(null, [{ v:'ต้นทุนเงิน', s:S.sub },
-    { v:'เงินวันนี้มีค่ามากกว่าเงินปีหน้า เพราะเอาไปทำอย่างอื่นได้', s:S.note }]);
+  xsect('สามอย่างนี้คนละตัวกัน');
+  [['เงินเฟ้อทั่วไป', 'ข้าวของแพงขึ้น เงินก้อนเดิมซื้อของได้น้อยลง'],
+   ['ค่าไฟ (Ft)', 'ราคาต่อหน่วยไฟฟ้า · ของไทยปรับทุก 4 เดือน ขึ้นลงไม่ตรงกับเงินเฟ้อทั่วไป'],
+   ['ต้นทุนเงิน', 'เงินวันนี้มีค่ามากกว่าเงินปีหน้า เพราะเอาไปทำอย่างอื่นได้']
+  ].forEach(function(d){
+    var rr = xput(null, [{ v:d[0], s:S.sub }, { v:d[1], s:S.tnote },
+      { v:'', s:S.tnote }, { v:'', s:S.tnote }]);
+    xMerge.push('B' + rr + ':D' + rr); xHt[rr] = 16;
+  });
   xput(null, []);
 
-  xput(null, band('ข้อ 1 · เงินเฟ้อทั่วไปหายไปจากตัวเลขคืนทุนเอง', 3));
+  xsect('ข้อ 1 · เงินเฟ้อทั่วไปหายไปจากตัวเลขคืนทุนเอง');
   para('จุดคืนทุนแบบง่ายคือ เงินลงทุน ÷ ประหยัดต่อปี · ทั้งเศษและส่วนเป็น "เงินวันนี้" ทั้งคู่ '
     + 'ถ้าค่าไฟขึ้นเท่ากับที่เงินเสียค่า ทั้งสองข้างโตเท่ากันและหักกันหายไปจากอัตราส่วน');
   para('พูดอีกอย่าง — ตัวเลขคืนทุนที่เห็นเป็นค่าที่ปรับเงินเฟ้อแล้วโดยปริยาย '
     + 'ไม่ใช่ตัวเลขที่ "ลืมคิดเงินเฟ้อ"');
   xput(null, []);
 
-  xput(null, band('ข้อ 2 · ที่มีผลจริงคือค่าไฟขึ้นเร็วกว่าเงินเฟ้อแค่ไหน', 3));
+  xsect('ข้อ 2 · ที่มีผลจริงคือค่าไฟขึ้นเร็วกว่าเงินเฟ้อแค่ไหน');
   para('ถ้าค่าไฟขึ้นเร็วกว่าของอย่างอื่น เงินที่ประหยัดได้จะโตขึ้นทุกปีในเชิงกำลังซื้อจริง '
     + 'ตารางในชีต รายปี จึงคูณค่าไฟที่ประหยัดด้วย (1 + Ft)^ปี ให้เห็น');
   para('ผลคือ คืนทุนเร็วขึ้น · ยิ่งใส่ Ft สูง ยิ่งเร็ว · ดูตารางข้างล่าง');
   xput(null, []);
 
-  xput(null, band('ข้อ 3 · ต้นทุนเงินดึงไปทางตรงข้าม', 3));
+  xsect('ข้อ 3 · ต้นทุนเงินดึงไปทางตรงข้าม');
   para('เงินที่จะได้คืนปีที่ 10 ไม่ได้มีค่าเท่าเงินวันนี้ · NPV ในชีต รายปี คิดเรื่องนี้ให้แล้ว '
     + 'ที่อัตราคิดลดที่ตั้งไว้');
   para('NPV เป็นบวก = ลงทุนกับ ERV คุ้มกว่าเอาเงินก้อนนั้นไปหาผลตอบแทนที่อัตรานั้น · '
@@ -4363,7 +4456,7 @@ function tplBuild(){
     + 'ระยะห่างหนึ่งปีนี้ไม่ใช่เงินเฟ้อ และเลี่ยงไม่ได้');
   xput(null, []);
 
-  xput(null, band('ลองดูของจริง · ตารางนี้คำนวณสด', 4));
+  xsect('ลองดูของจริง · ตารางนี้คำนวณสด');
   xput(null, [{ v:'ค่าไฟขึ้นปีละ', s:S.head }, { v:'ประหยัดปีที่ 10', s:S.head },
               { v:'ประหยัดสะสม 20 ปี', s:S.head }, { v:'เทียบกับกรณีไม่ขึ้นเลย', s:S.head }]);
   var base = null;
@@ -4385,14 +4478,119 @@ function tplBuild(){
   para('ตัวเลขทั้งคอลัมน์หักค่าดูแลรักษาและหักเงินลงทุนแล้ว · '
     + 'คอลัมน์สุดท้ายคือส่วนที่ได้เพิ่มมาจากการที่ค่าไฟขึ้น');
   xput(null, []);
-  xput(null, band('สรุปสั้น', 3));
+  xsect('สรุปสั้น');
   para('• เงินเฟ้อทั่วไป — ไม่ต้องคิดเพิ่ม มันหักกันไปเองแล้ว');
   para('• ค่าไฟขึ้นเร็วกว่าเงินเฟ้อ — ทำให้คืนทุนเร็วขึ้น ใส่ในช่อง ค่าไฟขึ้นปีละ');
   para('• ต้นทุนเงิน — ทำให้ช้าลง ใส่ในช่อง อัตราคิดลด แล้วดู NPV');
   para('• ทั้งสองค่าเป็นการเดาอนาคต ไม่ใช่ค่าจากมาตรฐานใด · เสนอลูกค้าต้องบอกว่าใส่เท่าไร');
-  var sX = { name:'เงินเฟ้อกับค่าไฟ', w:[22, 22, 24, 26], rows:xRows };
+  var sX = { name:'เงินเฟ้อกับค่าไฟ', w:[22, 22, 24, 26], rows:xRows, grid:false,
+    merges:xMerge, heights:xHt, page:{ tall:true } };
 
-  return [sYr, sIn, sX, sMon, sAud];
+  /* ═══ สรุปสำหรับลูกค้า · หน้าเดียวจบ ═══
+     Everything here is a reference to another sheet. Nothing is typed
+     twice, so nothing here can disagree with the working sheets - which is
+     the only reason a cover page is safe to hand over at all. */
+  var YR = "'รายปี'!";
+  var cRows = [], MG = [], HT = {};
+  function cput(cells){ cRows.push(cells); return cRows.length; }
+  /* a merged range only reliably paints the top-left cell's fill, so give
+     every cell under a merge the same style rather than trusting Excel to
+     spread it · costs nothing, and it is what breaks first elsewhere */
+  function pad(cells, n, st){
+    while(cells.length < n) cells.push({ v:'', s:st });
+    return cells;
+  }
+  var proj = ($('pjName') && $('pjName').value || '').trim();
+  var scn = curRooms();
+  cput(pad([{ v:'Coral Life · ERV Energy Saving', s:S.banner }], 13, S.banner));
+  MG.push('A1:M1'); HT[1] = 34;
+  cput(pad([{ v:(proj || 'โปรเจค') + (scn && scn.name ? ' · ' + scn.name : '')
+    + '  —  สรุปผลประหยัดพลังงานและระยะคืนทุน · '
+    + new Date().toISOString().slice(0, 10), s:S.bannerSub }], 13, S.bannerSub));
+  MG.push('A2:M2'); HT[2] = 20;
+  cput([]); HT[3] = 8;
+
+  /* four cards · the number on one row, its caption on the row under it */
+  var KPI = [
+    { f:IN + 'B' + R.net1, lab:'ประหยัดสุทธิ ปีแรก · บาท', st:S.kpiNum },
+    { f:'IFERROR(' + YR + 'C' + Y.bevY + ',"")', lab:'เงินกลับมาครบ · ปีที่', st:S.kpiInt },
+    { f:YR + 'E' + last, lab:'ประหยัดสะสม ' + TPL_YEARS + ' ปี · บาท', st:S.kpiNum },
+    { f:YR + 'C' + Y.co2, lab:'คาร์บอนที่ลดได้ · tCO₂e/ปี', st:S.kpiYr }
+  ];
+  var r4 = [''], r5 = [''];
+  KPI.forEach(function(k, i){
+    var c1 = colName(2 + i*3), c2 = colName(3 + i*3);
+    r4.push({ f:k.f, s:k.st }); r4.push({ v:'', s:k.st });
+    r5.push({ v:k.lab, s:S.kpiLab }); r5.push({ v:'', s:S.kpiLab });
+    MG.push(c1 + '4:' + c2 + '4'); MG.push(c1 + '5:' + c2 + '5');
+    if(i < 3){ r4.push(''); r5.push(''); }   /* the gutter */
+  });
+  cput(r4); HT[4] = 30;
+  cput(r5); HT[5] = 17;
+  cput([]); HT[6] = 10;
+
+  cput(['', { v:'แต่ละปีประหยัดเท่าไร และเงินกลับมาครบปีไหน', s:S.h2 }]);
+  MG.push('B7:L7');
+  for(var z = 8; z <= 25; z++) cput([]);   /* the two charts sit over these */
+
+  cput(['', { v:'ตัวเลขสำคัญ', s:S.h2 }]); MG.push('B26:L26');
+  function line(lab, f, unit, st, note){
+    var rr = cRows.length + 1;
+    cput(pad(['', { v:lab, s:S.label }, { v:'', s:S.label }, { v:'', s:S.label },
+      { f:f, s:(st || S.acc) }, { v:'', s:(st || S.acc) },
+      { v:unit, s:S.label }, { v:'', s:S.label },
+      { v:note || '', s:S.tnote }], 12, S.tnote));
+    MG.push('B' + rr + ':D' + rr); MG.push('E' + rr + ':F' + rr);
+    MG.push('G' + rr + ':H' + rr); MG.push('I' + rr + ':L' + rr);
+    /* a merged cell never auto-fits its height, so wrapped notes would be
+       clipped · two lines at 9pt is the tallest any of these gets */
+    HT[rr] = 24;
+  }
+  line('เงินลงทุนส่วนต่างที่ลูกค้าจ่ายเพิ่ม', IN + 'B' + R.inv, 'บาท', S.acc,
+    'ค่า ERV หักระบบพัดลมเดิมและค่าแอร์ที่ลดขนาดได้');
+  line('ค่าไฟที่ประหยัดได้ ปีแรก', IN + 'B' + R.savB, 'บาท/ปี', S.acc, '');
+  line('หัก ค่าดูแลรักษาต่อปี', IN + 'B' + R.svcYr, 'บาท/ปี', S.acc,
+    'ตั้งต้นศูนย์ · กรอกในชีต ค่าที่กรอก');
+  line('เหลือสุทธิ ปีแรก', IN + 'B' + R.net1, 'บาท/ปี', S.acc, 'ตัวนี้คือตัวที่คืนทุน');
+  line('คืนทุนโดยประมาณ', YR + 'C' + Y.bev, 'ปี', S.n1, 'ที่ค่าไฟปีแรก ยังไม่คิดค่าไฟที่จะขึ้น');
+  line('ปีที่เงินกลับมาครบ', 'IFERROR(' + YR + 'C' + Y.bevY + ',"")', 'ปีที่', S.n0,
+    'คิดค่าไฟที่ขึ้นแล้ว · ดูชีต รายปี');
+  line('ประหยัดสะสม 5 ปี', YR + 'C' + Y.c5, 'บาท', S.acc, '');
+  line('ประหยัดสะสม 10 ปี', YR + 'C' + Y.c10, 'บาท', S.acc, '');
+  line('ประหยัดสะสม ' + TPL_YEARS + ' ปี', YR + 'C' + Y.c20, 'บาท', S.acc,
+    'สุทธิหลังหักเงินลงทุนแล้ว');
+  line('พลังงานที่ประหยัดได้', IN + 'B' + R.savK, 'kWh/ปี', S.acc, '');
+  line('คาร์บอนที่ลดได้', YR + 'C' + Y.co2, 'tCO₂e/ปี', S.n1,
+    'แฟกเตอร์ TGO 0.4750 · แก้ได้ในชีต รายปี');
+  cput([]);
+  [ 'ตัวเลขทุกตัวในหน้านี้อ้างมาจากชีตอื่นทั้งหมด · '
+    + 'แก้ช่องพื้นเหลืองในชีต ค่าที่กรอก แล้วหน้านี้ขยับตามเอง',
+    'ค่าไฟที่ประหยัดคิดที่สภาวะอากาศเฉลี่ยทั้งปี ไม่ใช่สภาวะออกแบบ · '
+    + 'ประสิทธิภาพแกน ηt เป็นค่าคงที่ ต้องใช้ค่าที่อัตราลมใช้งานจริง',
+    'ค่าไฟที่จะขึ้นในอนาคตและอัตราคิดลดเป็นการเดาของผู้ใช้เอง '
+    + 'ไม่ใช่ค่าจากมาตรฐานใด · ตั้งต้นเป็นศูนย์',
+    'ชีต ตรวจการคำนวณ เทียบสูตรในแฟ้มนี้กับค่าที่เครื่องมือบนเว็บคำนวณ · '
+    + 'ช่อง ต่าง ต้องเป็นศูนย์ทุกแถว'
+  ].forEach(function(t){
+    var rr = cRows.length + 1;
+    cput(pad(['', { v:'· ' + t, s:S.note }], 12, S.note));
+    MG.push('B' + rr + ':L' + rr); HT[rr] = 24;
+  });
+  var sCover = { name:'สรุปสำหรับลูกค้า', grid:false, rows:cRows, merges:MG, heights:HT,
+    page:{ land:true },
+    w:[2.4, 15, 11, 1.6, 15, 11, 1.6, 15, 11, 1.6, 15, 11, 2.4],
+    charts:[
+      { type:'bar', title:'แต่ละปีประหยัดเท่าไร · ค่าไฟที่ประหยัดได้', src:'รายปี',
+        name:'$B$4', cat:'$A$' + (first+1) + ':$A$' + last,
+        val:'$B$' + (first+1) + ':$B$' + last, color:'2E7D32',
+        legend:false, at:[1, 7, 6, 25] },
+      { type:'line', title:'เงินกลับมาครบเมื่อไร · กระแสเงินสดสะสม', src:'รายปี',
+        name:'$E$4', cat:'$A$' + (first+1) + ':$A$' + last,
+        val:'$E$' + (first+1) + ':$E$' + last, color:'31506B',
+        legend:false, at:[6, 7, 12, 25] }
+    ] };
+
+  return [sCover, sYr, sIn, sX, sMon, sAud];
 }
 
 function tplExport(){
@@ -4403,7 +4601,8 @@ function tplExport(){
     dl(blob, nm + ' · ตรวจการคำนวณ ERV · '
       + new Date().toISOString().slice(0, 10) + '.xlsx');
     if($('tplHint')) $('tplHint').innerHTML = '<b style="color:#2E7D32">สร้างแฟ้มแล้ว</b> · '
-      + '5 ชีท · เปิดใน Excel แล้ว<b>สูตรจะคำนวณใหม่เองทันที</b> · '
+      + '6 ชีท · หน้าแรกเป็น<b>สรุปสำหรับลูกค้า</b> · '
+      + 'เปิดใน Excel แล้ว<b>สูตรจะคำนวณใหม่เองทันที</b> · '
       + 'ดูช่อง <b>ต่าง</b> ในชีต คำนวณรายปี ต้องเป็นศูนย์ทุกแถว';
     if(btn) btn.disabled = false;
   }).catch(function(err){
