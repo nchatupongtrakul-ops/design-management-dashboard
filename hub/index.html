@@ -1008,6 +1008,10 @@ function csNewScenario(name){
   return {
     id: csUid(), name: name || 'ทางเลือกที่ 1', note: '', off: false,
     city: '',
+    /* New work aims at the middle of the machine's life. Old scenarios
+       have no wxYear and stay on the raw file, so nothing already quoted
+       moves by itself. */
+    wxYear: csWxYearDefault(),
     oaPk: { t:33.5, rh:68.5 },  /* design · sizing · = CS_SITE_PEAK.bkk */
     co2:  { oa:400 },          /* outdoor CO2 ppm · the floor indoor CO2 decays to */
     /* ── which criteria this job is actually held to ──
@@ -1132,22 +1136,83 @@ function csCond(scn, rm){
    ══════════════════════════════════════════════════════════════════ */
 var CS_SITES = {
   bkk: { th:'กรุงเทพฯ',  reg:'ภาคกลาง',     st:'Bangkok Metropolis', wmo:'484550', el:4,
-         pk:{ t:33.5, rh:68.5, h:91.5 }, hAvg:76.23, hMin:43.66, hMax:95.05 },
+         pk:{ t:33.5, rh:68.5, h:91.5 }, hAvg:76.23, hMin:43.66, hMax:95.05,
+         warm:0.37, wkind:'เมือง' },
   cnx: { th:'เชียงใหม่', reg:'ภาคเหนือ',    st:'Chiang Mai Intl AP', wmo:'483270', el:316,
-         pk:{ t:32.2, rh:69.8, h:87.0 }, hAvg:64.93, hMin:27.83, hMax:101.76 },
+         pk:{ t:32.2, rh:69.8, h:87.0 }, hAvg:64.93, hMin:27.83, hMax:101.76,
+         warm:0.28, wkind:'ชานเมือง' },
   kkc: { th:'ขอนแก่น',   reg:'ภาคอีสาน',    st:'Khon Kaen AP',       wmo:'483810', el:204,
-         pk:{ t:32.9, rh:67.9, h:88.4 }, hAvg:69.14, hMin:36.96, hMax:100.58 },
+         pk:{ t:32.9, rh:67.9, h:88.4 }, hAvg:69.14, hMin:36.96, hMax:100.58,
+         warm:0.28, wkind:'ชานเมือง' },
   ray: { th:'ระยอง',     reg:'ภาคตะวันออก', st:'Rayong',             wmo:'484780', el:5,
-         pk:{ t:33.3, rh:71.2, h:93.0 }, hAvg:77.18, hMin:42.17, hMax:98.00 },
+         pk:{ t:33.3, rh:71.2, h:93.0 }, hAvg:77.18, hMin:42.17, hMax:98.00,
+         warm:0.28, wkind:'ชานเมือง' },
   kan: { th:'กาญจนบุรี', reg:'ภาคตะวันตก',  st:'Thong Pha Phum',     wmo:'484210', el:99,
-         pk:{ t:34.3, rh:60.7, h:88.0 }, hAvg:72.39, hMin:30.80, hMax:120.07 },
+         pk:{ t:34.3, rh:60.7, h:88.0 }, hAvg:72.39, hMin:30.80, hMax:120.07,
+         warm:0.20, wkind:'ชนบท' },
   hkt: { th:'ภูเก็ต',    reg:'ภาคใต้',      st:'Phuket',             wmo:'485640', el:4,
-         pk:{ t:32.8, rh:68.1, h:88.2 }, hAvg:78.42, hMin:59.58, hMax:109.15 }
+         pk:{ t:32.8, rh:68.1, h:88.2 }, hAvg:78.42, hMin:59.58, hMax:109.15,
+         warm:0.28, wkind:'ชานเมือง' }
 };
 var CS_SITE_ORDER = ['bkk', 'cnx', 'kkc', 'ray', 'kan', 'hkt'];
 function csSite(k){ return CS_SITES[k] || CS_SITES.bkk; }
 function csSiteLabel(k){ var x = csSite(k); return x.th + ' · ' + x.reg; }
 function csSitePeak(k){ return csSite(k).pk; }
+
+/* ══════════════════════════════════════════════════════════════════
+   CARRYING THE WEATHER FORWARD
+
+   TMYx 2011-2025 is built by picking the most typical month out of each
+   of fifteen years, so the year it stands for is the middle one: 2018.
+   A machine sold today runs until about 2046. The file is therefore
+   COOLER than the air the machine will actually meet, for its whole
+   life, and no other file fixes that - 2018 is the newest midpoint the
+   archive offers.
+
+   So the measured numbers stay exactly as measured, and a reference
+   year is carried beside them. scenario.wxYear says which year the
+   conditions should stand for; the shift is
+
+       dT = (wxYear - 2018) / 10 * (the station's warming rate)
+
+   applied at CONSTANT RELATIVE HUMIDITY, which is the heavier of the
+   two defensible assumptions and the closer one for a coastal tropical
+   city. Holding the humidity RATIO constant instead would give about a
+   quarter of the effect; the truth sits between, nearer this end here.
+
+   Rates are Kachenchart et al. 2021 (Environ. Eng. Res. 26(5) 200378)
+   for Thailand 1970-2019: urban 0.37, suburban 0.28, rural 0.20 C per
+   decade. Sorting OUR six stations into those three classes is our own
+   judgement, not the paper's. Two warnings travel with this:
+     - the study ends in 2019, before the three hottest years on record,
+       so these rates are a floor rather than a ceiling;
+     - projecting a past rate forward is our inference, not a forecast.
+
+   wxYear null or absent means no shift at all. Every scenario written
+   before this existed is in that state and does not move.
+   ══════════════════════════════════════════════════════════════════ */
+var CS_WX_BASE = 2018;              /* the year TMYx 2011-2025 stands for */
+function csWarmRate(k){ return csSite(k).warm || 0.28; }
+/* the year a NEW scenario should aim at: the middle of a 20 year life
+   that starts now, which is what the electricity bill averages over */
+function csWxYearDefault(){ return new Date().getFullYear() + 10; }
+/* how much warmer than the file, in kelvin · 0 when nothing is set */
+function csWxShift(scn){
+  var y = csNum(scn && scn.wxYear, NaN);
+  if(!isFinite(y)) return 0;
+  /* somebody typing a Buddhist year into a Gregorian box is a matter of
+     when, not if, and 2579 would otherwise ask for +20 C */
+  if(y > 2400) y -= 543;
+  if(y < CS_WX_BASE || y > CS_WX_BASE + 80) return 0;
+  var k = CS_SITES[scn.site] ? scn.site : 'bkk';
+  return Math.round((y - CS_WX_BASE)/10 * csWarmRate(k) * 100)/100;
+}
+function csWxYearOf(scn){
+  var y = csNum(scn && scn.wxYear, NaN);
+  if(!isFinite(y)) return null;
+  if(y > 2400) y -= 543;
+  return (y < CS_WX_BASE || y > CS_WX_BASE + 80) ? null : Math.round(y);
+}
 
 /* ── hour of day, per station ──
    Mean enthalpy and mean dry bulb for each of the 24 hours of the day over
@@ -1192,7 +1257,10 @@ function csWindow(scn){
      separately threw away 1.7 % of the load when this was first written.
      The store deliberately carries no psychrometrics of its own; two of
      the five pages that share this block have no use for them. */
-  return { a:a, b:z % 24, n:n, h:h, t:Math.round(t*10)/10, site:site };
+  /* dT is handed over rather than applied: shifting at constant relative
+     humidity needs psychrometrics, and this block deliberately has none */
+  return { a:a, b:z % 24, n:n, h:h, t:Math.round(t*10)/10, site:site,
+           dT:csWxShift(scn), year:csWxYearOf(scn) };
 }
 
 /* The provenance table, rendered once here and shown in all three tools,
@@ -2384,23 +2452,55 @@ function renderScnCard(s){
      it back here - so typing over it there would be thrown away on the next
      load, and saying nothing about that would be a trap. */
   function csSiteLabelKey(sc){ return CS_SITES[sc.site] ? sc.site : 'bkk'; }
+  /* The file is a portrait of 2018. Saying which year the job needs the
+     weather to stand for is a decision, so it is asked for rather than
+     assumed - but a new scenario arrives with mid-life already filled in,
+     because that is the answer almost every job wants. */
+  function yrNote(sc){
+    var k = csSiteLabelKey(sc), d = csWxShift(sc), y = csWxYearOf(sc);
+    var base = 'ใช้เป็นฐานของสองกล่องถัดไป · ไฟล์อากาศเป็นตัวแทนปี <b>'
+             + CS_WX_BASE + '</b> ';
+    if(y === null)
+      return base + '<b style="color:#B03A34">และใช้ตามนั้น ยังไม่ได้เผื่ออนาคต</b> · '
+        + 'เครื่องที่ขายวันนี้ทำงานไปถึงราวปี ' + (new Date().getFullYear() + 20)
+        + ' <button type="button" class="btn ghost" id="sc_wxUse" '
+        + 'style="padding:1px 7px;font-size:11px;margin-left:4px">ใช้กลางอายุเครื่อง</button>'
+        + '<br><span class="no">เว้นว่างไว้ = ใช้ค่าดิบจากไฟล์ตรง ๆ '
+        + 'งานเก่าทุกงานอยู่สถานะนี้ และจะไม่ขยับเอง</span>';
+    return base + '· เลื่อนมาที่ <b>' + y + '</b> = <b>+' + d.toFixed(2) + ' °C</b>'
+      + '<br><span class="no">' + csWarmRate(k).toFixed(2) + ' °C/ทศวรรษ (สถานี'
+      + esc(csSite(k).wkind) + ' · Kachenchart 2021) × ' + (y - CS_WX_BASE) + ' ปี · '
+      + 'เลื่อนที่ความชื้นสัมพัทธ์คงที่ · ค่าที่วัดได้จริงไม่ถูกแก้ '
+      + 'ตัวเลขที่เลื่อนแล้วไปโผล่เป็น<b>ค่าแนะนำ</b>ในสองกล่องล่างเท่านั้น</span>';
+  }
+  /* the station's condition carried to the scenario's reference year, at
+     constant relative humidity · the store hands over dT and leaves the
+     psychrometrics here */
+  function pkFor(sc){
+    var pk = csSitePeak(csSiteLabelKey(sc)), d = csWxShift(sc);
+    if(!d) return { t:pk.t, rh:pk.rh, d:0 };
+    var t = Math.round((pk.t + d)*10)/10;
+    return { t:t, rh:pk.rh, d:d };
+  }
   /* The sizing pair has a right answer per station - ASHRAE ch.14, carried
      in the weather file - but a job may have its own, so it is offered
      rather than forced. Silently overwriting a number somebody typed is
      how a tool stops being trusted. */
   function pkNote(sc){
-    var k = csSiteLabelKey(sc), pk = csSitePeak(k);
+    var k = csSiteLabelKey(sc), pk = pkFor(sc), raw = csSitePeak(k);
     var same = Math.abs(csNum(sc.oaPk.t) - pk.t) < 0.05
             && Math.abs(csNum(sc.oaPk.rh) - pk.rh) < 0.05;
     return 'ใช้คิด<b>ขนาดเครื่อง</b> และดูว่า<b>แอร์ไหวไหมตอน peak</b> · '
       + (same
-          ? '<b style="color:#2E7D32">ตรงกับค่าออกแบบของ ' + esc(csSite(k).th) + ' แล้ว</b>'
-          : 'ค่าออกแบบของ <b>' + esc(csSite(k).th) + '</b> คือ <b>' + pk.t + ' °C / '
+          ? '<b style="color:#2E7D32">ตรงกับค่าแนะนำของ ' + esc(csSite(k).th) + ' แล้ว</b>'
+          : 'ค่าแนะนำของ <b>' + esc(csSite(k).th) + '</b> คือ <b>' + pk.t + ' °C / '
             + pk.rh + ' %</b> '
             + '<button type="button" class="btn ghost" id="sc_pkUse" '
             + 'style="padding:1px 7px;font-size:11px;margin-left:4px">ใช้ค่านี้</button>')
       + '<br><span class="no">ASHRAE Fundamentals ch.14 · เอนทัลปีออกแบบ 0.4 % '
-      + 'กับอุณหภูมิที่เกิดร่วม · มาจากหัวไฟล์อากาศของสถานีนั้นเอง</span>';
+      + 'กับอุณหภูมิที่เกิดร่วม · มาจากหัวไฟล์อากาศของสถานีนั้นเอง'
+      + (pk.d ? ' คือ <b>' + raw.t + ' °C</b> แล้วเผื่ออนาคต +' + pk.d.toFixed(2) + ' °C' : '')
+      + '</span>';
   }
   /* The average has no single right answer until somebody says what hours
      the system runs, which is why this card had no suggestion while the
@@ -2409,20 +2509,40 @@ function renderScnCard(s){
     var w = csWindow(sc);
     var base = 'ใช้คิด<b>ค่าไฟ</b> · <b>อย่าใส่สภาวะออกแบบ</b> '
              + 'ตัวเลขประหยัดจะสูงเกินจริงมาก · ';
-    if(!w)
-      return base + 'ใส่ <b>ช่วงเวลาที่ระบบเดิน</b> ในกล่องค่าไฟและการใช้งาน '
-        + 'แล้วจะคำนวณค่าแนะนำจากข้อมูลอากาศจริงให้';
+    if(!w){
+      /* The commonest way this number ends up too low is nobody saying
+         what hours the building runs, so it silently means "all 8,760",
+         night included. That is right for a hotel and wrong for an
+         office by about two degrees. */
+      var k0 = csSiteLabelKey(sc), all = csSite(k0);
+      return '<b style="color:#B03A34">⚠ ยังไม่ได้ตั้งช่วงเวลาที่ระบบเดิน</b> — '
+        + 'ตัวเลขในกล่องนี้จึงต้องเป็นค่าเฉลี่ยทั้ง <b>24 ชั่วโมง รวมกลางคืน</b> '
+        + '(เอนทัลปี ' + all.hAvg.toFixed(2) + ' ของ' + esc(all.th) + ') · '
+        + '<b>ถ้าอาคารไม่ได้เดิน 24 ชั่วโมง ค่านี้ต่ำเกินจริง</b> '
+        + 'ของสำนักงานที่เดินกลางวันจะสูงกว่านี้ราว 2 °C'
+        + '<br><span class="no">ใส่ <b>ช่วงเวลาที่ระบบเดิน</b> ในกล่อง '
+        + '<i>ค่าไฟและการใช้งาน</i> ด้านล่าง แล้วจะคำนวณค่าแนะนำให้เอง · '
+        + 'โรงแรมและโรงพยาบาลที่เดิน 24 ชม. จริง ให้ใส่ 0 ถึง 24</span>';
+    }
+    /* carried to the reference year at constant relative humidity */
     var rh = Math.round(rhForH(w.h, w.t)*1000)/10;
-    var same = Math.abs(csNum(sc.oaAv.t) - w.t) < 0.05
+    var st = w.t, sh = w.h;
+    if(w.dT){
+      st = Math.round((w.t + w.dT)*10)/10;
+      sh = hof(st, Wof(st, rh/100));
+    }
+    var same = Math.abs(csNum(sc.oaAv.t) - st) < 0.05
             && Math.abs(csNum(sc.oaAv.rh) - rh) < 0.05;
     return base + 'ช่วงเวลาเดิน <b>' + w.a + ':00–' + w.b + ':00</b> ของ '
-      + esc(csSite(w.site).th) + ' เฉลี่ยได้ <b>' + w.t + ' °C / ' + rh + ' %</b> '
-      + '<span class="no">(เอนทัลปี ' + w.h.toFixed(2) + ' kJ/kg)</span> '
+      + esc(csSite(w.site).th) + ' เฉลี่ยได้ <b>' + st + ' °C / ' + rh + ' %</b> '
+      + '<span class="no">(เอนทัลปี ' + sh.toFixed(2) + ' kJ/kg)</span> '
       + (same ? '<b style="color:#2E7D32">· ตรงแล้ว</b>'
               : '<button type="button" class="btn ghost" id="sc_avUse" '
                 + 'style="padding:1px 7px;font-size:11px;margin-left:4px">ใช้ค่านี้</button>')
       + '<br><span class="no">เฉลี่ยเฉพาะชั่วโมงที่ระบบเดินจริง ไม่ใช่ทั้ง 8,760 ชั่วโมง · '
-      + 'ช่วงเวลาเดินยังกำหนดชั่วโมงต่อวันให้ด้วย</span>';
+      + 'ช่วงเวลาเดินยังกำหนดชั่วโมงต่อวันให้ด้วย'
+      + (w.dT ? ' · ค่าดิบจากไฟล์คือ ' + w.t + ' °C แล้วเผื่ออนาคต +' + w.dT.toFixed(2) + ' °C' : '')
+      + '</span>';
   }
   function fld(id, lab, val, step, unit){
     return '<div class="sfld"><label class="flabel" for="'+id+'" title="'+esc(lab)+'">'+lab+'</label>'
@@ -2438,13 +2558,15 @@ function renderScnCard(s){
       '<div class="card"><div class="card-title-row"><h3>เงื่อนไขของทางเลือกนี้</h3>'
     + '<div class="hint" style="margin:0">ห้องทุกห้องใช้ค่าชุดนี้ เว้นห้องที่ตั้งค่าเองไว้</div></div>'
     + '<div class="sgrid">'
-    + grp('อากาศของจังหวัดไหน', 'ใช้เป็นฐานของสองกล่องถัดไป',
+    + grp('อากาศของจังหวัดไหน', yrNote(s),
         '<div class="sfld" style="grid-column:1/-1">'
         + '<select class="rin" id="sc_site">'
         + CS_SITE_ORDER.map(function(k){
             return '<option value="' + k + '"' + (k === csSiteLabelKey(s) ? ' selected' : '')
               + '>' + esc(csSiteLabel(k)) + '</option>'; }).join('')
-        + '</select></div>')
+        + '</select></div>'
+        + fld('sc_wxY','ให้เป็นตัวแทนปี ค.ศ.',
+              csWxYearOf(s) === null ? '' : csWxYearOf(s), '1', ''))
     + grp('อากาศภายนอก · สภาวะออกแบบ', pkNote(s),
         fld('sc_pkT','อุณหภูมิ', s.oaPk.t, '0.1', '°C')
       + fld('sc_pkR','ความชื้นสัมพัทธ์', s.oaPk.rh, '1', '%'))
@@ -2499,10 +2621,25 @@ function renderScnCard(s){
     csTouch(curP()); saveDB();
     renderDetail();          /* the note under the sizing pair changes with it */
   });
+  /* the reference year · a Buddhist year typed here is converted rather
+     than rejected, because it will happen */
+  var elY = $('sc_wxY');
+  if(elY) elY.addEventListener('input', function(){
+    var v = this.value.trim();
+    s.wxYear = (v === '' ? null : csNum(v));
+    csTouch(curP()); saveDB(); renderDetail();
+  });
+  var wxUse = $('sc_wxUse');
+  if(wxUse) wxUse.addEventListener('click', function(){
+    s.wxYear = csWxYearDefault();
+    csTouch(curP()); saveDB(); renderDetail();
+  });
   var avUse = $('sc_avUse');
   if(avUse) avUse.addEventListener('click', function(){
     var w = csWindow(s); if(!w) return;
-    s.oaAv.t = w.t; s.oaAv.rh = Math.round(rhForH(w.h, w.t)*1000)/10;
+    var rh = Math.round(rhForH(w.h, w.t)*1000)/10;
+    s.oaAv.t = w.dT ? Math.round((w.t + w.dT)*10)/10 : w.t;
+    s.oaAv.rh = rh;
     csTouch(curP()); saveDB(); renderDetail();
   });
   /* the window drives hours-per-day, so they cannot be typed apart */
@@ -2518,7 +2655,7 @@ function renderScnCard(s){
   });
   var pkUse = $('sc_pkUse');
   if(pkUse) pkUse.addEventListener('click', function(){
-    var pk = csSitePeak(csSiteLabelKey(s));
+    var pk = pkFor(s);
     s.oaPk.t = pk.t; s.oaPk.rh = pk.rh;
     csTouch(curP()); saveDB(); renderDetail();
   });

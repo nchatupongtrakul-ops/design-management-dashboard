@@ -1380,7 +1380,16 @@ function ohWindow(){
      rounding both ends independently threw away 1.7 % of the load */
   var tR = Math.round(t*10)/10;
   var rhR = Math.round(rhFor(h, tR)*1000)/10;
-  return { a:a, b:(b % 24), n:n, h:h, t:t, tR:tR, rhR:rhR, rh:rhFor(h, t) };
+  /* and then carry it to the scenario's reference year, at that same
+     relative humidity · without this the page would rewrite the Hub's
+     carried-forward value back to the raw one every time it opened */
+  var scn = curRooms(), dT = scn ? csWxShift(scn) : 0, hR = h;
+  if(dT){
+    tR = Math.round((tR + dT)*10)/10;
+    hR = hof(tR, Wof(tR, rhR/100));
+  }
+  return { a:a, b:(b % 24), n:n, h:hR, hRaw:h, t:t, tR:tR, rhR:rhR,
+           dT:dT, year:(scn ? csWxYearOf(scn) : null), rh:rhFor(h, t) };
 }
 
 var CT = 1.2;      /* ch.18 eq (7), standard air */
@@ -1666,6 +1675,8 @@ function applyWindow(){
     + 'อากาศนอกเฉลี่ยของช่วงนี้ <b>' + fmt(w.tR,1) + ' °C / ' + fmt(w.rhR,1)
     + ' %</b> · เอนทัลปี <b>' + fmt(w.h,2) + ' kJ/kg</b><br>'
     + '<span class="rp-none">จาก ' + csSiteLabel(wxSite()) + ' · TMYx 2011–2025 · '
+    + (w.dT ? 'ค่าดิบจากไฟล์ ' + fmt(w.tR - w.dT,1) + ' °C แล้วเผื่อถึงปี ' + w.year
+              + ' อีก +' + fmt(w.dT,2) + ' °C (ตั้งได้ใน Project Hub) · ' : '')
     + 'สามช่องด้านล่างถูกล็อกไว้ ลบช่วงเวลาให้ว่างเพื่อกรอกเอง</span>';
 }
 
@@ -2728,6 +2739,10 @@ function csNewScenario(name){
   return {
     id: csUid(), name: name || 'ทางเลือกที่ 1', note: '', off: false,
     city: '',
+    /* New work aims at the middle of the machine's life. Old scenarios
+       have no wxYear and stay on the raw file, so nothing already quoted
+       moves by itself. */
+    wxYear: csWxYearDefault(),
     oaPk: { t:33.5, rh:68.5 },  /* design · sizing · = CS_SITE_PEAK.bkk */
     co2:  { oa:400 },          /* outdoor CO2 ppm · the floor indoor CO2 decays to */
     /* ── which criteria this job is actually held to ──
@@ -2852,22 +2867,83 @@ function csCond(scn, rm){
    ══════════════════════════════════════════════════════════════════ */
 var CS_SITES = {
   bkk: { th:'กรุงเทพฯ',  reg:'ภาคกลาง',     st:'Bangkok Metropolis', wmo:'484550', el:4,
-         pk:{ t:33.5, rh:68.5, h:91.5 }, hAvg:76.23, hMin:43.66, hMax:95.05 },
+         pk:{ t:33.5, rh:68.5, h:91.5 }, hAvg:76.23, hMin:43.66, hMax:95.05,
+         warm:0.37, wkind:'เมือง' },
   cnx: { th:'เชียงใหม่', reg:'ภาคเหนือ',    st:'Chiang Mai Intl AP', wmo:'483270', el:316,
-         pk:{ t:32.2, rh:69.8, h:87.0 }, hAvg:64.93, hMin:27.83, hMax:101.76 },
+         pk:{ t:32.2, rh:69.8, h:87.0 }, hAvg:64.93, hMin:27.83, hMax:101.76,
+         warm:0.28, wkind:'ชานเมือง' },
   kkc: { th:'ขอนแก่น',   reg:'ภาคอีสาน',    st:'Khon Kaen AP',       wmo:'483810', el:204,
-         pk:{ t:32.9, rh:67.9, h:88.4 }, hAvg:69.14, hMin:36.96, hMax:100.58 },
+         pk:{ t:32.9, rh:67.9, h:88.4 }, hAvg:69.14, hMin:36.96, hMax:100.58,
+         warm:0.28, wkind:'ชานเมือง' },
   ray: { th:'ระยอง',     reg:'ภาคตะวันออก', st:'Rayong',             wmo:'484780', el:5,
-         pk:{ t:33.3, rh:71.2, h:93.0 }, hAvg:77.18, hMin:42.17, hMax:98.00 },
+         pk:{ t:33.3, rh:71.2, h:93.0 }, hAvg:77.18, hMin:42.17, hMax:98.00,
+         warm:0.28, wkind:'ชานเมือง' },
   kan: { th:'กาญจนบุรี', reg:'ภาคตะวันตก',  st:'Thong Pha Phum',     wmo:'484210', el:99,
-         pk:{ t:34.3, rh:60.7, h:88.0 }, hAvg:72.39, hMin:30.80, hMax:120.07 },
+         pk:{ t:34.3, rh:60.7, h:88.0 }, hAvg:72.39, hMin:30.80, hMax:120.07,
+         warm:0.20, wkind:'ชนบท' },
   hkt: { th:'ภูเก็ต',    reg:'ภาคใต้',      st:'Phuket',             wmo:'485640', el:4,
-         pk:{ t:32.8, rh:68.1, h:88.2 }, hAvg:78.42, hMin:59.58, hMax:109.15 }
+         pk:{ t:32.8, rh:68.1, h:88.2 }, hAvg:78.42, hMin:59.58, hMax:109.15,
+         warm:0.28, wkind:'ชานเมือง' }
 };
 var CS_SITE_ORDER = ['bkk', 'cnx', 'kkc', 'ray', 'kan', 'hkt'];
 function csSite(k){ return CS_SITES[k] || CS_SITES.bkk; }
 function csSiteLabel(k){ var x = csSite(k); return x.th + ' · ' + x.reg; }
 function csSitePeak(k){ return csSite(k).pk; }
+
+/* ══════════════════════════════════════════════════════════════════
+   CARRYING THE WEATHER FORWARD
+
+   TMYx 2011-2025 is built by picking the most typical month out of each
+   of fifteen years, so the year it stands for is the middle one: 2018.
+   A machine sold today runs until about 2046. The file is therefore
+   COOLER than the air the machine will actually meet, for its whole
+   life, and no other file fixes that - 2018 is the newest midpoint the
+   archive offers.
+
+   So the measured numbers stay exactly as measured, and a reference
+   year is carried beside them. scenario.wxYear says which year the
+   conditions should stand for; the shift is
+
+       dT = (wxYear - 2018) / 10 * (the station's warming rate)
+
+   applied at CONSTANT RELATIVE HUMIDITY, which is the heavier of the
+   two defensible assumptions and the closer one for a coastal tropical
+   city. Holding the humidity RATIO constant instead would give about a
+   quarter of the effect; the truth sits between, nearer this end here.
+
+   Rates are Kachenchart et al. 2021 (Environ. Eng. Res. 26(5) 200378)
+   for Thailand 1970-2019: urban 0.37, suburban 0.28, rural 0.20 C per
+   decade. Sorting OUR six stations into those three classes is our own
+   judgement, not the paper's. Two warnings travel with this:
+     - the study ends in 2019, before the three hottest years on record,
+       so these rates are a floor rather than a ceiling;
+     - projecting a past rate forward is our inference, not a forecast.
+
+   wxYear null or absent means no shift at all. Every scenario written
+   before this existed is in that state and does not move.
+   ══════════════════════════════════════════════════════════════════ */
+var CS_WX_BASE = 2018;              /* the year TMYx 2011-2025 stands for */
+function csWarmRate(k){ return csSite(k).warm || 0.28; }
+/* the year a NEW scenario should aim at: the middle of a 20 year life
+   that starts now, which is what the electricity bill averages over */
+function csWxYearDefault(){ return new Date().getFullYear() + 10; }
+/* how much warmer than the file, in kelvin · 0 when nothing is set */
+function csWxShift(scn){
+  var y = csNum(scn && scn.wxYear, NaN);
+  if(!isFinite(y)) return 0;
+  /* somebody typing a Buddhist year into a Gregorian box is a matter of
+     when, not if, and 2579 would otherwise ask for +20 C */
+  if(y > 2400) y -= 543;
+  if(y < CS_WX_BASE || y > CS_WX_BASE + 80) return 0;
+  var k = CS_SITES[scn.site] ? scn.site : 'bkk';
+  return Math.round((y - CS_WX_BASE)/10 * csWarmRate(k) * 100)/100;
+}
+function csWxYearOf(scn){
+  var y = csNum(scn && scn.wxYear, NaN);
+  if(!isFinite(y)) return null;
+  if(y > 2400) y -= 543;
+  return (y < CS_WX_BASE || y > CS_WX_BASE + 80) ? null : Math.round(y);
+}
 
 /* ── hour of day, per station ──
    Mean enthalpy and mean dry bulb for each of the 24 hours of the day over
@@ -2912,7 +2988,10 @@ function csWindow(scn){
      separately threw away 1.7 % of the load when this was first written.
      The store deliberately carries no psychrometrics of its own; two of
      the five pages that share this block have no use for them. */
-  return { a:a, b:z % 24, n:n, h:h, t:Math.round(t*10)/10, site:site };
+  /* dT is handed over rather than applied: shifting at constant relative
+     humidity needs psychrometrics, and this block deliberately has none */
+  return { a:a, b:z % 24, n:n, h:h, t:Math.round(t*10)/10, site:site,
+           dT:csWxShift(scn), year:csWxYearOf(scn) };
 }
 
 /* The provenance table, rendered once here and shown in all three tools,
