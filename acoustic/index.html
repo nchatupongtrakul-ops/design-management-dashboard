@@ -1014,11 +1014,18 @@ function csNewScenario(name){
        says which ones count; the rest still compute and are shown, but
        marked as not in use and kept out of the verdict. */
     crit: { ash:true, law:true, leed:false, ceil:true, p1000:true },
+    /* Which weather file the tools should read when they work a condition
+       out for themselves. One of the keys in CS_SITES. Bangkok unless the
+       job says otherwise, because most of them are.
+       This lives on the scenario rather than in each tool, so ERV Energy
+       Saving and ERV Load cannot end up quoting different provinces for
+       the same building. */
+    site: 'bkk',
     /* Bangkok Metropolis TMYx 2011-2025 (WMO 484550), the 08:00-17:00
-       Mon-Fri hours: mean enthalpy 77.04 kJ/kg. 31 C / 63 % reproduces it
-       to 0.3 %. The old default of 31 C / 70 % is 82.21 kJ/kg, which
-       against a 25 C / 50 % room overstates the load - and therefore the
-       saving - by 19 %. See _src/bkk_enthalpy.py. */
+       hours: mean enthalpy 77.42 kJ/kg. 31 C / 63.6 % reproduces it.
+       The old default of 31 C / 70 % is 82.21 kJ/kg, which against a
+       25 C / 50 % room overstates the load - and therefore the saving -
+       by 19 %. See _src/bkk_windows.py. */
     oaAv: { t:31, rh:63 },     /* annual average · energy */
     room: { t:25, rh:50 },     /* indoor */
     erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
@@ -1071,6 +1078,7 @@ function csCond(scn, rm){
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
     oaCo: csNum(scn.co2 && scn.co2.oa, 400),
+    site: CS_SITES[scn.site] ? scn.site : 'bkk',
     crit: scn.crit || { ash:true, law:true, leed:false, ceil:true, p1000:true },
     over: []
   };
@@ -1083,6 +1091,32 @@ function csCond(scn, rm){
     });
   }
   return c;
+}
+/* ── the weather stations the tools carry data for ──
+   All climate.onebuilding.org, TMYx 2011-2025, downloaded 22 Sep 2026.
+   One per region, which is as far as six files can honestly stretch: a job
+   is being told the weather of the nearest of six stations, not its own.
+   [ชื่อที่แสดง, ภาค, สถานี, WMO, ความสูง m]
+   ⚠ kan is Thong Pha Phum, which is in Kanchanaburi province but up the
+   valley, not the town. Nothing closer exists in the archive, and being a
+   remote station its record leans on ERA5 reanalysis rather than on
+   instruments - it has by far the widest spread of the six (median 73.8
+   kJ/kg but 101 hours a year above 100, and a peak of 120). Treat its
+   extremes as indicative.
+   hkt also has a long tail, 124 hours above 100, which for a humid island
+   is believable. */
+var CS_SITES = {
+  bkk: ['กรุงเทพฯ',   'ภาคกลาง',      'Bangkok Metropolis',  '484550',   4],
+  cnx: ['เชียงใหม่',  'ภาคเหนือ',     'Chiang Mai Intl AP',  '483270', 316],
+  kkc: ['ขอนแก่น',    'ภาคอีสาน',     'Khon Kaen AP',        '483810', 204],
+  ray: ['ระยอง',      'ภาคตะวันออก',  'Rayong',              '484780',   5],
+  kan: ['กาญจนบุรี',  'ภาคตะวันตก',   'Thong Pha Phum',      '484210',  99],
+  hkt: ['ภูเก็ต',     'ภาคใต้',       'Phuket',              '485640',   4]
+};
+var CS_SITE_ORDER = ['bkk', 'cnx', 'kkc', 'ray', 'kan', 'hkt'];
+function csSiteLabel(k){
+  var s2 = CS_SITES[k] || CS_SITES.bkk;
+  return s2[0] + ' · ' + s2[1];
 }
 var CS_COND_TH = { oaPkT:'อุณหภูมิภายนอก', oaPkRh:'ความชื้นภายนอก',
                    rT:'อุณหภูมิห้อง', rRh:'ความชื้นห้อง',
@@ -1120,6 +1154,7 @@ function csMigrate(old){
       if(isFinite(csNum(r[k], NaN))) sc.bill[k] = csNum(r[k]);
     });
     sc.roi = r;
+    sc.site = 'bkk';          /* everything written before this existed */
     sc.rooms = (p.rooms || []).map(function(rm){
       var nr = csNewRoom(rm.name);
       nr.id = rm.id;
@@ -1175,6 +1210,7 @@ function csHeal(db){
         else Object.keys(d[g]).forEach(function(k){
           if(s[g][k] == null) s[g][k] = d[g][k]; });
       });
+      if(!CS_SITES[s.site]) s.site = 'bkk';
       if(!s.roi) s.roi = {};
       if(!Array.isArray(s.rooms)) s.rooms = [];
 

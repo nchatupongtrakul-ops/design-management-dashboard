@@ -699,12 +699,14 @@ table.dtable td.st{white-space:nowrap}
       ถ้าใส่ค่าออกแบบสูงสุดลงตรงนี้ ตัวเลขประหยัดจะสูงเกินความจริงมาก<br>
       <b>ค่าตั้งต้น 31 °C / 63 % มาจากไฟล์อากาศรายชั่วโมงจริง</b> —
       climate.onebuilding.org · TMYx 2011–2025 · สถานีกรุงเทพมหานคร WMO 484550 ·
-      8,760 ชั่วโมง กรองเฉพาะ <b>08:00–17:00 จันทร์–ศุกร์</b> ได้เอนทัลปีเฉลี่ย
-      <b>77.04 kJ/kg</b> ซึ่ง 31 °C / 63 % ให้ตรงภายใน 0.3 %
-      (สคริปต์ที่คำนวณอยู่ที่ <code>_src/bkk_enthalpy.py</code> รันซ้ำได้)<br>
+      8,760 ชั่วโมง ช่วง <b>08:00–17:00</b> ได้เอนทัลปีเฉลี่ย <b>77.42 kJ/kg</b>
+      (สคริปต์ที่คำนวณอยู่ที่ <code>_src/wx_build.py</code> รันซ้ำได้)<br>
       ⚠️ <b>ค่าเดิมของเครื่องมือคือ 31 °C / 70 % ซึ่งหนักเกินไป 19 %</b>
       เทียบกับห้อง 25 °C / 50 % · และ <b>35 °C / 60 % ที่เป็นสภาวะออกแบบ หนักเกิน 49 %</b><br>
-      ⚠️ <b>เป็นของกรุงเทพสถานีเดียว</b> งานต่างจังหวัดต้องหาไฟล์อากาศของที่นั่นเอง<br>
+      <b>เลือกจังหวัดได้ 6 สถานี หนึ่งภาคหนึ่งสถานี</b> ในการ์ดชั่วโมงใช้งาน ·
+      ⚠️ <b>หกสถานีแทนทั้งประเทศเป็นการยืดพอสมควร</b> — งานหนึ่งกำลังถูกบอกอากาศ
+      ของสถานีที่ใกล้ที่สุดในหกแห่ง ไม่ใช่อากาศของที่ตั้งจริง ·
+      งานที่ต้องการความแม่นควรโหลดไฟล์ของสถานีที่ใกล้จริงมาคิดเอง<br>
       <b>ไม่ต้องเปิดตารางเทียบเอง</b> — ใส่ช่วงเวลาที่ระบบเดินในการ์ด
       <b>ชั่วโมงใช้งานและค่าไฟ</b> แล้วสองช่องนี้จะถูกคิดจากช่วงเวลานั้นให้อัตโนมัติ
       จากข้อมูลรายชั่วโมงจริง · ช่องนี้จะถูกล็อกไว้ตอนนั้น<br>
@@ -730,6 +732,8 @@ table.dtable td.st{white-space:nowrap}
   <div class="chart-grid g3">
     <div class="card">
       <h3>ชั่วโมงใช้งานและค่าไฟ</h3>
+      <div class="field"><label class="flabel">อากาศของจังหวัดไหน</label>
+        <select id="wx_site" class="rin"></select></div>
       <div class="grid2">
         <div class="field"><label class="flabel">ระบบเดินตั้งแต่ · นาฬิกา</label>
           <input type="number" id="oh_a" min="0" max="24" step="1" placeholder="—"></div>
@@ -1307,10 +1311,10 @@ function Wof(t, rh){
   return 0.621945 * pw / (PATM - pw);
 }
 function hof(t, W){ return 1.006*t + W*(2501 + 1.86*t); }
-/* ── Bangkok, hour of day ──
+/* ── hour of day, six provinces ──
    Mean outdoor enthalpy and mean dry bulb for each of the 24 hours of the
-   day, over a whole year. climate.onebuilding.org, TMYx 2011-2025,
-   Bangkok Metropolis WMO 484550. Built by _src/bkk_windows.py.
+   day, over a whole year, for one station per region.
+   climate.onebuilding.org, TMYx 2011-2025. Built by _src/wx_build.py.
 
    Index 0 is EPW hour 1, which is the clock period 00:00-01:00. A window
    from clock A to clock B is therefore indices A .. B-1, B-A of them.
@@ -1321,14 +1325,22 @@ function hof(t, W){ return 1.006*t + W*(2501 + 1.86*t); }
    tool once at that mean gives the same annual figure as running it 8760
    times. See the note at the top of _src/bkk_enthalpy.py.
 
-   One city, one station. Out-of-town work should leave the window blank
-   and type the condition in by hand. */
-var BKK_H = [75.55, 75.26, 74.772, 74.439, 74.029, 73.838, 73.626, 73.452,
-             74.606, 75.518, 76.688, 77.483, 77.995, 78.805, 78.696, 78.613,
-             78.419, 78.763, 77.67, 76.7, 76.35, 76.368, 76.151, 75.804];
-var BKK_T = [27.639, 27.408, 27.184, 26.966, 26.748, 26.642, 26.521, 26.413,
-             27.655, 28.898, 30.141, 30.94, 31.735, 32.534, 32.493, 32.448,
-             32.407, 31.425, 30.42, 29.447, 28.996, 28.548, 28.098, 27.87];
+   Six stations for a whole country is a stretch, and the card says so: a
+   job is being told the weather of the nearest of six, not its own. */
+var WX_DAY = {
+  bkk:{ h:[75.55, 75.26, 74.772, 74.439, 74.029, 73.838, 73.626, 73.452, 74.606, 75.518, 76.688, 77.483, 77.995, 78.805, 78.696, 78.613, 78.419, 78.763, 77.67, 76.7, 76.35, 76.368, 76.151, 75.804],
+       t:[27.639, 27.408, 27.184, 26.966, 26.748, 26.642, 26.521, 26.413, 27.655, 28.898, 30.141, 30.94, 31.735, 32.534, 32.493, 32.448, 32.407, 31.425, 30.42, 29.447, 28.996, 28.548, 28.098, 27.87] },
+  cnx:{ h:[62.258, 63.695, 60.716, 60.244, 61.979, 59.235, 59.027, 61.114, 61.597, 62.591, 67.241, 67.414, 65.543, 69.943, 67.9, 67.546, 70.058, 75.666, 70.681, 68.754, 63.409, 63.775, 65.595, 62.262],
+       t:[24.414, 24.435, 23.507, 23.12, 23.227, 22.393, 22.177, 22.612, 23.783, 25.668, 27.673, 28.655, 29.921, 31.508, 31.476, 31.827, 32.385, 31.104, 29.85, 28.876, 27.022, 26.216, 25.991, 25.06] },
+  kkc:{ h:[67.482, 67.145, 65.896, 65.359, 65.162, 64.466, 64.087, 64.821, 67.527, 69.053, 70.408, 72.896, 73.299, 72.84, 73.585, 73.177, 71.709, 72.897, 71.214, 70.738, 69.009, 69.283, 69.285, 67.904],
+       t:[25.188, 25.06, 24.342, 24.002, 23.944, 23.42, 23.183, 23.725, 25.13, 27.135, 28.686, 30.063, 31.126, 31.803, 31.957, 32.023, 31.71, 30.556, 29.099, 28.364, 27.103, 26.578, 26.433, 25.586] },
+  ray:{ h:[76.266, 75.889, 75.228, 74.609, 74.138, 73.712, 73.418, 73.359, 75.054, 76.707, 78.507, 79.055, 79.724, 80.735, 80.326, 80.165, 80.277, 79.433, 78.67, 78.128, 77.678, 77.396, 77.138, 76.641],
+       t:[27.309, 27.141, 26.933, 26.729, 26.559, 26.441, 26.331, 26.3, 27.513, 28.705, 29.893, 30.29, 30.682, 31.121, 30.892, 30.685, 30.529, 29.841, 29.175, 28.565, 28.228, 27.937, 27.667, 27.488] },
+  kan:{ h:[69.464, 68.606, 67.993, 67.37, 66.749, 66.419, 66.023, 65.678, 68.36, 71.093, 74.391, 75.769, 75.972, 77.725, 78.006, 78.33, 79.525, 80.029, 77.83, 74.894, 73.13, 72.301, 71.499, 70.3],
+       t:[24.911, 24.455, 24.156, 23.845, 23.539, 23.407, 23.241, 23.092, 24.825, 26.754, 28.581, 29.859, 31.241, 32.474, 32.43, 32.308, 32.165, 29.797, 29.373, 28.08, 27.331, 26.526, 25.816, 25.363] },
+  hkt:{ h:[76.278, 76.275, 75.589, 75.287, 75.326, 74.928, 74.893, 75.154, 76.167, 77.479, 79.705, 80.799, 82.02, 84.399, 83.695, 84.089, 83.861, 80.237, 78.55, 78.316, 77.624, 77.307, 77.345, 76.687],
+       t:[27.416, 27.225, 26.965, 26.761, 26.592, 26.498, 26.427, 26.406, 27.556, 28.835, 30.026, 30.615, 31.146, 31.558, 31.563, 31.638, 31.559, 30.804, 29.852, 29.035, 28.633, 28.276, 27.941, 27.658] }
+};
 
 /* the relative humidity that puts this dry bulb at this enthalpy */
 function rhFor(hTarget, t){
@@ -1339,6 +1351,11 @@ function rhFor(hTarget, t){
   }
   return (lo + hi)/2;
 }
+/* which station this scenario reads · the registry owns the choice */
+function wxSite(){
+  var el = $('wx_site'), k = el ? el.value : 'bkk';
+  return WX_DAY[k] ? k : 'bkk';
+}
 /* clock a:00 to b:00 · null when the pair is not a usable window */
 function ohWindow(){
   var a = raw('oh_a'), b = raw('oh_b');
@@ -1347,8 +1364,9 @@ function ohWindow(){
   if(a < 0 || a > 24 || b < 0 || b > 24) return null;
   a = a % 24;
   var n = (b - a % 24 + 24) % 24; if(n === 0) n = 24;
+  var D = WX_DAY[wxSite()];
   var sh = 0, st = 0;
-  for(var k = 0; k < n; k++){ var i = (a + k) % 24; sh += BKK_H[i]; st += BKK_T[i]; }
+  for(var k = 0; k < n; k++){ var i = (a + k) % 24; sh += D.h[i]; st += D.t[i]; }
   var h = sh/n, t = st/n;
   /* solve the humidity AT THE ROUNDED dry bulb, and keep a decimal on it ·
      rounding both ends independently threw away 1.7 % of the load */
@@ -1639,7 +1657,7 @@ function applyWindow(){
   if(hint) hint.innerHTML = 'เดิน <b>' + w.n + ' ชั่วโมงต่อวัน</b> · '
     + 'อากาศนอกเฉลี่ยของช่วงนี้ <b>' + fmt(w.tR,1) + ' °C / ' + fmt(w.rhR,1)
     + ' %</b> · เอนทัลปี <b>' + fmt(w.h,2) + ' kJ/kg</b><br>'
-    + '<span class="rp-none">จากข้อมูลรายชั่วโมงของกรุงเทพ TMYx 2011–2025 · '
+    + '<span class="rp-none">จาก ' + csSiteLabel(wxSite()) + ' · TMYx 2011–2025 · '
     + 'สามช่องด้านล่างถูกล็อกไว้ ลบช่วงเวลาให้ว่างเพื่อกรอกเอง</span>';
 }
 
@@ -2702,11 +2720,18 @@ function csNewScenario(name){
        says which ones count; the rest still compute and are shown, but
        marked as not in use and kept out of the verdict. */
     crit: { ash:true, law:true, leed:false, ceil:true, p1000:true },
+    /* Which weather file the tools should read when they work a condition
+       out for themselves. One of the keys in CS_SITES. Bangkok unless the
+       job says otherwise, because most of them are.
+       This lives on the scenario rather than in each tool, so ERV Energy
+       Saving and ERV Load cannot end up quoting different provinces for
+       the same building. */
+    site: 'bkk',
     /* Bangkok Metropolis TMYx 2011-2025 (WMO 484550), the 08:00-17:00
-       Mon-Fri hours: mean enthalpy 77.04 kJ/kg. 31 C / 63 % reproduces it
-       to 0.3 %. The old default of 31 C / 70 % is 82.21 kJ/kg, which
-       against a 25 C / 50 % room overstates the load - and therefore the
-       saving - by 19 %. See _src/bkk_enthalpy.py. */
+       hours: mean enthalpy 77.42 kJ/kg. 31 C / 63.6 % reproduces it.
+       The old default of 31 C / 70 % is 82.21 kJ/kg, which against a
+       25 C / 50 % room overstates the load - and therefore the saving -
+       by 19 %. See _src/bkk_windows.py. */
     oaAv: { t:31, rh:63 },     /* annual average · energy */
     room: { t:25, rh:50 },     /* indoor */
     erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
@@ -2759,6 +2784,7 @@ function csCond(scn, rm){
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
     oaCo: csNum(scn.co2 && scn.co2.oa, 400),
+    site: CS_SITES[scn.site] ? scn.site : 'bkk',
     crit: scn.crit || { ash:true, law:true, leed:false, ceil:true, p1000:true },
     over: []
   };
@@ -2771,6 +2797,32 @@ function csCond(scn, rm){
     });
   }
   return c;
+}
+/* ── the weather stations the tools carry data for ──
+   All climate.onebuilding.org, TMYx 2011-2025, downloaded 22 Sep 2026.
+   One per region, which is as far as six files can honestly stretch: a job
+   is being told the weather of the nearest of six stations, not its own.
+   [ชื่อที่แสดง, ภาค, สถานี, WMO, ความสูง m]
+   ⚠ kan is Thong Pha Phum, which is in Kanchanaburi province but up the
+   valley, not the town. Nothing closer exists in the archive, and being a
+   remote station its record leans on ERA5 reanalysis rather than on
+   instruments - it has by far the widest spread of the six (median 73.8
+   kJ/kg but 101 hours a year above 100, and a peak of 120). Treat its
+   extremes as indicative.
+   hkt also has a long tail, 124 hours above 100, which for a humid island
+   is believable. */
+var CS_SITES = {
+  bkk: ['กรุงเทพฯ',   'ภาคกลาง',      'Bangkok Metropolis',  '484550',   4],
+  cnx: ['เชียงใหม่',  'ภาคเหนือ',     'Chiang Mai Intl AP',  '483270', 316],
+  kkc: ['ขอนแก่น',    'ภาคอีสาน',     'Khon Kaen AP',        '483810', 204],
+  ray: ['ระยอง',      'ภาคตะวันออก',  'Rayong',              '484780',   5],
+  kan: ['กาญจนบุรี',  'ภาคตะวันตก',   'Thong Pha Phum',      '484210',  99],
+  hkt: ['ภูเก็ต',     'ภาคใต้',       'Phuket',              '485640',   4]
+};
+var CS_SITE_ORDER = ['bkk', 'cnx', 'kkc', 'ray', 'kan', 'hkt'];
+function csSiteLabel(k){
+  var s2 = CS_SITES[k] || CS_SITES.bkk;
+  return s2[0] + ' · ' + s2[1];
 }
 var CS_COND_TH = { oaPkT:'อุณหภูมิภายนอก', oaPkRh:'ความชื้นภายนอก',
                    rT:'อุณหภูมิห้อง', rRh:'ความชื้นห้อง',
@@ -2808,6 +2860,7 @@ function csMigrate(old){
       if(isFinite(csNum(r[k], NaN))) sc.bill[k] = csNum(r[k]);
     });
     sc.roi = r;
+    sc.site = 'bkk';          /* everything written before this existed */
     sc.rooms = (p.rooms || []).map(function(rm){
       var nr = csNewRoom(rm.name);
       nr.id = rm.id;
@@ -2863,6 +2916,7 @@ function csHeal(db){
         else Object.keys(d[g]).forEach(function(k){
           if(s[g][k] == null) s[g][k] = d[g][k]; });
       });
+      if(!CS_SITES[s.site]) s.site = 'bkk';
       if(!s.roi) s.roi = {};
       if(!Array.isArray(s.rooms)) s.rooms = [];
 
@@ -3568,7 +3622,7 @@ var DB = null;   /* the whole registry, held open while this page is up */
 var FIELDS = ['pjName','pjArea','pjBy','oa','et','ervpick','tpk','rpk','tav','rav','tr','rr',
               'hpd','dpy','rate','cop','baht_rt','dp_b','eta_b','nf_b','w_b',
               'dp_e','eta_e','nf_e','w_e','cap_erv','cap_fan','esc','disc',
-              'svc_t','svc_n','oa_b','oh_a','oh_b'];
+              'svc_t','svc_n','oa_b','oh_a','oh_b','wx_site'];
 var FIELD_TH = {
   pjName:'ชื่อโครงการ', pjArea:'พื้นที่ปรับอากาศ ตร.ม.', pjBy:'ผู้จัดทำ',
   oa:'ลมภายนอก CMH', et:'ประสิทธิภาพแกน %', ervpick:'รุ่น ERV ที่เลือก',
@@ -3585,7 +3639,8 @@ var FIELD_TH = {
   esc:'ค่าไฟขึ้นปีละ %', disc:'อัตราคิดลด %',
   svc_t:'ค่าดูแลรักษา บาท/ครั้ง', svc_n:'เข้าดูแลปีละ ครั้ง',
   oa_b:'ลมของระบบเดิม CMH',
-  oh_a:'ระบบเดินตั้งแต่ นาฬิกา', oh_b:'ระบบเดินถึง นาฬิกา'
+  oh_a:'ระบบเดินตั้งแต่ นาฬิกา', oh_b:'ระบบเดินถึง นาฬิกา',
+  wx_site:'สถานีอากาศที่ใช้'
 };
 var PROJECTS = [], CUR = 0, LOADING = false;
 
@@ -3619,6 +3674,7 @@ function applySnapshot(v){
    are stored once, on the scenario, so the load page and this page cannot
    end up sizing and billing the same building at different temperatures. */
 var SCNMAP = { tpk:['oaPk','t'], rpk:['oaPk','rh'], tav:['oaAv','t'], rav:['oaAv','rh'],
+               /* site sits directly on the scenario, handled beside SCNMAP */
                tr:['room','t'],  rr:['room','rh'],  et:['erv','et'],
                rate:['bill','rate'], cop:['bill','cop'],
                hpd:['bill','hpd'],   dpy:['bill','dpy'] };
@@ -3637,6 +3693,7 @@ function loadProjects(){
       Object.keys(SCNMAP).forEach(function(k){
         var m = SCNMAP[k]; v[k] = sc[m[0]][m[1]];
       });
+      v.wx_site = CS_SITES[sc.site] ? sc.site : 'bkk';
       var rs = roomSum(sc);
       /* the rooms own the airflow, the same rule ERV Load already follows ·
          it used to be seeded once and then left alone, so adding a room or
@@ -3694,6 +3751,7 @@ function saveProjects(){
     var hit = csFindScenario(DB, pr.pid, pr.sid);
     if(!hit) return;
     hit.p.off = !!pr.off;
+    if(CS_SITES[pr.v.wx_site]) hit.s.site = pr.v.wx_site;
     hit.s.roi = pr.v;
     /* the shared conditions belong to the scenario, so write them there too */
     Object.keys(SCNMAP).forEach(function(k){
@@ -5087,6 +5145,9 @@ function tplExport(){
   });
 }
 if($('tplBtn')) $('tplBtn').addEventListener('click', tplExport);
+
+$('wx_site').innerHTML = CS_SITE_ORDER.map(function(k){
+  return '<option value="' + k + '">' + csSiteLabel(k) + '</option>'; }).join('');
 
 csKeepAudit(FIELDS, ROI_SKIP, 'ERV Energy Saving', 'projHint');
 loadProjects();
