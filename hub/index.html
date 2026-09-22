@@ -386,6 +386,14 @@ tr.gov td{background:#EDF6FD !important}
 .psy-side th{font-weight:600; font-size:10px; color:var(--text-secondary)}
 .psy-side td:first-child, .psy-side th:first-child{text-align:left}
 .rc-cap{font-size:9.5px; color:var(--text-secondary); margin-top:3px; line-height:1.4}
+/* the two money charts sit side by side · on A3 there is room for both at
+   full size, and they are read against each other: how much comes back
+   each year, and when the total crosses zero */
+.rep-roi2{display:flex; gap:16px; align-items:flex-start; margin-top:10px;
+  break-inside:avoid; page-break-inside:avoid}
+.rep-roi2 > div{flex:1 1 0; min-width:0}
+.roisvg{width:100%; height:auto; display:block}
+@media (max-width:900px){ .rep-roi2{flex-direction:column} }
 @media (max-width:900px){ .rp-grid{flex-direction:column} .rp-facts{flex:1 1 auto; width:100%} }
 
 .askback{position:fixed; inset:0; background:rgba(15,23,32,.38); z-index:9000;
@@ -948,6 +956,7 @@ tr.gov td{background:#EDF6FD !important}
     <button class="btn" id="repPrint">พิมพ์ / บันทึกเป็น PDF</button>
     <label class="opt"><input type="checkbox" id="repAll"> ทุกทางเลือกของโปรเจคนี้</label>
     <label class="opt"><input type="checkbox" id="repRooms"> รายละเอียดรายห้อง + กราฟ CO₂</label>
+    <label class="opt"><input type="checkbox" id="repRoi" checked> การคืนทุน + กราฟเงิน</label>
     <label class="opt"><input type="checkbox" id="repCalc" checked> แนบเงื่อนไขและข้อสมมติ</label>
     <label class="opt"><input type="checkbox" id="repSign" checked> ช่องลงชื่อ</label>
     <span class="hint" style="margin:0">ตั้งกระดาษเป็น <b>A3 แนวตั้ง</b> · ใน Chrome เลือกปลายทางเป็น
@@ -3286,6 +3295,7 @@ function repScnBlock(p, s, o, first){
       + '</h3>' + repSched(s, r) + '</div>'
     + repFails(s)
     + repTotals(r, s)
+    + (o.roi ? repMoney(r) : '')
     + (o.rooms ? repRoomCards(s) : '')
     + (o.calc ? repNotes(s) : '');
 }
@@ -3712,6 +3722,318 @@ function co2Svg(c){
   return '<svg class="co2svg" viewBox="0 0 ' + W + ' ' + H + '" role="img">' + o.join('') + '</svg>';
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   THE MONEY SECTION
+
+   Everything here is read, never computed. ERV Energy Saving owns the ROI
+   maths and publishes the whole answer into scenario.roi._out, including
+   the twenty year series, so this page plots numbers it did not derive.
+   The alternative - re-deriving the escalation here - is the mistake this
+   codebase keeps having to undo: two copies of a formula drift, and the
+   one on the client's report is the copy nobody checks.
+
+   A scenario whose ROI was last computed before the series existed still
+   has its headline figures, so the tables render and only the charts are
+   held back, with a line saying which button brings them.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* a round-ish tick, same shape as co2Step but asked for a tick count */
+function moneyStep(span, want){
+  var raw = span/(want || 5);
+  if(!(raw > 0)) return 1;
+  var mag = Math.pow(10, Math.floor(Math.log(raw)/Math.LN10)), f = raw/mag;
+  return (f >= 5 ? 5 : f >= 2 ? 2 : 1) * mag;
+}
+/* baht on an axis, short enough to fit beside a 620px chart */
+function moneyTick(v){
+  var a = Math.abs(v);
+  /* one decimal only when it says something · a tick every 5,000 printed
+     itself as "5.0 พ." down the whole axis */
+  function t(x){ return String(Math.round(x*10)/10); }
+  if(a >= 1e6) return t(v/1e6) + ' ล.';
+  if(a >= 1000) return t(v/1000) + ' พ.';
+  return fmt(Math.round(v));
+}
+function roiFrame(W, H, L, R, T, B){
+  return { W:W, H:H, L:L, R:R, T:T, B:B, w:W-L-R, h:H-T-B };
+}
+function roiGrid(f, lo, hi, step, xlab, ylab, n, bars){
+  var o = [], v, i;
+  o.push('<rect x="' + f.L + '" y="' + f.T + '" width="' + f.w + '" height="' + f.h
+    + '" fill="#fff" stroke="#E3E7EB"/>');
+  function py(y){ return f.T + f.h*(1 - (y - lo)/(hi - lo)); }
+  for(v = Math.ceil(lo/step)*step; v <= hi + 1e-6; v += step){
+    var yy = py(v);
+    o.push('<line x1="' + f.L + '" y1="' + yy.toFixed(1) + '" x2="' + (f.W-f.R)
+      + '" y2="' + yy.toFixed(1) + '" stroke="' + (Math.abs(v) < 1e-9 ? '#C7CDD3' : '#EFF1F3')
+      + '"' + (Math.abs(v) < 1e-9 ? ' stroke-width="1.4"' : '') + '/>');
+    o.push('<text x="' + (f.L-6) + '" y="' + (yy+3.5).toFixed(1) + '" text-anchor="end"'
+      + ' font-size="9.5" fill="#6B7280">' + moneyTick(v) + '</text>');
+  }
+  /* A label on every year is unreadable at this width; every fifth is not.
+     The curve has a point AT year i, so its tick sits at i/n. A bar COVERS
+     year i, from i-1 to i, so its tick has to sit half a slot back or it
+     points at the gap between two bars and labels the wrong one. */
+  for(i = (bars ? 1 : 0); i <= n; i++){
+    if(bars ? (i !== 1 && i % 5) : (i % 5)) continue;
+    var xx = f.L + f.w*((bars ? i - 0.5 : i)/n);
+    o.push('<line x1="' + xx.toFixed(1) + '" y1="' + f.T + '" x2="' + xx.toFixed(1)
+      + '" y2="' + (f.H-f.B) + '" stroke="#EFF1F3"/>');
+    o.push('<text x="' + xx.toFixed(1) + '" y="' + (f.H-f.B+14)
+      + '" text-anchor="middle" font-size="9.5" fill="#6B7280">' + i + '</text>');
+  }
+  o.push('<text x="' + (f.L + f.w/2) + '" y="' + (f.H-5) + '" text-anchor="middle"'
+    + ' font-size="10" fill="#6B7280">' + xlab + '</text>');
+  o.push('<text x="12" y="' + (f.T + f.h/2) + '" text-anchor="middle" font-size="10"'
+    + ' fill="#6B7280" transform="rotate(-90 12 ' + (f.T + f.h/2) + ')">' + ylab + '</text>');
+  return { o:o, py:py };
+}
+
+/* ── the curve · money out, then money back, and where it crosses ── */
+function roiCumSvg(o){
+  var n = o.cum.length, f = roiFrame(620, 320, 58, 14, 14, 40);
+  var pts = [[0, -csNum(o.extra)]];
+  o.cum.forEach(function(v, i){ pts.push([i+1, csNum(v)]); });
+  var vals = pts.map(function(x){ return x[1]; });
+  var lo = Math.min.apply(null, vals.concat([0])), hi = Math.max.apply(null, vals.concat([0]));
+  var pad = Math.max(1, (hi - lo)*0.08); lo -= pad; hi += pad;
+  var step = moneyStep(hi - lo, 7);
+  lo = Math.floor(lo/step)*step; hi = Math.ceil(hi/step)*step;
+  var g = roiGrid(f, lo, hi, step, 'ปีที่', 'กระแสเงินสดสะสม บาท', n), out = g.o;
+  function px(y){ return f.L + f.w*(y/n); }
+
+  var d = pts.map(function(x, i){
+    return (i ? 'L' : 'M') + px(x[0]).toFixed(1) + ' ' + g.py(x[1]).toFixed(1); }).join(' ');
+  out.push('<path d="' + d + ' L' + px(n).toFixed(1) + ' ' + g.py(0).toFixed(1)
+    + ' L' + px(0).toFixed(1) + ' ' + g.py(0).toFixed(1) + ' Z" fill="rgba(46,125,50,.10)"/>');
+  out.push('<path d="' + d + '" fill="none" stroke="#2E7D32" stroke-width="2.4"/>');
+
+  var yE = (o.yearsEsc == null ? null : csNum(o.yearsEsc, null));
+  if(yE != null && isFinite(yE) && yE > 0 && yE <= n){
+    var xc = px(yE);
+    out.push('<line x1="' + xc.toFixed(1) + '" y1="' + f.T + '" x2="' + xc.toFixed(1)
+      + '" y2="' + (f.H-f.B) + '" stroke="#B03A34" stroke-width="1.3" stroke-dasharray="4 3"/>');
+    out.push('<circle cx="' + xc.toFixed(1) + '" cy="' + g.py(0).toFixed(1)
+      + '" r="4" fill="#B03A34"/>');
+    /* the label flips to the left of the line when the line is near the
+       right edge, which is exactly the case on a long payback */
+    var right = xc > f.L + f.w*0.68;
+    out.push('<text x="' + (xc + (right ? -7 : 7)).toFixed(1) + '" y="' + (f.T+13)
+      + '" text-anchor="' + (right ? 'end' : 'start') + '" font-size="11" font-weight="600"'
+      + ' fill="#B03A34">คืนทุนปีที่ ' + fmt(yE,1) + '</text>');
+  }
+  var last = pts[pts.length-1];
+  out.push('<circle cx="' + px(last[0]).toFixed(1) + '" cy="' + g.py(last[1]).toFixed(1)
+    + '" r="3.5" fill="#2E7D32"/>');
+  out.push('<text x="' + (px(last[0])-6).toFixed(1) + '" y="' + (g.py(last[1])-8).toFixed(1)
+    + '" text-anchor="end" font-size="11" font-weight="600" fill="#2E7D32">'
+    + baht(last[1]) + '</text>');
+  return '<svg class="roisvg" viewBox="0 0 ' + f.W + ' ' + f.H + '" role="img">'
+    + out.join('') + '</svg>';
+}
+
+/* ── the bars · what each year puts back, before upkeep ── */
+function roiBarsSvg(o){
+  var n = o.save.length, f = roiFrame(620, 320, 58, 14, 14, 40);
+  var svc = csNum(o.svcYr);
+  var sv = o.save.map(function(v){ return csNum(v); });
+  var hi = Math.max.apply(null, sv.concat([svc, 0]));
+  var lo = Math.min(0, Math.min.apply(null, sv));
+  hi += Math.max(1, (hi - lo)*0.14);
+  var step = moneyStep(hi - lo, 5);
+  lo = Math.floor(lo/step)*step; hi = Math.ceil(hi/step)*step;
+  var g = roiGrid(f, lo, hi, step, 'ปีที่', 'ประหยัดค่าไฟ บาท/ปี', n, true), out = g.o;
+  var bw = f.w/n, pad = Math.min(3, bw*0.18);
+  sv.forEach(function(v, i){
+    var y0 = g.py(0), y1 = g.py(v);
+    out.push('<rect x="' + (f.L + bw*i + pad).toFixed(1) + '" y="' + Math.min(y0,y1).toFixed(1)
+      + '" width="' + (bw - pad*2).toFixed(1) + '" height="' + Math.abs(y1-y0).toFixed(1)
+      + '" fill="#2383E2" opacity=".82"/>');
+  });
+  if(svc > 0 && svc >= lo && svc <= hi){
+    var ys = g.py(svc);
+    out.push('<line x1="' + f.L + '" y1="' + ys.toFixed(1) + '" x2="' + (f.W-f.R)
+      + '" y2="' + ys.toFixed(1) + '" stroke="#B03A34" stroke-width="1.3" stroke-dasharray="4 3"/>');
+    /* it crosses the bars wherever it is put, so it is written over them
+       with a white outline rather than squeezed somewhere it fits */
+    out.push('<text x="' + (f.L+6) + '" y="' + (ys-5).toFixed(1) + '" font-size="10"'
+      + ' fill="#B03A34" stroke="#fff" stroke-width="3" paint-order="stroke"'
+      + ' stroke-linejoin="round">ค่าดูแลรักษา ' + baht(svc) + ' บาท/ปี</text>');
+  }
+  return '<svg class="roisvg" viewBox="0 0 ' + f.W + ' ' + f.H + '" role="img">'
+    + out.join('') + '</svg>';
+}
+
+/* What the curve is actually showing, which is four different things.
+   The first version said "climbs, and where it crosses zero is your
+   payback" for every job, including the ones where the fan eats more than
+   the core saves and the line only goes down. A caption that contradicts
+   the picture above it is worse than no caption. */
+function roiCumCap(o){
+  var down = csNum(o.netAfterSvc, csNum(o.net)) <= 0;
+  var t = '<b>กระแสเงินสดสะสม</b> · ';
+  if(!o.capexKnown)
+    return t + 'ยังไม่ได้ใส่ราคา ERV เส้นนี้จึงเป็น<b>เงินที่ประหยัดได้สะสม '
+      + 'ยังไม่ได้หักเงินลงทุน</b> · ใส่ราคาแล้วเส้นจะเริ่มที่ติดลบและมีจุดคืนทุนให้เห็น';
+  if(csNum(o.extra) <= 0)
+    return t + 'ส่วนต่างลงทุนไม่เหลือให้คืน เพราะค่าแอร์ที่ลดขนาดได้มากกว่าราคาเครื่อง · '
+      + 'เส้นจึงเริ่มเหนือศูนย์ = <b>คืนทุนทันที</b>';
+  t += 'เริ่มติดลบเท่าส่วนต่างลงทุน ' + baht(csNum(o.extra)) + ' บาท';
+  if(down)
+    return t + ' แล้ว<b>ลงต่อ</b> เพราะที่เงื่อนไขนี้ค่าไฟที่เพิ่มขึ้นมากกว่าที่ประหยัดได้ · '
+      + 'เส้นไม่ตัดศูนย์ <b>ยังไม่คืนทุน</b> ประโยชน์อยู่ที่คุณภาพอากาศ ไม่ใช่ที่ค่าไฟ';
+  t += ' แล้วไต่ขึ้นตามเงินที่ประหยัดได้'
+    + (csNum(o.esc) !== 0 ? ' ซึ่งโตปีละ ' + fmt(csNum(o.esc),1) + ' % ตามค่าไฟ' : '')
+    + (csNum(o.svcYr) > 0 ? ' หักค่าดูแลรักษาแล้ว' : '');
+  return t + (o.yearsEsc != null
+    ? ' · จุดที่เส้นตัดศูนย์คือปีที่เงินกลับมาครบ'
+    : ' · <b>ยังไม่ตัดศูนย์ภายใน ' + (o.cum ? o.cum.length : 20) + ' ปี</b>');
+}
+
+/* ── the section itself ── */
+function repMoney(r){
+  var o = r.roi;
+  if(!o) return '<div class="rep-sec"><h3>การคืนทุนและค่าไฟที่ประหยัดได้</h3>'
+    + '<div class="rep-note">ทางเลือกนี้ยังไม่ได้คิด ROI · เปิด <b>ERV Energy Saving</b> '
+    + 'จากปุ่ม <b>คิด ROI</b> บนแถบทางเลือก กรอกราคาแล้วกลับมาสั่งพิมพ์อีกครั้ง</div></div>';
+
+  var full = !!(o.cum && o.cum.length && o.save && o.save.length);
+  var yrs = full ? o.cum.length : 20;
+
+  function k(v, u, l){ return '<div class="k"><div class="v">' + v
+    + (u ? '<small>' + u + '</small>' : '') + '</div><div class="l">' + l + '</div></div>'; }
+  var kpi = '<div class="rep-kpi">'
+    + k(baht(csNum(o.net)), 'บาท/ปี', 'ประหยัดค่าไฟสุทธิ · ปีแรก')
+    + k(repPlain(payText(o)), '', 'ระยะคืนทุนแบบง่าย')
+    + (full ? k(baht(csNum(o.cum[yrs-1])), 'บาท', o.capexKnown
+          ? 'เงินสดสะสมเมื่อครบ ' + yrs + ' ปี'
+          : 'ประหยัดสะสม ' + yrs + ' ปี · ยังไม่หักเงินลงทุน') : '')
+    + (o.co2t != null ? k(fmt(Math.max(0, csNum(o.co2t)),1), 'tCO₂e/ปี', 'คาร์บอนที่ลดได้') : '')
+    + k(fmt(csNum(o.rtSaved),2), 'RT', 'ลดขนาดแอร์ได้')
+    + '</div>';
+
+  /* ── the bill, line by line ── */
+  function row(a, b, sub){
+    return '<tr><td style="width:250px">' + a
+      + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</td>'
+      + '<td class="num"><b>' + b + '</b></td></tr>';
+  }
+  var hasK = (o.kwhBase != null);
+  var bill = row('ค่าไฟของระบบเดิมที่เอาไปเทียบ', baht(csNum(o.bahtBase)) + ' บาท/ปี',
+        hasK ? fmt(Math.round(csNum(o.kwhBase))) + ' หน่วย/ปี' : '')
+    + row('ค่าไฟเมื่อใช้ ERV', baht(csNum(o.bahtErv)) + ' บาท/ปี',
+        hasK ? fmt(Math.round(csNum(o.kwhErv))) + ' หน่วย/ปี' : '')
+    + (o.bahtCoolSaved != null
+        ? row('ประหยัดจากภาระความเย็นที่ลดลง', baht(csNum(o.bahtCoolSaved)) + ' บาท/ปี')
+          + row('หัก ค่าไฟพัดลมที่เพิ่มขึ้น',
+              (csNum(o.bahtFanExtra) >= 0 ? '−' : '+') + baht(Math.abs(csNum(o.bahtFanExtra)))
+              + ' บาท/ปี')
+        : '')
+    + row('<b>ประหยัดสุทธิต่อปี</b>', baht(csNum(o.net)) + ' บาท/ปี')
+    + (csNum(o.svcYr) > 0
+        ? row('หัก ค่าดูแลรักษา', '−' + baht(csNum(o.svcYr)) + ' บาท/ปี')
+          + row('เหลือเข้ากระเป๋าปีแรก', baht(csNum(o.netAfterSvc)) + ' บาท/ปี')
+        : '');
+
+  /* an _out written before this section existed carries the payback but
+     not the prices it came from · saying "not entered" there would be a
+     lie, because a payback proves somebody entered one */
+  var cap = (o.capErv == null)
+    ? row('ราคา ERV', o.capexKnown ? 'กรอกไว้แล้ว' : '<span class="no">ยังไม่ได้ใส่</span>',
+        o.capexKnown
+          ? 'ชุดตัวเลขนี้คิดไว้ก่อนรายงานจะแจกแจงราคา · เปิด ERV Energy Saving สักครั้งแล้วจะครบ'
+          : 'ใส่ในการ์ดราคาลงทุนของ ERV Energy Saving แล้วระยะคืนทุนจะคำนวณให้')
+  : (csNum(o.capErv) > 0)
+    ? row('ราคา ERV ทั้งระบบ', baht(csNum(o.capErv)) + ' บาท')
+      + (csNum(o.capFan) > 0
+          ? row('หัก ราคาระบบเดิมที่ไม่ต้องซื้อ', '−' + baht(csNum(o.capFan)) + ' บาท') : '')
+      + (csNum(o.acSaving) > 0
+          ? row('หัก ค่าแอร์ที่ลดขนาดได้', '−' + baht(csNum(o.acSaving)) + ' บาท',
+                fmt(csNum(o.rtSaved),2) + ' RT ที่ไม่ต้องซื้อ · นับได้เฉพาะงานที่ยังไม่สั่งแอร์') : '')
+      + row('<b>ส่วนต่างที่ต้องคืนทุน</b>', baht(csNum(o.extra)) + ' บาท')
+    : row('ราคา ERV', '<span class="no">ยังไม่ได้ใส่</span>',
+          'ใส่ในการ์ดราคาลงทุนของ ERV Energy Saving แล้วระยะคืนทุนจะคำนวณให้');
+
+  /* ── three payback numbers, which is two more than anybody expects ── */
+  function pay(label, v, sub){
+    return row(label, (v === null || v === undefined) ? '<span class="no">—</span>'
+      : (v === 0 ? 'คืนทุนทันที' : '<b>' + fmt(v,1) + '</b> ปี'), sub);
+  }
+  var gOn = csNum(o.esc) !== 0, dOn = csNum(o.disc) !== 0;
+  var paytab = pay('คืนทุนแบบง่าย', o.capexKnown ? (o.immediate ? 0 : o.years) : null,
+        'ส่วนต่างลงทุน ÷ ประหยัดต่อปี ที่ค่าไฟวันนี้ · ไม่คิดค่าไฟที่ขึ้นและไม่คิดต้นทุนเงิน')
+    /* only when the tariff is set to climb · upkeep alone does not make a
+       second number, because the simple payback already has it taken off,
+       and two identical rows read as a mistake */
+    + (gOn && o.yearsEsc !== undefined
+        ? pay('คืนทุนเมื่อคิดค่าไฟที่ขึ้นปีละ ' + fmt(csNum(o.esc),1) + ' %',
+              (o.yearsEsc == null ? null : csNum(o.yearsEsc, null)),
+              'จุดที่เส้นกระแสเงินสดสะสมตัดศูนย์ในกราฟซ้าย · ยังไม่คิดต้นทุนเงิน')
+        : '')
+    + (dOn || gOn
+        ? pay('คืนทุนแบบคิดลด', (o.discCapped ? null
+                : (o.yearsDisc == null ? null : csNum(o.yearsDisc, null))),
+              'ค่าไฟขึ้นปีละ ' + fmt(csNum(o.esc),1) + ' % · อัตราคิดลด '
+              + fmt(csNum(o.disc),1) + ' %'
+              + (o.discCapped
+                  ? ' · <b>ที่อัตรานี้ไม่คืนทุน</b> เงินในอนาคตถูกลดค่าเร็วกว่าที่ประหยัดได้'
+                  : ''))
+        : '');
+
+  /* ── where the saving came from · the credibility line ── */
+  var split = o.flowSplit
+    ? '<div class="rep-note" style="margin-top:6px">'
+      + '<b>ลมของระบบเดิมไม่เท่ากับที่เราเสนอ</b> (' + fmt(csNum(o.qb)) + ' เทียบ '
+      + fmt(csNum(o.q)) + ' CMH) เงินที่ประหยัดจึงมาจากสองทาง · '
+      + 'จากการลดลม <b>' + baht(csNum(o.bahtFlow)) + ' บาท/ปี</b> '
+      + 'ซึ่งลูกค้าหรี่พัดลมเดิมเองก็ได้ ไม่ใช่ผลงานของ ERV · '
+      + 'จากแกน ERV จริง ๆ <b>' + baht(csNum(o.bahtCore)) + ' บาท/ปี</b> · '
+      + 'เสนอรวมเป็นก้อนเดียวแล้วลูกค้าถาม จะอธิบายไม่ได้</div>'
+    : '';
+
+  var charts = full
+    ? '<div class="rep-roi2">'
+      + '<div>' + roiCumSvg(o)
+        + '<div class="rc-cap">' + roiCumCap(o) + '</div></div>'
+      + '<div>' + roiBarsSvg(o)
+        + '<div class="rc-cap"><b>ประหยัดได้ปีละเท่าไร</b> · ค่าไฟที่ไม่ต้องจ่าย '
+        + 'หักค่าไฟพัดลมที่เพิ่มขึ้นแล้ว '
+        + (csNum(o.esc) !== 0
+            ? '· แท่งสูงขึ้นทุกปีเพราะค่าไฟขึ้นปีละ ' + fmt(csNum(o.esc),1) + ' % '
+              + 'ไม่ใช่เพราะเครื่องทำงานดีขึ้น'
+            : '· เท่ากันทุกปีเพราะตั้งค่าไฟที่จะขึ้นไว้ 0 %')
+        + (csNum(o.svcYr) > 0
+            ? ' · เส้นประคือค่าดูแลรักษา ส่วนที่อยู่เหนือเส้นคือที่เหลือจริง' : '')
+        + '</div></div></div>'
+    : '<div class="rep-note" style="margin-top:6px">⚠️ '
+      + 'ตัวเลข ROI ชุดนี้คิดไว้ก่อนที่รายงานจะมีกราฟ จึงยังไม่มีข้อมูลรายปีให้วาด · '
+      + 'เปิด <b>ERV Energy Saving</b> ของทางเลือกนี้สักครั้ง (ไม่ต้องแก้อะไร) '
+      + 'แล้วสั่งพิมพ์ใหม่ กราฟจะมาเอง</div>';
+
+  return '<div class="rep-sec"><h3>การคืนทุนและค่าไฟที่ประหยัดได้'
+    + '<span class="n">จาก ERV Energy Saving · คิดเมื่อ ' + dstr(o.at) + '</span></h3>'
+    + kpi
+    + charts
+    + '<div class="rep-roi2" style="margin-top:12px">'
+      + '<div><table class="rtab"><tbody>' + bill + '</tbody></table></div>'
+      + '<div><table class="rtab"><tbody>' + cap + paytab + '</tbody></table></div>'
+    + '</div>'
+    + split
+    + '<div class="rep-note" style="margin-top:6px">'
+    + '<b>มีตัวเลขคืนทุนได้ถึงสามตัว และเป็นคนละคำถามกัน</b> — แบบง่ายคือส่วนต่างลงทุน'
+    + 'หารด้วยประหยัดต่อปีที่ค่าไฟวันนี้ · ตัวที่คิดค่าไฟที่ขึ้นจะเร็วกว่า · '
+    + 'ตัวที่คิดลดด้วยจะช้ากว่า เพราะเงินปีหน้ามีค่าน้อยกว่าเงินวันนี้ · '
+    + '<b>อัตราค่าไฟที่จะขึ้นและอัตราคิดลดเป็นการเดาอนาคตของผู้กรอกเอง ไม่ใช่ค่าจากมาตรฐานใด</b> · '
+    + 'ตัวเลขทั้งหมดคิดเฉพาะ<b>ภาระของอากาศภายนอก</b> ไม่รวมผนัง หลังคา กระจก คน และแสงสว่าง'
+    + (o.rate != null
+        ? ' · ค่าไฟ ' + fmt(csNum(o.rate),2) + ' บาท/หน่วย · COP ' + fmt(csNum(o.cop),2)
+          + ' · เดิน ' + fmt(csNum(o.hours)) + ' ชม./ปี · ηt ' + fmt(csNum(o.et)) + ' %'
+        : '')
+    + (o.ef != null ? ' · แฟกเตอร์คาร์บอน ' + csNum(o.ef).toFixed(4)
+        + ' kgCO₂e/หน่วย ตามประกาศ อบก.' : '')
+    + '</div></div>';
+}
+
 /* One room to a page.
    Three to a row fitted the schedule's idea of a room - a line in a table -
    but a room that needed explaining had nowhere to put it and a chart 250px
@@ -3770,7 +4092,8 @@ function repRoomCards(sc){
 
 function repOpts(){
   return { all: $('repAll').checked, calc: $('repCalc').checked,
-           sign: $('repSign').checked, rooms: $('repRooms').checked };
+           sign: $('repSign').checked, rooms: $('repRooms').checked,
+           roi: $('repRoi').checked };
 }
 function renderReport(){
   var p = curP(), s = curS(), sheet = $('repSheet');
@@ -3830,7 +4153,7 @@ $('repBack').addEventListener('click', function(){
   document.querySelector('.tab[data-p="detail"]').click();
 });
 $('repPrint').addEventListener('click', function(){ window.print(); });
-['repAll','repCalc','repSign','repRooms'].forEach(function(id){
+['repAll','repCalc','repSign','repRooms','repRoi'].forEach(function(id){
   $(id).addEventListener('change', renderReport);
 });
 

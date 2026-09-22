@@ -3983,13 +3983,58 @@ function renderRoomPanel(){
     el2.value = rs.cmh; stash(); saveProjects(); render();
   });
 }
+var OUT_YEARS = 20;
+/* What this page publishes about a scenario for everybody else to read.
+
+   It used to carry the headline only, which was enough for a row in the
+   registry and not enough for the report - so the report said nothing
+   about ROI at all. It now carries the whole answer, INCLUDING the year
+   by year series, so a page drawing a cash-flow curve needs no formula of
+   its own. The escalation maths has one owner, this file; anyone else
+   plots the numbers it hands over.
+
+   save[i] is the electricity saved in year i+1 at that year's tariff,
+           BEFORE upkeep - the same thing this page's own bar chart draws,
+           with svcYr as a line across it, so the report and the tool
+           cannot disagree about what a bar means.
+   cum[i]  is where the money stands at the end of year i+1, investment
+           and upkeep both taken off, so the sign change IS the payback
+           the curve shows. Rounded to whole baht: they are for drawing
+           and for a report, and the exact figures are recomputed here on
+           every keystroke anyway. */
 function outOf(m){
+  var pb = m.pay, save = [], cum = [], y;
+  for(y = 1; y <= OUT_YEARS; y++){
+    save.push(Math.round(m.net*Math.pow(1 + pb.g, y - 1)));
+    cum.push(Math.round(-pb.extra + escSum(m.net, pb.g, y) - m.svcYr*y));
+  }
+  var kwhBase = m.kwhCoolBase + m.kwhFanBase, kwhErv = m.kwhCoolErv + m.kwhFanErv;
   return { net:m.net, years:(m.pay.years === null ? null : m.pay.years),
            yearsDisc:(m.pay.discOn && m.pay.disc != null ? m.pay.disc : null),
            esc:m.pay.g*100, disc:m.pay.d*100, discCapped:!!(m.pay.discOn && m.pay.capped),
            immediate:!!m.pay.immediate, never:!!m.pay.never,
            capexKnown:!!m.pay.known, rtSaved:m.rtSaved, q:m.Q,
            bahtBase:m.bahtBase, bahtErv:m.bahtErv,
+           /* what the bill is made of */
+           rate:m.rate, hours:m.hours, cop:m.cop, et:m.et*100,
+           kwhBase:kwhBase, kwhErv:kwhErv, kwhSaved:kwhBase - kwhErv,
+           bahtCoolSaved:m.bahtCoolSaved, bahtFanExtra:m.bahtFanExtra,
+           /* and which half of it the core actually earned */
+           flowSplit:!!m.flowSplit, qb:m.Qb,
+           bahtFlow:m.kwhFromFlow*m.rate, bahtCore:m.kwhFromCore*m.rate,
+           /* the money side */
+           capErv:pb.ce, capFan:pb.cf, acSaving:pb.acSaving, extra:pb.extra,
+           svcYr:m.svcYr, netAfterSvc:m.netAfterSvc,
+           /* carbon, on the factor the KPI and the workbook already use */
+           ef:GRID_EF, co2t:(kwhBase - kwhErv)*GRID_EF/1000,
+           save:save, cum:cum, span:OUT_YEARS,
+           /* where that curve crosses zero, solved on the smooth function
+              rather than read off the yearly points, so the report marks
+              the same year this page's own chart marks */
+           yearsEsc: pb.known
+             ? crossOf(function(y){
+                 return -pb.extra + escSum(m.net, pb.g, y) - m.svcYr*y; }, OUT_YEARS)
+             : null,
            at:new Date().toISOString() };
 }
 /* bring every project's stored headline up to date - safe only when nothing
