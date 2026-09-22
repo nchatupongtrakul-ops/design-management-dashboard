@@ -2175,6 +2175,20 @@ function renderScnBar(p){
     + 'คัดลอกทางเลือกจะได้ห้องทุกห้องมาด้วย แก้แล้วไม่กระทบตัวเดิม</div>';
 }
 function renderScnCard(s){
+  /* This pair is the only one on the card that another tool can own. ERV
+     Energy Saving works it out from the hours the system runs, and writes
+     it back here - so typing over it there would be thrown away on the next
+     load, and saying nothing about that would be a trap. */
+  function avNote(sc){
+    var r = sc.roi || {};
+    var a = csNum(r.oh_a, NaN), b = csNum(r.oh_b, NaN);
+    if(isFinite(a) && isFinite(b))
+      return 'ใช้คิด<b>ค่าไฟ</b> · <b style="color:#B03A34">มาจากช่วงเวลาเดิน '
+        + fmt(a) + ':00–' + fmt(b) + ':00 ที่ตั้งไว้ใน ERV Energy Saving</b> '
+        + 'แก้ที่นี่จะถูกเขียนทับ · ลบช่วงเวลาที่นั่นก่อนถ้าจะกรอกเอง';
+    return 'ใช้คิด<b>ค่าไฟ</b> · <b>อย่าใส่สภาวะออกแบบ</b> ตัวเลขประหยัดจะสูงเกินจริงมาก · '
+      + 'ตั้งช่วงเวลาที่ระบบเดินใน ERV Energy Saving แล้วคิดให้อัตโนมัติจากข้อมูลอากาศจริงได้';
+  }
   function fld(id, lab, val, step, unit){
     return '<div class="sfld"><label class="flabel" for="'+id+'" title="'+esc(lab)+'">'+lab+'</label>'
       + '<span class="numwrap"><input class="rin" type="number" step="'+step+'" id="'+id+'" value="'+val+'">'
@@ -2192,7 +2206,7 @@ function renderScnCard(s){
     + grp('อากาศภายนอก · สภาวะออกแบบ', 'ใช้คิด<b>ขนาดเครื่อง</b>',
         fld('sc_pkT','อุณหภูมิ', s.oaPk.t, '0.1', '°C')
       + fld('sc_pkR','ความชื้นสัมพัทธ์', s.oaPk.rh, '1', '%'))
-    + grp('อากาศภายนอก · ค่าเฉลี่ยทั้งปี', 'ใช้คิด<b>ค่าไฟ</b>',
+    + grp('อากาศภายนอก · ค่าเฉลี่ยทั้งปี', avNote(s),
         fld('sc_avT','อุณหภูมิ', s.oaAv.t, '0.1', '°C')
       + fld('sc_avR','ความชื้นสัมพัทธ์', s.oaAv.rh, '1', '%'))
     + grp('ภายในห้อง', 'สภาวะที่ออกแบบให้ห้องอยู่',
