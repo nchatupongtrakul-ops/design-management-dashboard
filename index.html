@@ -716,8 +716,9 @@ function shareTag(p, e) {
   return ' (' + Math.round(engShare(p, e) * 100) + '%)';
 }
 
-// Engineers that get KPI tabs
-const KPI_ENGINEERS = ['Ping', 'Wich', 'Mic'];
+// Engineers that get KPI tabs. Wich (Thanatorn) left the team in Sep 2026, so his
+// tab is gone; his 2026 work still counts everywhere the team totals are shown.
+const KPI_ENGINEERS = ['Ping', 'Mic'];
 
 // Internal/External colors
 const COLOR_INTERNAL = '#E0A94E';
