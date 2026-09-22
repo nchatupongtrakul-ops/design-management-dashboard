@@ -696,7 +696,17 @@ table.dtable td.st{white-space:nowrap}
       </div>
       <div class="hint" id="avHint"></div>
       <div class="srcline"><b>ต้องเป็นค่าเฉลี่ยของช่วงเวลาที่ระบบเดินจริง</b> ไม่ใช่ค่าเฉลี่ยทั้งวันทั้งปี
-      ถ้าใส่ค่าออกแบบสูงสุดลงตรงนี้ ตัวเลขประหยัดจะสูงเกินความจริงมาก</div>
+      ถ้าใส่ค่าออกแบบสูงสุดลงตรงนี้ ตัวเลขประหยัดจะสูงเกินความจริงมาก<br>
+      <b>ค่าตั้งต้น 31 °C / 63 % มาจากไฟล์อากาศรายชั่วโมงจริง</b> —
+      climate.onebuilding.org · TMYx 2011–2025 · สถานีกรุงเทพมหานคร WMO 484550 ·
+      8,760 ชั่วโมง กรองเฉพาะ <b>08:00–17:00 จันทร์–ศุกร์</b> ได้เอนทัลปีเฉลี่ย
+      <b>77.04 kJ/kg</b> ซึ่ง 31 °C / 63 % ให้ตรงภายใน 0.3 %
+      (สคริปต์ที่คำนวณอยู่ที่ <code>_src/bkk_enthalpy.py</code> รันซ้ำได้)<br>
+      ⚠️ <b>ค่าเดิมของเครื่องมือคือ 31 °C / 70 % ซึ่งหนักเกินไป 19 %</b>
+      เทียบกับห้อง 25 °C / 50 % · และ <b>35 °C / 60 % ที่เป็นสภาวะออกแบบ หนักเกิน 49 %</b><br>
+      ⚠️ <b>เป็นของกรุงเทพสถานีเดียว และของอาคารที่เดิน 08:00–17:00 จันทร์–ศุกร์เท่านั้น</b>
+      งานต่างจังหวัดหรืออาคารที่เดิน 24 ชม. ต้องคิดใหม่ ·
+      โรงแรมที่เดินทั้งวันทั้งปีได้ <b>76.23 kJ/kg</b> (ทั้ง 8,760 ชั่วโมง)</div>
     </div>
     <div class="card">
       <h3>สภาวะในห้อง</h3>
@@ -2595,7 +2605,12 @@ function csNewScenario(name){
        says which ones count; the rest still compute and are shown, but
        marked as not in use and kept out of the verdict. */
     crit: { ash:true, law:true, leed:false, ceil:true, p1000:true },
-    oaAv: { t:31, rh:70 },     /* annual average · energy */
+    /* Bangkok Metropolis TMYx 2011-2025 (WMO 484550), the 08:00-17:00
+       Mon-Fri hours: mean enthalpy 77.04 kJ/kg. 31 C / 63 % reproduces it
+       to 0.3 %. The old default of 31 C / 70 % is 82.21 kJ/kg, which
+       against a 25 C / 50 % room overstates the load - and therefore the
+       saving - by 19 %. See _src/bkk_enthalpy.py. */
+    oaAv: { t:31, rh:63 },     /* annual average · energy */
     room: { t:25, rh:50 },     /* indoor */
     erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
     bill: { rate:4.15, hpd:10, dpy:300, cop:3.2 },
@@ -2643,7 +2658,7 @@ function csVolume(rm){ return csArea(rm) * csNum(rm.h); }
 function csCond(scn, rm){
   var c = {
     oaPkT: csNum(scn.oaPk.t,35), oaPkRh: csNum(scn.oaPk.rh,60),
-    oaAvT: csNum(scn.oaAv.t,31), oaAvRh: csNum(scn.oaAv.rh,70),
+    oaAvT: csNum(scn.oaAv.t,31), oaAvRh: csNum(scn.oaAv.rh,63),
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
     oaCo: csNum(scn.co2 && scn.co2.oa, 400),
