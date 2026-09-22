@@ -533,6 +533,9 @@ table.dtable td.st{white-space:nowrap}
 <div class="projbar noprint">
   <div class="projbar-tabs" id="projTabs"></div>
   <div class="projbar-act">
+    <a class="btn ghost" id="pHub" href="../hub/"
+       title="กลับไปทะเบียนโปรเจคกลาง · โปรเจคและทางเลือกที่เปิดอยู่จะถูกเลือกไว้ให้">← Project Hub</a>
+    <span class="projbar-sep"></span>
     <button class="btn ghost" id="pAdd" title="สร้างโปรเจคใหม่">+ โปรเจค</button>
     <button class="btn ghost" id="pDup" title="คัดลอกเป็นทางเลือกใหม่ของโปรเจคเดิม พร้อมห้องทุกห้อง">+ ทางเลือก</button>
     <button class="btn ghost" id="pRen" title="เปลี่ยนชื่อทางเลือก">เปลี่ยนชื่อ</button>
@@ -859,6 +862,32 @@ table.dtable td.st{white-space:nowrap}
       <div class="zoomhint">แท่งคือค่าไฟที่ประหยัดได้ในแต่ละปี · โตขึ้นทุกปีถ้าตั้ง
       <b>ค่าไฟขึ้นปีละ %</b> ไว้ · เส้นประคือค่าดูแลรักษาที่หักออกไป ·
       <b>ตัวเลขชุดเดียวกับชีต รายปี ในแฟ้ม Excel</b> · กดที่แท่งเพื่อดูรายละเอียด</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <div class="card-title-row"><h3>ค่าไฟที่จะขึ้น มีผลกับเงินแค่ไหน</h3>
+        <span class="pill" id="ftPill"></span></div>
+      <div class="tablewrap"><table class="dtable">
+        <thead><tr><th>ค่าไฟขึ้นปีละ</th><th class="num">ประหยัดปีที่ 10</th>
+          <th class="num">ประหยัดสะสม 20 ปี</th><th class="num">คืนทุน</th>
+          <th class="num">ได้เพิ่มจากกรณีไม่ขึ้นเลย</th></tr></thead>
+        <tbody id="ftBody"></tbody>
+      </table></div>
+      <div class="srcline" id="ftNote"></div>
+      <div class="srcline"><b>สามอย่างนี้คนละตัวกัน และมักถูกพูดรวมกัน</b><br>
+      <b>1 · เงินเฟ้อทั่วไป — ไม่ต้องคิดเพิ่ม มันหักกันไปเองแล้ว</b>
+      จุดคืนทุนแบบง่ายคือเงินลงทุน ÷ ประหยัดต่อปี ทั้งเศษและส่วนเป็นเงินวันนี้ทั้งคู่
+      ถ้าค่าไฟขึ้นเท่ากับที่เงินเสียค่า สองข้างโตเท่ากันและหักกันหายไปจากอัตราส่วน ·
+      ตัวเลขที่เห็นจึงเป็นค่าที่ปรับเงินเฟ้อแล้วโดยปริยาย <b>ไม่ใช่ตัวเลขที่ลืมคิดเงินเฟ้อ</b><br>
+      <b>2 · ที่มีผลจริงคือค่าไฟขึ้นเร็วกว่าเงินเฟ้อแค่ไหน</b> → คืนทุนเร็วขึ้น ·
+      ใส่ในช่อง <b>ค่าไฟขึ้นปีละ %</b><br>
+      <b>3 · ต้นทุนเงินดึงไปทางตรงข้าม</b> เงินที่ได้คืนปีที่ 10 ไม่ได้มีค่าเท่าเงินวันนี้ →
+      ช้าลง · ใส่ในช่อง <b>อัตราคิดลด %</b><br>
+      <b>ทั้งสองค่าเป็นการเดาอนาคตของผู้ใช้เอง ไม่ใช่ค่าจากมาตรฐานไหน</b>
+      ตารางข้างบนจึงตั้งต้นที่ 0 % และเสนอลูกค้าต้องบอกด้วยว่าใส่เท่าไร ·
+      <b>ชีต เงินเฟ้อกับค่าไฟ ในแฟ้ม Excel เขียนเรื่องนี้ไว้ละเอียดกว่านี้</b></div>
     </div>
   </div>
 
@@ -1681,6 +1710,48 @@ function drawYears(cv){
   }
 }
 
+/* How much the guess about electricity prices is worth, laid out so nobody
+   has to type a number to find out. Same four quantities the workbook's
+   เงินเฟ้อกับค่าไฟ sheet computes, and the same formulas. */
+var FT_STEPS = [0, 2, 3, 5, 7];
+function renderFt(){
+  var m = model(), pb = m.pay, body = $('ftBody');
+  if(!body) return;
+  $('ftPill').textContent = pb.g ? 'ตั้งไว้ ' + fmt(pb.g*100,1) + ' %' : 'ตั้งไว้ 0 %';
+  if(!pb.known || m.net <= 0){
+    body.innerHTML = '<tr><td colspan="5" class="rp-none">'
+      + (m.net <= 0 ? 'ยังไม่มีเงินที่ประหยัดได้ ตารางนี้จึงยังไม่มีอะไรให้เทียบ'
+                    : 'ใส่ราคาระบบ ERV และราคาระบบพัดลมธรรมดาก่อน') + '</td></tr>';
+    $('ftNote').textContent = '';
+    return;
+  }
+  /* cumulative at year y for a given escalation · upkeep does not escalate */
+  function cumG(g){ return function(y){
+    return -pb.extra + escSum(m.net, g, y) - m.svcYr*y; }; }
+  var base = null;
+  body.innerHTML = FT_STEPS.map(function(pct){
+    var g = pct/100;
+    var y10 = m.net*Math.pow(1 + g, 9);
+    var c20 = cumG(g)(20);
+    if(pct === 0) base = c20;
+    var yrs = crossOf(cumG(g), 40);
+    var here = Math.abs(pb.g*100 - pct) < 1e-9;
+    return '<tr' + (here ? ' style="background:var(--row-hl,#EAF3EA)"' : '') + '>'
+      + '<td>' + fmt(pct,0) + ' %' + (here ? ' <b>← ที่ตั้งไว้</b>' : '') + '</td>'
+      + '<td class="num">' + baht(y10) + ' บาท</td>'
+      + '<td class="num">' + baht(c20) + ' บาท</td>'
+      + '<td class="num">' + (yrs === null ? 'เกิน 40 ปี' : fmt(yrs,1) + ' ปี') + '</td>'
+      + '<td class="num">' + (pct === 0 ? '<span class="rp-none">ฐาน</span>'
+          : '+' + baht(c20 - base) + ' บาท') + '</td></tr>';
+  }).join('');
+  var hi = cumG(0.03)(20), lo = cumG(0)(20);
+  $('ftNote').innerHTML = '<b>คอลัมน์ประหยัดสะสม 20 ปี หักค่าดูแลรักษาและหักเงินลงทุนแล้ว</b> '
+    + 'จึงเป็นเงินที่เหลือจริง ๆ · แถวแรก 0 % คือกรณีค่าไฟไม่ขึ้นเลยตลอด 20 ปี '
+    + '<b>ซึ่งไม่เคยเกิด</b> ใส่ไว้เป็นฐานให้เห็นว่าสมมติฐานเรื่องค่าไฟมีน้ำหนักแค่ไหน · '
+    + 'งานนี้ต่างกัน <b>' + baht(lo) + '</b> กับ <b>' + baht(hi) + '</b> บาท '
+    + 'ระหว่าง 0 % กับ 3 %';
+}
+
 /* ─────────────── canvas plumbing ─────────────── */
 function prep(cv){
   var r = window.devicePixelRatio || 1, b = cv.getBoundingClientRect();
@@ -2211,6 +2282,7 @@ function render(){
   renderSheet();
   renderRoomPanel();
   drawBars($('bars')); drawSens($('sens')); drawYears($('years'));
+  renderFt();
   $('yrPill').textContent = m.pay.g
     ? 'ค่าไฟขึ้นปีละ ' + fmt(m.pay.g*100,1) + ' %'
     : 'ค่าไฟคงที่';
@@ -3546,6 +3618,14 @@ function curProject(){
 function pid(){ return String(Date.now()) + String(Math.round(Math.random()*1000)); }
 function stash(){ if(PROJECTS[CUR] && !LOADING) PROJECTS[CUR].v = snapshot(); }
 
+/* the link back carries the open scenario, so the hub opens on the same
+   row the user left · rebuilt with the tabs because the tab can change */
+function syncHubLink(){
+  var a = $('pHub'); if(!a) return;
+  var pr = PROJECTS[CUR];
+  a.href = '../hub/' + (pr ? '?p=' + encodeURIComponent(pr.pid)
+                             + '&s=' + encodeURIComponent(pr.sid) : '');
+}
 function renderProjTabs(){
   /* closed projects drop off the bar but keep their real index on the button */
   $('projTabs').innerHTML = PROJECTS.map(function(p,i){
@@ -3556,6 +3636,7 @@ function renderProjTabs(){
       + esc(p.name) + (m ? '<span class="n">' + baht(m.net) + '</span>' : '') + '</button>';
   }).join('');
   var err = $('projHint').dataset.err === '1';
+  syncHubLink();
   var off = PROJECTS.length - openCount();
   $('projHint').innerHTML = err
     ? 'บันทึกลงเครื่องไม่ได้ · เบราว์เซอร์อาจปิดการเก็บข้อมูล โปรเจคจะหายเมื่อปิดหน้า'
