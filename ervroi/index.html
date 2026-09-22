@@ -727,6 +727,12 @@ table.dtable td.st{white-space:nowrap}
       <div class="field"><label class="flabel">ราคาระบบพัดลมธรรมดาพร้อมติดตั้ง · บาท</label>
         <input type="number" id="cap_fan" value="0" step="5000" min="0"></div>
       <div class="grid2">
+        <div class="field"><label class="flabel">ค่าดูแลรักษา · บาท/ครั้ง</label>
+          <input type="number" id="svc_t" value="0" step="500" min="0"></div>
+        <div class="field"><label class="flabel">เข้าดูแลปีละ · ครั้ง</label>
+          <input type="number" id="svc_n" value="2" step="1" min="0"></div>
+      </div>
+      <div class="grid2">
         <div class="field"><label class="flabel">ค่าไฟขึ้นปีละ · %</label>
           <input type="number" id="esc" value="0" step="0.5" min="0" max="20"></div>
         <div class="field"><label class="flabel">อัตราคิดลด · %</label>
@@ -746,6 +752,11 @@ table.dtable td.st{white-space:nowrap}
       มาถึงปีหน้า</b> ระยะห่างหนึ่งปีนี้แบบง่ายไม่ได้นับ แต่การคิดลดเลี่ยงไม่ได้<br>
       <b>ทั้งสองค่าเป็นการเดาอนาคตของผู้ใช้เอง ไม่ใช่ค่าจากมาตรฐานไหน</b>
       ใส่แล้วต้องบอกลูกค้าด้วยว่าใส่เท่าไร</div>
+      <div class="srcline"><b>ค่าดูแลรักษาตั้งต้นเป็นศูนย์ ตัวเลขคืนทุนจึงไม่เปลี่ยน
+      จนกว่าจะใส่เอง</b> ใส่แล้วคืนทุนจะยาวขึ้น ซึ่งใกล้ความจริงกว่า ·
+      ค่าแรงเข้าล้างแกนและเปลี่ยนไส้กรองคิดรวมเป็นครั้ง ๆ ·
+      <b>หักออกจากที่ประหยัดได้ก่อนเอาไปคืนทุน</b> แต่ไม่ได้หักออกจากการ์ด
+      ประหยัดสุทธิต่อปี ซึ่งเป็นค่าไฟล้วน ๆ</div>
       <div class="srcline"><b>ใส่ราคาที่รวมงานท่อและงานติดตั้งของทั้งสองทางเลือก</b>
       จุดคืนทุนคิดจากส่วนต่างของสองตัวนี้ ไม่ใช่ราคา ERV ทั้งก้อน
       เพราะยังไงลูกค้าก็ต้องจ่ายค่าระบบเติมอากาศอยู่แล้ว ·
@@ -1511,6 +1522,13 @@ function model(etOverride){
   var bahtFanExtra  = (kwhFanErv - kwhFanBase)*rate;
   var net = bahtCoolSaved - bahtFanExtra;
 
+  /* upkeep is money, not energy · m.net stays the electricity saving, which
+     is what the registry, the sankey and every other screen mean by it ·
+     only the payback gets the figure with upkeep taken off */
+  var svcT = Math.max(0, nv('svc_t')), svcN = Math.max(0, nv('svc_n'));
+  var svcYr = svcT*svcN;
+  var netAfterSvc = net - svcYr;
+
   return { Q:Q, Ql:Ql, et:et, hr:hr, hpk:hpk, hav:hav, Tr:Tr,
            qBasePk:qBasePk, rtSaved:rtSaved, qBaseAv:qBaseAv, qSavedAv:qSavedAv,
            hours:hours, cop:cop, rate:rate,
@@ -1520,7 +1538,8 @@ function model(etOverride){
            bahtBase:(kwhCoolBase + kwhFanBase)*rate,
            bahtErv:(kwhCoolErv + kwhFanErv)*rate,
            capex: rtSaved*nv('baht_rt'),
-           pay: payback(rtSaved*nv('baht_rt'), net) };
+           svcT:svcT, svcN:svcN, svcYr:svcYr, netAfterSvc:netAfterSvc,
+           pay: payback(rtSaved*nv('baht_rt'), netAfterSvc) };
 }
 
 /* Extra investment is the ERV above the plain fan, less whatever a smaller
@@ -1795,7 +1814,8 @@ function drawSens(cv){
 
   var span = pb.years ? Math.max(6, Math.ceil(pb.years*1.7)) : 12;
   span = Math.min(span, 30);
-  var lo = Math.min(0, -pb.extra)*1.15, hi = Math.max(1, -pb.extra + m.net*span)*1.08;
+  var lo = Math.min(0, -pb.extra)*1.15,
+      hi = Math.max(1, -pb.extra + m.netAfterSvc*span)*1.08;
   if(hi <= lo) hi = lo + 1;
   var px = function(y){ return L + y/span*(p.w-L-R); };
   var py = function(v){ return p.h-B - (v-lo)/(hi-lo)*(p.h-B-T); };
@@ -1817,7 +1837,7 @@ function drawSens(cv){
   g.strokeStyle=C.gray; g.lineWidth=1.5; g.setLineDash([5,4]); g.stroke(); g.setLineDash([]);
 
   /* the line itself, red while under water and green once it is not */
-  function cash(y){ return -pb.extra + m.net*y; }
+  function cash(y){ return -pb.extra + m.netAfterSvc*y; }
   var cross = pb.years;
   if(cross !== null && cross <= span){
     g.beginPath(); g.moveTo(px(0), py(cash(0))); g.lineTo(px(cross), py(0));
@@ -1835,7 +1855,8 @@ function drawSens(cv){
             ['ราคาพัดลม','พร้อมติดตั้ง', baht(pb.cf)+' บาท'],
             ['ค่าแอร์ที่ลดได้','หักออกจากเงินลงทุน', baht(pb.acSaving)+' บาท'],
             ['ส่วนต่างสุทธิ','ที่ต้องคืนทุน', baht(pb.extra)+' บาท'],
-            ['ประหยัดต่อปี','หักค่าไฟพัดลมแล้ว', baht(m.net)+' บาท']],
+            ['ประหยัดต่อปี', m.svcYr > 0 ? 'หักพัดลมและค่าดูแลแล้ว' : 'หักค่าไฟพัดลมแล้ว',
+             baht(m.netAfterSvc)+' บาท']],
       rows:[['คืนทุนภายใน', fmt(cross,1)+' ปี'],
             ['หรือราว', fmt(cross*12,0)+' เดือน'],
             ['กำไรสะสมปีที่ 10', baht(cash(10))+' บาท']],
@@ -1843,7 +1864,7 @@ function drawSens(cv){
          + 'เส้นเขียวคือหลังคืนทุนแล้ว</b>' }});
   } else {
     g.beginPath(); g.moveTo(px(0), py(cash(0))); g.lineTo(px(span), py(cash(span)));
-    g.strokeStyle = m.net > 0 ? C.orange : C.red; g.lineWidth=2.8; g.stroke();
+    g.strokeStyle = m.netAfterSvc > 0 ? C.orange : C.red; g.lineWidth=2.8; g.stroke();
   }
 
   dot(g, px(0), py(cash(0)), C.red);
@@ -1982,7 +2003,8 @@ function render(){
     k4.innerHTML = fmt(pb.years,1) + '<small>ปี</small>';
     k4.className = 'kpi-value ' + (pb.years <= 5 ? 'ok' : pb.years <= 10 ? 'warn' : 'bad');
     $('k4n').textContent = 'ส่วนต่างลงทุนสุทธิ ' + baht(pb.extra) + ' บาท · ลดแอร์ได้ '
-      + fmt(m.rtSaved,2) + ' RT';
+      + fmt(m.rtSaved,2) + ' RT'
+      + (m.svcYr > 0 ? ' · หักค่าดูแลรักษา ' + baht(m.svcYr) + ' บาท/ปี แล้ว' : '');
   }
   /* the discounted figure never replaces the headline · it sits beside it,
      because it rests on two guesses about the future and the simple one
@@ -2007,10 +2029,15 @@ function render(){
                                       : ' · เร็วกว่าแบบไม่คิดลด ')
                   + fmt(Math.abs(pb.disc - pb.years),1) + ' ปี');
   }
-  $('capHint').textContent = pb.known
+  $('capHint').innerHTML = (pb.known
     ? 'ส่วนต่าง ' + baht(pb.ce - pb.cf) + ' บาท' + (pb.acSaving > 0
         ? ' · หักค่าแอร์ที่ลดได้ ' + baht(pb.acSaving) + ' เหลือ ' + baht(pb.extra) : '')
-    : 'ยังไม่ได้ใส่ราคา · กราฟคืนทุนจะยังไม่คำนวณ';
+    : 'ยังไม่ได้ใส่ราคา · กราฟคืนทุนจะยังไม่คำนวณ')
+    + (m.svcYr > 0
+        ? '<br>ค่าดูแลรักษา <b>' + baht(m.svcYr) + ' บาท/ปี</b> · '
+          + 'ประหยัด ' + baht(m.net) + ' หักแล้วเหลือ <b>' + baht(m.netAfterSvc)
+          + ' บาท/ปี</b> ที่ใช้คืนทุน'
+        : '');
   $('pbPill').textContent = pb.known
     ? (pb.years !== null ? 'คืนทุน ' + fmt(pb.years,1) + ' ปี'
        : pb.immediate ? 'คืนทุนทันที' : 'ยังไม่คืนทุน')
@@ -3172,7 +3199,8 @@ function csKeepAudit(list, skip, label, barId){
 var DB = null;   /* the whole registry, held open while this page is up */
 var FIELDS = ['pjName','pjArea','pjBy','oa','et','ervpick','tpk','rpk','tav','rav','tr','rr',
               'hpd','dpy','rate','cop','baht_rt','dp_b','eta_b','nf_b','w_b',
-              'dp_e','eta_e','nf_e','w_e','cap_erv','cap_fan','esc','disc'];
+              'dp_e','eta_e','nf_e','w_e','cap_erv','cap_fan','esc','disc',
+              'svc_t','svc_n'];
 var FIELD_TH = {
   pjName:'ชื่อโครงการ', pjArea:'พื้นที่ปรับอากาศ ตร.ม.', pjBy:'ผู้จัดทำ',
   oa:'ลมภายนอก CMH', et:'ประสิทธิภาพแกน %', ervpick:'รุ่น ERV ที่เลือก',
@@ -3185,7 +3213,9 @@ var FIELD_TH = {
   nf_b:'จำนวนพัดลมเทียบ', w_b:'กำลังไฟพัดลมเทียบ W',
   dp_e:'ความดัน ERV Pa', eta_e:'ประสิทธิภาพพัดลม ERV %',
   nf_e:'จำนวนพัดลม ERV', w_e:'กำลังไฟ ERV W',
-  cap_erv:'ราคา ERV ติดตั้ง', cap_fan:'ราคาพัดลม ติดตั้ง'
+  cap_erv:'ราคา ERV ติดตั้ง', cap_fan:'ราคาพัดลม ติดตั้ง',
+  esc:'ค่าไฟขึ้นปีละ %', disc:'อัตราคิดลด %',
+  svc_t:'ค่าดูแลรักษา บาท/ครั้ง', svc_n:'เข้าดูแลปีละ ครั้ง'
 };
 var PROJECTS = [], CUR = 0, LOADING = false;
 
@@ -3237,9 +3267,16 @@ function loadProjects(){
       Object.keys(SCNMAP).forEach(function(k){
         var m = SCNMAP[k]; v[k] = sc[m[0]][m[1]];
       });
-      /* seed the rest from the rooms the first time, so nothing is typed twice */
       var rs = roomSum(sc);
-      if(!sc.roi || sc.roi.oa === undefined){ if(rs.cmh > 0) v.oa = rs.cmh; }
+      /* the rooms own the airflow, the same rule ERV Load already follows ·
+         it used to be seeded once and then left alone, so adding a room or
+         recomputing CO2 left ROI quietly working off the old number - and
+         the Excel audit could not catch it, because the file and the page
+         were both wrong in the same way.
+         Typing a different value still works for the rest of the session;
+         it just does not survive a reload, which is exactly what the
+         slider on the ERV Load page does. */
+      if(rs.cmh > 0) v.oa = rs.cmh;
       if(!sc.roi || sc.roi.pjArea === undefined){ if(rs.area > 0) v.pjArea = Math.round(rs.area); }
       if(!sc.roi || sc.roi.pjName === undefined){ v.pjName = q.name; }
       PROJECTS.push({ pid:q.id, sid:sc.id, id:sc.id, off:!!q.off, v:v,
@@ -4228,10 +4265,10 @@ function tplBuild(){
   put(null, []);
 
   sect('ค่าดูแลรักษาต่อปี');
-  say('⚠ เครื่องมือบนเว็บยังไม่มีช่องพวกนี้ · ตั้งต้นเป็นศูนย์ ให้กรอกเองในแฟ้ม · '
-    + 'ใส่แล้วคืนทุนจะยาวขึ้นกว่าที่หน้าเว็บบอก ซึ่งใกล้ความจริงกว่า');
-  inp('svcT', 'ค่าแรง + ไส้กรอง ต่อครั้ง', 0, 'บาท/ครั้ง', '');
-  inp('svcN', 'จำนวนครั้งต่อปี', 2, 'ครั้ง/ปี', '');
+  say('มาจากช่องเดียวกันบนหน้าเว็บ · ตั้งต้นเป็นศูนย์ ใส่แล้วคืนทุนจะยาวขึ้น '
+    + 'ซึ่งใกล้ความจริงกว่า');
+  inp('svcT', 'ค่าแรง + ไส้กรอง ต่อครั้ง', m.svcT, 'บาท/ครั้ง', '');
+  inp('svcN', 'จำนวนครั้งต่อปี', m.svcN, 'ครั้ง/ปี', '');
   calc('svcYr', 'รวมต่อปี', 'B' + R.svcT + '*B' + R.svcN, 'บาท/ปี', '');
   put(null, []);
 
@@ -4419,14 +4456,13 @@ function tplBuild(){
      it was never checked against the page, which is where the two could
      drift apart without anyone noticing */
   if(pb.years !== null && isFinite(pb.years))
-    astep('คืนทุนแบบง่าย ปี', 'เงินลงทุน ÷ ค่าไฟที่ประหยัดปีแรก',
-      IN + 'B' + R.inv + '/' + IN + 'B' + R.savB, pb.years,
-      'หน้าเว็บไม่มีช่องค่าดูแลรักษา แถวนี้จึงไม่หักมันออก');
+    astep('คืนทุนแบบง่าย ปี', 'เงินลงทุน ÷ เหลือสุทธิปีแรก',
+      IN + 'B' + R.inv + '/' + IN + 'B' + R.net1, pb.years,
+      'หักค่าดูแลรักษาแล้วทั้งสองฝั่ง');
   if(pb.discOn && pb.disc !== null && isFinite(pb.disc))
     astep('คืนทุนแบบคิดลด ปี', 'k = (1+Ft)/(1+คิดลด) · ln(arg)/ln(k)',
       "'รายปี'!C" + Y.dbev, pb.disc,
-      'ค่าไฟขึ้น ' + (pb.g*100).toFixed(1) + ' % · คิดลด ' + (pb.d*100).toFixed(1) + ' % · '
-      + 'ต่างได้ถ้ากรอกค่าดูแลรักษา เพราะหน้าเว็บไม่มีช่องนั้น');
+      'ค่าไฟขึ้น ' + (pb.g*100).toFixed(1) + ' % · คิดลด ' + (pb.d*100).toFixed(1) + ' %');
   var sAud = { name:'ตรวจการคำนวณ', w:[30, 40, 18, 18, 12, 40], rows:aRows,
     freeze:3, grid:false, merges:['A1:F1', 'A2:F2'], heights:{ 1:22, 2:14 },
     page:{ land:true } };
