@@ -25,6 +25,18 @@ RESULT (22 Sep 2026)
     much less than feared. The thing that matters is picking the right
     hours, not the averaging method.
 
+IS AVERAGING FIRST THE SAME AS 8760 SEPARATE SUMS?
+    Yes, exactly, and not by luck. The load is linear in enthalpy:
+        q(hour) = 1.2 * Ls * (h_hour - h_room)
+    so  sum over hours  =  1.2 * Ls * N * (mean(h) - h_room)
+    Measured on the same 2690 office hours with the Lebua job's numbers:
+        hour by hour, 2690 separate sums : 898.10 kWh/yr
+        mean h, one equation             : 898.10 kWh/yr   (differ by 4e-14 %)
+    So there is no approximation in what the tool does - as long as nothing
+    in the chain bends. It would stop being exact if the COP varied with
+    outdoor temperature, if the ERV bypassed on cool hours, or if the AC ran
+    out of capacity part of the time. None of those are modelled today.
+
 NOTE
     One station, one city. A job outside Bangkok needs its own file, and
     a building that runs different hours needs its own selection.
