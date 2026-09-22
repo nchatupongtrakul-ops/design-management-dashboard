@@ -1,7 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Mean outdoor enthalpy for a range of operating windows, so a user can look
-up the pair that matches the hours they typed into the tool."""
-import io, math, zipfile
+"""The 24 numbers the tool needs to work out the mean condition for any
+operating window on its own.
+
+EPW hour h covers the clock period ENDING at h:00, so hour 1 is 00:00-01:00
+and hour 9 is 08:00-09:00. A window from clock A to clock B is therefore
+EPW hours A+1 .. B, which is B-A hours long. The earlier table got this
+off by one; this is the corrected version.
+
+Each hour-of-day bucket holds exactly 365 samples, so the mean over any
+window is just the plain average of the buckets in it - no weighting, and
+exact, not an approximation.
+"""
+import io, math, zipfile, json
 
 NC = [0.11670521452767e4, -0.72421316703206e6, -0.17073846940092e2,
       0.12020824702470e5, -0.32325550323333e7,  0.14915108613530e2,
@@ -35,49 +45,67 @@ def rh_for(h_target, t):
 z = zipfile.ZipFile(r'C:\tmp\wx\bkk.zip')
 name = [n for n in z.namelist() if n.lower().endswith('.epw')][0]
 raw = z.read(name).decode('latin-1').splitlines()
+
+buck = {h: [] for h in range(1, 25)}
+for line in raw[8:]:
+    f = line.split(',')
+    if len(f) < 10: continue
+    t, rh = float(f[6]), float(f[8])/100.0
+    if t <= -99 or not (0 <= rh <= 1.05): continue
+    buck[int(f[3])].append(hof(t, Wof(t, min(rh, 1.0))))
+
+o = io.open(r'C:\tmp\wx\out5.txt', 'w', encoding='utf-8')
+o.write('== h เฉลี่ยของแต่ละชั่วโมงในวัน (365 ตัวอย่างต่อช่อง) ==\n')
+o.write('   ช่วงเวลานาฬิกา   EPW hour   n     h เฉลี่ย\n')
+H = []
+for hh in range(1, 25):
+    v = sum(buck[hh])/len(buck[hh])
+    H.append(round(v, 3))
+    o.write('   %02d:00-%02d:00        %2d     %3d   %6.2f\n'
+            % (hh-1, hh % 24, hh, len(buck[hh]), v))
+
+o.write('\nJS array (index 0 = EPW hour 1 = 00:00-01:00):\n')
+o.write('var BKK_H = ' + json.dumps(H) + ';\n')
+o.write('ทั้งปี 8760 ชม. -> h = %.3f\n' % (sum(H)/24))
+
+def win(a, b):
+    """clock a:00 to b:00 -> EPW hours a+1..b, wrapping past midnight"""
+    hrs = []
+    n = (b - a) % 24 or 24
+    for k in range(n):
+        hrs.append(((a + k) % 24) + 1)
+    return sum(H[i-1] for i in hrs)/len(hrs), n
+
+o.write('\n== ตารางที่แก้ off-by-one แล้ว ==\n')
+o.write('%-32s %7s %8s   %s\n' % ('ช่วงเวลา', 'ชม./วัน', 'h เฉลี่ย', 'คู่ที่ใส่ได้'))
+WIN = [('00:00-24:00 · ตลอดวัน',       0, 24),
+       ('18:00-08:00 · กลางคืน',      18,  8),
+       ('06:00-18:00 · โรงงานกะเดียว', 6, 18),
+       ('06:00-22:00 · สองกะ',         6, 22),
+       ('07:00-17:00',                 7, 17),
+       ('08:00-17:00 · ออฟฟิศ',        8, 17),
+       ('08:00-18:00',                 8, 18),
+       ('09:00-18:00',                 9, 18),
+       ('10:00-21:00 · ร้านค้า',      10, 21),
+       ('11:00-22:00 · ร้านอาหาร',    11, 22)]
+for tag, a, b in WIN:
+    h, n = win(a, b)
+    pairs = ' · '.join('%d/%.0f' % (t, rh_for(h, t)*100) for t in (30, 31, 32))
+    o.write('%-32s %7d %8.2f   %s\n' % (tag, n, h, pairs))
+
+o.write('\n== ตรวจว่าเฉลี่ยจากถัง 24 ช่อง = เฉลี่ยจากชั่วโมงดิบ ==\n')
 rows = []
 for line in raw[8:]:
     f = line.split(',')
     if len(f) < 10: continue
     t, rh = float(f[6]), float(f[8])/100.0
     if t <= -99 or not (0 <= rh <= 1.05): continue
-    rows.append((int(f[3]), hof(t, Wof(t, min(rh, 1.0)))))   # (hour 1..24, h)
-
-o = io.open(r'C:\tmp\wx\out4.txt', 'w', encoding='utf-8')
-
-o.write('== h เฉลี่ยรายชั่วโมงของวัน (เฉลี่ยทั้งปี) ==\n')
-for hh in range(1, 25):
-    sub = [r[1] for r in rows if r[0] == hh]
-    o.write('  %02d:00  n=%3d  h=%6.2f\n' % (hh % 24, len(sub), sum(sub)/len(sub)))
-
-WIN = [('24 ชม. ทุกวัน · โรงแรม โรงพยาบาล', 1, 24),
-       ('06:00-18:00 · โรงงานกะเดียว',       6, 18),
-       ('07:00-17:00',                        7, 17),
-       ('08:00-17:00 · ออฟฟิศ',               8, 17),
-       ('08:00-18:00',                        8, 18),
-       ('09:00-18:00',                        9, 18),
-       ('10:00-21:00 · ร้านค้า ห้าง',        10, 21),
-       ('11:00-22:00 · ร้านอาหาร',           11, 22),
-       ('06:00-22:00 · สองกะ',                6, 22),
-       ('18:00-08:00 · กลางคืน ที่พัก',      18,  8)]
-
-o.write('\n== ช่วงเวลาเดิน -> h เฉลี่ย -> คู่ T/RH ที่ให้ h เท่านั้น ==\n')
-o.write('%-34s %7s %8s   %s\n' % ('ช่วงเวลา', 'ชม./วัน', 'h̄', 'คู่ที่ใส่ได้'))
-for tag, a, b in WIN:
-    if a <= b:
-        sel = [r[1] for r in rows if a <= r[0] <= b]
-        span = b - a + 1
-    else:                                    # wraps past midnight
-        sel = [r[1] for r in rows if r[0] >= a or r[0] <= b]
-        span = (24 - a + 1) + b
-    h = sum(sel)/len(sel)
-    pairs = ' · '.join('%d°C/%.0f%%' % (t, rh_for(h, t)*100) for t in (29, 30, 31, 32))
-    o.write('%-34s %7d %8.2f   %s\n' % (tag, span, h, pairs))
-
-o.write('\n== วันในสัปดาห์มีผลไหม (ช่วง 08-17) ==\n')
-for tag, sel in [('ทุกวัน', lambda i: True),
-                 ('5 ใน 7 วัน (proxy วันทำงาน)', lambda i: (i % 7) < 5)]:
-    sub = [h for i, (hh, h) in enumerate(rows) if 8 <= hh <= 17 and sel(i // 24)]
-    o.write('  %-30s n=%5d  h=%6.2f\n' % (tag, len(sub), sum(sub)/len(sub)))
+    rows.append((int(f[3]), hof(t, Wof(t, min(rh, 1.0)))))
+for tag, a, b in [('08:00-17:00', 8, 17), ('18:00-08:00', 18, 8), ('10:00-21:00', 10, 21)]:
+    hb, n = win(a, b)
+    want = set(((a + k) % 24) + 1 for k in range((b - a) % 24 or 24))
+    sub = [r[1] for r in rows if r[0] in want]
+    hr_ = sum(sub)/len(sub)
+    o.write('  %-12s  ถัง=%7.4f  ดิบ=%7.4f  ต่าง=%.2e\n' % (tag, hb, hr_, abs(hb-hr_)))
 o.close()
 print('done')

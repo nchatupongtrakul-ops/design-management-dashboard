@@ -124,9 +124,6 @@ body {
 .chart-modal-close:hover { color: #37352F; }
 .chart-modal-body { flex: 1; position: relative; min-height: 0; }
 
-.minitbl{width:100%;border-collapse:collapse;margin:6px 0 8px;font-size:11.5px}
-.minitbl td{padding:2px 4px;border-bottom:1px solid var(--border,#E6E4DF);vertical-align:top}
-.minitbl td:nth-child(2),.minitbl td:nth-child(3){text-align:right;white-space:nowrap}
 .canvas-wrap { position: relative; width: 100%; height: 300px; }
 .canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 .canvas-wrap canvas:active { cursor: grabbing; }
@@ -708,21 +705,15 @@ table.dtable td.st{white-space:nowrap}
       ⚠️ <b>ค่าเดิมของเครื่องมือคือ 31 °C / 70 % ซึ่งหนักเกินไป 19 %</b>
       เทียบกับห้อง 25 °C / 50 % · และ <b>35 °C / 60 % ที่เป็นสภาวะออกแบบ หนักเกิน 49 %</b><br>
       ⚠️ <b>เป็นของกรุงเทพสถานีเดียว</b> งานต่างจังหวัดต้องหาไฟล์อากาศของที่นั่นเอง<br>
-      <b>ช่วงเวลาเดินต่างกัน ใช้คู่ตามตารางนี้</b> — คุณเป็นคนเลือกเอง เครื่องมือไม่เดาให้
-      <table class="minitbl"><tbody>
-      <tr><td>24 ชม. ทุกวัน · โรงแรม โรงพยาบาล</td><td>76.23</td><td><b>31 / 62</b></td></tr>
-      <tr><td>18:00–08:00 · กลางคืน ที่พัก</td><td>75.52</td><td><b>31 / 61</b></td></tr>
-      <tr><td>06:00–18:00 · โรงงานกะเดียว</td><td>76.65</td><td><b>31 / 63</b></td></tr>
-      <tr><td>06:00–22:00 · สองกะ</td><td>76.68</td><td><b>31 / 63</b></td></tr>
-      <tr><td>08:00–17:00 · ออฟฟิศ</td><td>77.03</td><td><b>31 / 63</b></td></tr>
-      <tr><td>09:00–18:00</td><td>77.56</td><td><b>31 / 64</b></td></tr>
-      <tr><td>10:00–21:00 · ร้านค้า ห้าง</td><td>77.64</td><td><b>31 / 64</b></td></tr>
-      <tr><td>11:00–22:00 · ร้านอาหาร</td><td>77.71</td><td><b>31 / 64</b></td></tr>
-      </tbody></table>
-      <b>ทั้งตารางต่างกันแค่ 75.5 ถึง 77.7 kJ/kg คือ 2.9 %</b> — ช่วงเวลาเดินแทบไม่มีผล ·
-      ที่มีผลคือ<b>อย่าใส่สภาวะออกแบบ</b> ซึ่งผิดไป 49 %<br>
-      <b>วันในสัปดาห์ไม่มีผลเลย</b> — 08:00–17:00 ทุกวันได้ 77.03 · เฉพาะวันทำงานได้ 77.01 ·
-      อากาศไม่สนใจว่าวันนั้นเป็นวันจันทร์หรือวันอาทิตย์</div>
+      <b>ไม่ต้องเปิดตารางเทียบเอง</b> — ใส่ช่วงเวลาที่ระบบเดินในการ์ด
+      <b>ชั่วโมงใช้งานและค่าไฟ</b> แล้วสองช่องนี้จะถูกคิดจากช่วงเวลานั้นให้อัตโนมัติ
+      จากข้อมูลรายชั่วโมงจริง · ช่องนี้จะถูกล็อกไว้ตอนนั้น<br>
+      <b>ช่วงเวลาเดินแทบไม่มีผล</b> — ทุกช่วงที่เจอในงานจริงอยู่ระหว่าง
+      75.3 (กลางคืน) ถึง 77.9 (09:00–18:00) kJ/kg คือต่างกัน <b>3.5 %</b> ·
+      เทียบกับการเผลอใส่สภาวะออกแบบซึ่งผิด <b>49 %</b> แล้วเป็นเศษเสี้ยว<br>
+      <b>วันในสัปดาห์ไม่มีผลเลย</b> — วัดแล้วต่างกัน 0.02 kJ/kg ·
+      อากาศไม่สนใจว่าวันนั้นเป็นวันจันทร์หรือวันอาทิตย์ ·
+      <b>ไฟล์ TMY เป็นปีสังเคราะห์ ไม่มีวันในสัปดาห์จริงอยู่แล้ว</b></div>
     </div>
     <div class="card">
       <h3>สภาวะในห้อง</h3>
@@ -740,11 +731,24 @@ table.dtable td.st{white-space:nowrap}
     <div class="card">
       <h3>ชั่วโมงใช้งานและค่าไฟ</h3>
       <div class="grid2">
+        <div class="field"><label class="flabel">ระบบเดินตั้งแต่ · นาฬิกา</label>
+          <input type="number" id="oh_a" min="0" max="24" step="1" placeholder="—"></div>
+        <div class="field"><label class="flabel">ถึง · นาฬิกา</label>
+          <input type="number" id="oh_b" min="0" max="24" step="1" placeholder="—"></div>
+      </div>
+      <div class="hint" id="ohHint"></div>
+      <div class="grid2">
         <div class="field"><label class="flabel">ชั่วโมงต่อวัน</label><input type="number" id="hpd" value="10" step="0.5" min="0" max="24"></div>
         <div class="field"><label class="flabel">วันต่อปี</label><input type="number" id="dpy" value="300" step="5" min="0" max="365"></div>
       </div>
       <div class="field"><label class="flabel">ค่าไฟ บาทต่อหน่วย</label><input type="number" id="rate" value="4.15" step="0.01"></div>
       <div class="hint" id="hrHint"></div>
+      <div class="srcline"><b>ใส่ช่วงเวลาที่ระบบเดินจริงของงานนั้น แล้วที่เหลือคิดให้เอง</b> —
+      ชั่วโมงต่อวัน และสภาวะเฉลี่ยของอากาศนอก จะถูกคิดจากช่วงเวลานั้น
+      ด้วยข้อมูลอากาศรายชั่วโมงจริงของกรุงเทพ แล้วล็อกไว้ไม่ให้พิมพ์ทับ<br>
+      <b>ลบช่องเวลาให้ว่าง = กลับไปกรอกเองทุกช่องเหมือนเดิม</b> ·
+      งานต่างจังหวัดควรเว้นว่างไว้ เพราะข้อมูลที่ฝังมาเป็นของกรุงเทพสถานีเดียว<br>
+      <b>วันต่อปียังกรอกเองเสมอ</b> เพราะไฟล์อากาศไม่รู้ว่าอาคารนั้นหยุดวันไหน</div>
       <div class="srcline"><b>ที่มาค่าตั้งต้น</b> ค่าไฟเฉลี่ยที่เรียกเก็บ 4.15 บาท/หน่วย ช่วง ม.ค.–เม.ย. 2568
       และ 3.98 บาท/หน่วย ช่วง พ.ค.–ส.ค. 2568 · <b>Ft ปรับทุก 4 เดือน ควรใส่ค่าปัจจุบันเอง</b></div>
     </div>
@@ -1303,6 +1307,56 @@ function Wof(t, rh){
   return 0.621945 * pw / (PATM - pw);
 }
 function hof(t, W){ return 1.006*t + W*(2501 + 1.86*t); }
+/* ── Bangkok, hour of day ──
+   Mean outdoor enthalpy and mean dry bulb for each of the 24 hours of the
+   day, over a whole year. climate.onebuilding.org, TMYx 2011-2025,
+   Bangkok Metropolis WMO 484550. Built by _src/bkk_windows.py.
+
+   Index 0 is EPW hour 1, which is the clock period 00:00-01:00. A window
+   from clock A to clock B is therefore indices A .. B-1, B-A of them.
+
+   Every bucket holds exactly 365 samples, so the mean over any window is
+   the plain average of the buckets in it - exact, not a weighting
+   approximation. And because the load is linear in enthalpy, running the
+   tool once at that mean gives the same annual figure as running it 8760
+   times. See the note at the top of _src/bkk_enthalpy.py.
+
+   One city, one station. Out-of-town work should leave the window blank
+   and type the condition in by hand. */
+var BKK_H = [75.55, 75.26, 74.772, 74.439, 74.029, 73.838, 73.626, 73.452,
+             74.606, 75.518, 76.688, 77.483, 77.995, 78.805, 78.696, 78.613,
+             78.419, 78.763, 77.67, 76.7, 76.35, 76.368, 76.151, 75.804];
+var BKK_T = [27.639, 27.408, 27.184, 26.966, 26.748, 26.642, 26.521, 26.413,
+             27.655, 28.898, 30.141, 30.94, 31.735, 32.534, 32.493, 32.448,
+             32.407, 31.425, 30.42, 29.447, 28.996, 28.548, 28.098, 27.87];
+
+/* the relative humidity that puts this dry bulb at this enthalpy */
+function rhFor(hTarget, t){
+  var lo = 0, hi = 1;
+  for(var i = 0; i < 60; i++){
+    var mid = (lo + hi)/2;
+    if(hof(t, Wof(t, mid)) > hTarget) hi = mid; else lo = mid;
+  }
+  return (lo + hi)/2;
+}
+/* clock a:00 to b:00 · null when the pair is not a usable window */
+function ohWindow(){
+  var a = raw('oh_a'), b = raw('oh_b');
+  if(a === null || b === null || !isFinite(a) || !isFinite(b)) return null;
+  a = Math.round(a); b = Math.round(b);
+  if(a < 0 || a > 24 || b < 0 || b > 24) return null;
+  a = a % 24;
+  var n = (b - a % 24 + 24) % 24; if(n === 0) n = 24;
+  var sh = 0, st = 0;
+  for(var k = 0; k < n; k++){ var i = (a + k) % 24; sh += BKK_H[i]; st += BKK_T[i]; }
+  var h = sh/n, t = st/n;
+  /* solve the humidity AT THE ROUNDED dry bulb, and keep a decimal on it ·
+     rounding both ends independently threw away 1.7 % of the load */
+  var tR = Math.round(t*10)/10;
+  var rhR = Math.round(rhFor(h, tR)*1000)/10;
+  return { a:a, b:(b % 24), n:n, h:h, t:t, tR:tR, rhR:rhR, rh:rhFor(h, t) };
+}
+
 var CT = 1.2;      /* ch.18 eq (7), standard air */
 var RTW = 3517;
 
@@ -1561,6 +1615,32 @@ async function xlsxWrite(sheets){
   sheetXml.forEach(function(x, i){
     parts.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', text: x }); });
   return await zipMake(parts);
+}
+
+/* The window owns the hours and the outdoor condition while it is filled
+   in, so the three fields it drives are locked rather than left looking
+   editable and then quietly overwritten on the next keystroke. */
+function applyWindow(){
+  var w = ohWindow(), lock = !!w;
+  ['hpd', 'tav', 'rav'].forEach(function(id){
+    var el = $(id); if(!el) return;
+    el.disabled = lock;
+    el.style.opacity = lock ? 0.62 : '';
+  });
+  var hint = $('ohHint');
+  if(!w){
+    if(hint) hint.innerHTML = '<b>ยังไม่ได้ใส่ช่วงเวลา</b> · '
+      + 'ชั่วโมงต่อวันและสภาวะเฉลี่ยกรอกเองทั้งหมด';
+    return;
+  }
+  $('hpd').value = w.n;
+  $('tav').value = w.tR;
+  $('rav').value = w.rhR;
+  if(hint) hint.innerHTML = 'เดิน <b>' + w.n + ' ชั่วโมงต่อวัน</b> · '
+    + 'อากาศนอกเฉลี่ยของช่วงนี้ <b>' + fmt(w.tR,1) + ' °C / ' + fmt(w.rhR,1)
+    + ' %</b> · เอนทัลปี <b>' + fmt(w.h,2) + ' kJ/kg</b><br>'
+    + '<span class="rp-none">จากข้อมูลรายชั่วโมงของกรุงเทพ TMYx 2011–2025 · '
+    + 'สามช่องด้านล่างถูกล็อกไว้ ลบช่วงเวลาให้ว่างเพื่อกรอกเอง</span>';
 }
 
 /* ─────────────── the model ─────────────── */
@@ -2183,6 +2263,7 @@ function fillPana(){
 
 /* ─────────────── render ─────────────── */
 function render(){
+  applyWindow();
   var m = model();
   var mx = parseFloat($('oa').max);
 
@@ -3487,7 +3568,7 @@ var DB = null;   /* the whole registry, held open while this page is up */
 var FIELDS = ['pjName','pjArea','pjBy','oa','et','ervpick','tpk','rpk','tav','rav','tr','rr',
               'hpd','dpy','rate','cop','baht_rt','dp_b','eta_b','nf_b','w_b',
               'dp_e','eta_e','nf_e','w_e','cap_erv','cap_fan','esc','disc',
-              'svc_t','svc_n','oa_b'];
+              'svc_t','svc_n','oa_b','oh_a','oh_b'];
 var FIELD_TH = {
   pjName:'ชื่อโครงการ', pjArea:'พื้นที่ปรับอากาศ ตร.ม.', pjBy:'ผู้จัดทำ',
   oa:'ลมภายนอก CMH', et:'ประสิทธิภาพแกน %', ervpick:'รุ่น ERV ที่เลือก',
@@ -3503,7 +3584,8 @@ var FIELD_TH = {
   cap_erv:'ราคา ERV ติดตั้ง', cap_fan:'ราคาพัดลม ติดตั้ง',
   esc:'ค่าไฟขึ้นปีละ %', disc:'อัตราคิดลด %',
   svc_t:'ค่าดูแลรักษา บาท/ครั้ง', svc_n:'เข้าดูแลปีละ ครั้ง',
-  oa_b:'ลมของระบบเดิม CMH'
+  oa_b:'ลมของระบบเดิม CMH',
+  oh_a:'ระบบเดินตั้งแต่ นาฬิกา', oh_b:'ระบบเดินถึง นาฬิกา'
 };
 var PROJECTS = [], CUR = 0, LOADING = false;
 
