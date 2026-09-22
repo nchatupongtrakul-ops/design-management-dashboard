@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>คู่มือการใช้งาน · เครื่องมือ IAQ / ERV</title>
+<style>
+  @page { size: A4 portrait; margin: 16mm 15mm; }
+  :root{
+    --ink:#2A2A28; --soft:#6B7280; --line:#D8DCE0; --navy:#31506B;
+    --green:#2E7D32; --red:#B03A34; --wash:#F4F7FA; --warn:#FFF6E5;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; color:var(--ink); background:#fff;
+    font:13px/1.65 "Sarabun","Leelawadee UI","Segoe UI",Tahoma,sans-serif;
+  }
+  .page{ max-width:180mm; margin:0 auto; padding:10mm 0; }
+  header{ display:flex; align-items:flex-start; gap:14px;
+          border-bottom:2px solid var(--navy); padding-bottom:10px; margin-bottom:20px; }
+  header img{ height:44px; }
+  h1{ font-size:21px; margin:0 0 3px; color:var(--navy); letter-spacing:-.2px; }
+  .sub{ color:var(--soft); font-size:12px; }
+  h2{ font-size:15.5px; color:var(--navy); margin:26px 0 8px;
+      border-left:4px solid var(--navy); padding-left:9px; }
+  h3{ font-size:13.5px; margin:16px 0 5px; }
+  p{ margin:0 0 9px; }
+  .lead{ font-size:14px; background:var(--wash); border:1px solid var(--line);
+         border-radius:6px; padding:12px 14px; margin-bottom:6px; }
+  table{ width:100%; border-collapse:collapse; margin:10px 0 12px; font-size:12px; }
+  th,td{ border:1px solid var(--line); padding:5px 8px; text-align:left; vertical-align:top; }
+  th{ background:var(--wash); font-weight:600; }
+  td.n,th.n{ text-align:right; white-space:nowrap; }
+  td.c,th.c{ text-align:center; white-space:nowrap; }
+  tr.hi td{ background:#EFF6EF; }
+  code,.mono{ font-family:Consolas,"Courier New",monospace; font-size:11.5px; }
+  pre{ background:var(--wash); border:1px solid var(--line); border-radius:5px;
+       padding:9px 11px; margin:9px 0; overflow:hidden;
+       font-family:Consolas,"Courier New",monospace; font-size:11px; line-height:1.55; }
+  .warn{ background:var(--warn); border:1px solid #E8D4A0; border-radius:5px;
+         padding:9px 12px; margin:10px 0; }
+  .ok{ background:#EFF6EF; border:1px solid #CADFCA; border-radius:5px;
+       padding:9px 12px; margin:10px 0; }
+  .red{ color:var(--red); font-weight:700; }
+  .grn{ color:var(--green); font-weight:700; }
+  .cap{ color:var(--soft); font-size:11px; margin-top:-4px; }
+  ul,ol{ margin:0 0 10px; padding-left:20px; }
+  li{ margin-bottom:4px; }
+  .brk{ break-before:page; }
+  svg{ display:block; margin:10px auto 4px; }
+  table, svg, pre, .warn, .ok, .lead{ break-inside:avoid; page-break-inside:avoid; }
+  tr{ break-inside:avoid; page-break-inside:avoid; }
+  h2, h3{ break-after:avoid; page-break-after:avoid; }
+  footer{ margin-top:26px; border-top:1px solid var(--line); padding-top:8px;
+          color:var(--soft); font-size:10.5px;
+          break-before:avoid; page-break-before:avoid; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <img src="../hub/logo.png" alt="Coral Life">
+  <div>
+    <h1>คู่มือการใช้งาน · เครื่องมือ IAQ / ERV</h1>
+    <div class="sub">ตั้งแต่รับงานจนออกใบรายงาน · ทีมออกแบบ Coral Life
+    · ฉบับ 22 กันยายน 2569</div>
+  </div>
+</header>
+
+<div class="lead">
+เครื่องมือมี <b>หกตัว</b> แต่ใช้งานจริงเป็น <b>กระบวนการเดียว</b> ·
+ทุกตัวอ่านและเขียนลง<b>ทะเบียนกลางเดียวกัน</b> จึงไม่ต้องกรอกอะไรซ้ำ ·
+เอกสารนี้เดินตามลำดับที่ใช้จริง ตั้งแต่เปิดงานจนได้ใบรายงานส่งลูกค้า
+</div>
+
+<h2>0 · ภาพรวมทั้งกระบวนการ</h2>
+
+<svg viewBox="0 0 680 462" width="680" height="462" role="img">
+  <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3"
+    orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#6B7280"/></marker></defs>
+
+  <rect x="190" y="45" width="300" height="52" rx="6" fill="#DCE7F0" stroke="#31506B" stroke-width=".9"/>
+  <text x="340" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#24405A">1 · ตั้งโปรเจคและเงื่อนไข</text>
+  <text x="340" y="85" text-anchor="middle" font-size="11" fill="#4A6275">Project Hub · จังหวัด สภาวะ ค่าไฟ เกณฑ์</text>
+
+  <line x1="340" y1="97" x2="340" y2="111" stroke="#6B7280" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="190" y="113" width="300" height="52" rx="6" fill="#DCE7F0" stroke="#31506B" stroke-width=".9"/>
+  <text x="340" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#24405A">2 · กรอกตารางห้อง</text>
+  <text x="340" y="153" text-anchor="middle" font-size="11" fill="#4A6275">Project Hub · วางจาก Excel ได้</text>
+
+  <line x1="340" y1="165" x2="340" y2="179" stroke="#6B7280" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="40" y="181" width="600" height="120" rx="6" fill="none" stroke="#B6BDC4"
+        stroke-width=".8" stroke-dasharray="5 4"/>
+  <text x="56" y="200" font-size="12" font-weight="700" fill="#4A5560">3 · เดินเครื่องมือรายห้อง — เปิดจากลิงก์ในตารางห้อง</text>
+
+  <rect x="55" y="210" width="185" height="78" rx="5" fill="#F4F7FA" stroke="#9DB3C4" stroke-width=".9"/>
+  <text x="147" y="231" text-anchor="middle" font-size="12" font-weight="700" fill="#24405A">Ventilation &amp; CO₂</text>
+  <text x="147" y="249" text-anchor="middle" font-size="10.5" fill="#4A6275">ต้องเติมลมเท่าไร</text>
+  <text x="147" y="264" text-anchor="middle" font-size="10.5" fill="#4A6275">CO₂ ผ่านเกณฑ์ไหม</text>
+  <text x="147" y="280" text-anchor="middle" font-size="10" fill="#2E7D32" font-family="Consolas,monospace">→ room.vent</text>
+
+  <rect x="250" y="210" width="185" height="78" rx="5" fill="#F4F7FA" stroke="#9DB3C4" stroke-width=".9"/>
+  <text x="342" y="231" text-anchor="middle" font-size="12" font-weight="700" fill="#24405A">ERV Load Impact</text>
+  <text x="342" y="249" text-anchor="middle" font-size="10.5" fill="#4A6275">แอร์เดิมรับไหวไหม</text>
+  <text x="342" y="264" text-anchor="middle" font-size="10.5" fill="#4A6275">ปีหนึ่งไม่ไหวกี่ชั่วโมง</text>
+  <text x="342" y="280" text-anchor="middle" font-size="10" fill="#2E7D32" font-family="Consolas,monospace">→ room.erv</text>
+
+  <rect x="445" y="210" width="185" height="78" rx="5" fill="#F4F7FA" stroke="#9DB3C4" stroke-width=".9"/>
+  <text x="537" y="231" text-anchor="middle" font-size="12" font-weight="700" fill="#24405A">Noise Breakout</text>
+  <text x="537" y="249" text-anchor="middle" font-size="10.5" fill="#4A6275">เสียงที่ผู้รับได้ยิน</text>
+  <text x="537" y="264" text-anchor="middle" font-size="10.5" fill="#4A6275">เกินเกณฑ์ไหม</text>
+  <text x="537" y="280" text-anchor="middle" font-size="10" fill="#2E7D32" font-family="Consolas,monospace">→ room.ac</text>
+
+  <line x1="340" y1="301" x2="340" y2="315" stroke="#6B7280" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="190" y="317" width="300" height="52" rx="6" fill="#F4F7FA" stroke="#9DB3C4" stroke-width=".9"/>
+  <text x="340" y="340" text-anchor="middle" font-size="13" font-weight="700" fill="#24405A">4 · คิดการคืนทุน</text>
+  <text x="340" y="357" text-anchor="middle" font-size="11" fill="#4A6275">ERV Energy Saving · ต่อทางเลือก ไม่ใช่ต่อห้อง</text>
+
+  <line x1="340" y1="369" x2="340" y2="383" stroke="#6B7280" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="190" y="385" width="300" height="52" rx="6" fill="#E2EFE2" stroke="#2E7D32" stroke-width=".9"/>
+  <text x="340" y="408" text-anchor="middle" font-size="13" font-weight="700" fill="#245C27">5 · ออกรายงาน</text>
+  <text x="340" y="425" text-anchor="middle" font-size="11" fill="#3B6B3E">Project Hub · A3 แนวตั้ง · บันทึกเป็น PDF</text>
+</svg>
+
+<div class="ok">
+<b>กล่องสีน้ำเงินคือ Project Hub · กล่องสีเทาคือเครื่องมือคำนวณ</b> ·
+เครื่องมือทุกตัวเขียนผลกลับเข้าห้องหรือทางเลือกให้เอง <b>ไม่ต้องคัดลอกตัวเลขไปมา</b> ·
+ขั้นที่ 3 ทำทีละห้อง ขั้นที่ 4 ทำทีเดียวทั้งทางเลือก
+</div>
+
+<h2>1 · ครั้งแรกที่ใช้ — ทำสามอย่างนี้ก่อน</h2>
+
+<table>
+<thead><tr><th style="width:5%">#</th><th>ทำอะไร</th><th style="width:38%">ทำไม</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><b>เปิด Project Hub แล้วกด <i>เชื่อมโฟลเดอร์ทีม</i></b> ในการ์ด
+  <i>ที่เก็บข้อมูล</i> · ชี้ไปที่โฟลเดอร์ <code>Project Data</code></td>
+  <td>ทุกคนจะเห็นงานชุดเดียวกัน · หนึ่งโปรเจคหนึ่งไฟล์ <code>.json</code> เขียนให้อัตโนมัติ</td></tr>
+<tr><td>2</td><td><b>กด <i>ติดตั้งเป็นแอป</i></b> บนแถบเดียวกัน</td>
+  <td class="red">ไม่ทำแล้วต้องกด <i>อนุญาต</i> ใหม่ทุกวัน · Chrome จำสิทธิ์โฟลเดอร์ถาวร
+  เฉพาะแอปที่ติดตั้งแล้ว</td></tr>
+<tr><td>3</td><td><b>เปิดจากหน้าเต็ม ไม่ใช่ในพอร์ทัล</b> เวลาจะเชื่อมไฟล์</td>
+  <td class="red">ในพอร์ทัลเบราว์เซอร์แยกที่เก็บข้อมูลคนละถัง · เชื่อมโฟลเดอร์ไม่ได้
+  และข้อมูลจะไม่ใช่ชุดเดียวกัน</td></tr>
+</tbody>
+</table>
+
+<div class="warn">
+<b>ยังไม่มีระบบล็อกตอนแก้</b> · คนละโปรเจคทำพร้อมกันได้ปกติ
+แต่<b>โปรเจคเดียวกันพร้อมกัน คนบันทึกทีหลังทับ</b> · ตกลงกันเองก่อนว่าใครถืองานไหน
+</div>
+
+<h2>2 · ขั้นที่ 1 · เปิดโปรเจคและทางเลือก</h2>
+
+<p>โครงสามชั้น <b>โปรเจค → ทางเลือกออกแบบ → ห้อง</b></p>
+
+<table>
+<thead><tr><th style="width:22%">ชั้น</th><th>คืออะไร</th></tr></thead>
+<tbody>
+<tr><td><b>โปรเจค</b></td><td>หนึ่งอาคาร หนึ่งงาน · มีชื่อ ลูกค้า สถานะ</td></tr>
+<tr><td><b>ทางเลือก</b></td><td><b>ชุดเงื่อนไขหนึ่งชุดของอาคารเดียวกัน</b> ·
+  อยากเทียบ ηt สองรุ่น หรือเทียบมี/ไม่มี ERV ให้สร้างสองทางเลือก
+  <b>ไม่ใช่สองโปรเจค</b> · รายงานเทียบให้ในใบเดียว</td></tr>
+<tr><td><b>ห้อง</b></td><td>หนึ่งแถวในตาราง · มี <code>จำนวน</code> ไว้ใช้กับห้องที่เหมือนกันหลายห้อง
+  เช่นห้องพัก 40 ห้อง ใส่แถวเดียวแล้วใส่จำนวน 40</td></tr>
+</tbody>
+</table>
+
+<h2>3 · ขั้นที่ 2 · ตั้งเงื่อนไขของทางเลือก</h2>
+
+<p>การ์ด <b>เงื่อนไขของทางเลือกนี้</b> ในหน้าภาพรวมโปรเจค ·
+<b>ห้องทุกห้องใช้ค่าชุดนี้</b> เว้นห้องที่ตั้งค่าเองไว้ ซึ่งจะขึ้นป้าย <i>ตั้งค่าเอง</i> ให้เห็น</p>
+
+<table>
+<thead><tr><th style="width:26%">กล่อง</th><th>กรอกอะไร · ต้องระวังอะไร</th></tr></thead>
+<tbody>
+<tr><td><b>อากาศของจังหวัดไหน</b></td>
+  <td>เลือกจาก 6 สถานี · มีช่อง <b>ให้เป็นตัวแทนปี ค.ศ.</b> ด้วย ·
+  งานใหม่ตั้งต้นที่กลางอายุเครื่อง (ปีนี้ + 10) เพราะไฟล์อากาศเป็นตัวแทนปี 2018</td></tr>
+<tr><td><b>สภาวะออกแบบ</b></td>
+  <td>ใช้คิด<b>ขนาดเครื่อง</b>เท่านั้น · กดปุ่ม <i>ใช้ค่านี้</i> เพื่อรับค่าของสถานี ·
+  <span class="red">ห้ามเอาไปใส่ช่องค่าเฉลี่ย</span></td></tr>
+<tr><td><b>ค่าเฉลี่ยทั้งปี</b></td>
+  <td>ใช้คิด<b>ค่าไฟ</b> · <b>ตั้งช่วงเวลาเดินก่อน</b> แล้วกดปุ่ม <i>ใช้ค่านี้</i>
+  ถ้ายังไม่ตั้ง จะขึ้นคำเตือนแดง</td></tr>
+<tr><td><b>ภายในห้อง</b></td>
+  <td>สภาวะที่ออกแบบให้ห้องอยู่ · ปกติ 25 °C / 50 % ·
+  ⚠️ ค่าประหยัดทั้งหมดตั้งอยู่บนสมมติฐานว่าแอร์กดห้องอยู่ที่นี่ได้จริง</td></tr>
+<tr><td><b>CO₂ ของอากาศภายนอก</b></td>
+  <td>พื้นที่ CO₂ ในห้องลดลงไปหา · ทั่วไป 400–420 ppm · ในเมืองอาจถึง 450–500</td></tr>
+<tr><td><b>ประสิทธิภาพแกน ERV</b></td>
+  <td>ηt เอนทัลปี · ηs สัมผัส · <b>จากสเปกรุ่นที่จะติดจริง ที่อัตราลมใช้งานจริง</b>
+  <span class="red">ไม่ใช่ค่าสูงสุดในโบรชัวร์</span></td></tr>
+<tr><td><b>ค่าไฟและการใช้งาน</b></td>
+  <td>ค่าไฟ · COP · <b>ระบบเดินตั้งแต่กี่โมงถึงกี่โมง</b> · วันต่อปี ·
+  ใส่ช่วงเวลาแล้ว ชั่วโมงต่อวันคิดให้และล็อก</td></tr>
+<tr><td><b>เกณฑ์ที่โครงการต้องผ่าน</b></td>
+  <td><b>ติ๊กเฉพาะที่ตกลงกับลูกค้าจริง</b> · LEED ไม่ติ๊กมาให้ ·
+  เกณฑ์ที่ไม่ติ๊กยังคำนวณให้ดูแต่ไม่นับผ่าน/ไม่ผ่าน และไม่บังคับปริมาณลม</td></tr>
+</tbody>
+</table>
+
+<h2 class="brk">4 · ขั้นที่ 3 · กรอกตารางห้อง</h2>
+
+<p>กรอกทีละช่องก็ได้ แต่งานจริงมักมาเป็นตาราง · ตารางห้องรับ<b>คีย์ลัดแบบสเปรดชีต</b></p>
+
+<table>
+<thead><tr><th style="width:30%">อยากทำ</th><th>ทำยังไง</th></tr></thead>
+<tbody>
+<tr><td>เลือกหลายแถว</td><td>คลิกที่<b>เลขแถวซ้ายสุด</b> · Shift-คลิก = ช่วง · Ctrl-คลิก = เพิ่มทีละแถว · Esc = ล้าง</td></tr>
+<tr><td>แก้หลายแถวพร้อมกัน</td><td>เลือกแล้ว<b>แถบ Batch</b> จะโผล่ · ตั้งค่าเดียวใส่ทุกแถวที่เลือก</td></tr>
+<tr><td>ยกมาจาก Excel</td><td><b>Ctrl+V</b> วางบล็อกลงตาราง · เกินจำนวนแถวเดิม = สร้างห้องใหม่ให้เอง ·
+  <b>ช่องว่างไม่ทับของเดิม</b></td></tr>
+<tr><td>ส่งออกไป Excel</td><td><b>Ctrl+C</b> แถวที่เลือก · หรือปุ่ม <b>ตาราง Excel</b> บนแถบโปรเจค
+  ได้ไฟล์ <code>.xlsx</code> จริง หนึ่งทางเลือกหนึ่งชีท</td></tr>
+<tr><td>แอร์เดิมเป็น BTU</td><td>ติ๊ก <b>แอร์เดิมเป็น BTU</b> เหนือตาราง · ค่าที่เก็บยังเป็น RT เสมอ</td></tr>
+</tbody>
+</table>
+
+<div class="warn">
+<b>Paste และ CSV เขียนเฉพาะค่าที่กรอก ไม่เขียนผลคำนวณ</b> ·
+ต้องเปิดเครื่องมือแต่ละตัวคำนวณใหม่เอง · และ<b>การนำเข้าเพิ่มกับแก้เท่านั้น ไม่ลบอะไร</b>
+</div>
+
+<p><b>จำนวนคนเติมให้เองจากความหนาแน่นอ้างอิงของ ASHRAE 62.1</b> ตามหมวดและขนาดห้อง ·
+<b>พอพิมพ์จำนวนคนจริงลงไป มันหยุดถาวร</b> ไม่มีอะไรมาเขียนทับอีก</p>
+
+<h2>5 · ขั้นที่ 3 (ต่อ) · เดินเครื่องมือรายห้อง</h2>
+
+<p>กด<b>ลิงก์ในตารางห้อง</b> เพื่อเปิดเครื่องมือของห้องนั้น ·
+ลิงก์พาโปรเจค ทางเลือก และห้องไปด้วย เครื่องมือจึงรู้ว่ากำลังทำห้องไหน</p>
+
+<h3>5.1 · Ventilation &amp; CO₂ — ทำตัวนี้ก่อนเสมอ</h3>
+<p><b>ตอบว่าต้องเติมลมบริสุทธิ์เท่าไร และ CO₂ จะขึ้นไปถึงไหน</b> ·
+เทียบกับเกณฑ์ที่ติ๊กไว้พร้อมกันทุกอัน</p>
+<ul>
+<li><b>ต้องทำก่อนตัวอื่น</b> เพราะ ERV Load อ่านปริมาณลมจากที่นี่เสมอ</li>
+<li>มีช่องย้อนกลับ — ตั้งเป้า ppm แล้วให้มันหาลมให้</li>
+<li>เขียนกลับเข้า <code>room.vent</code></li>
+</ul>
+
+<h3>5.2 · ERV Load Impact</h3>
+<p><b>ตอบว่าลมที่เติมเข้าไปทำให้แอร์เดิมรับไหวหรือไม่</b></p>
+<ul>
+<li><b>ปริมาณลมอิงจาก CO₂ เสมอ</b> · ลากสไลเดอร์ดูผลที่ลมอื่นได้
+  แต่เปิดห้องใหม่จะกลับมาที่ค่าจาก CO₂</li>
+<li>ใช้ <b>สภาวะออกแบบ</b> เพราะถามว่าไหวไหมในวันที่หนักที่สุด</li>
+<li>การ์ด <b>ปีหนึ่งแอร์รับไม่ไหวกี่ชั่วโมง</b> เดินสมการครบ 8,760 ชั่วโมงด้วยอากาศจริง</li>
+<li>การ์ด <b>แอร์รีดความชื้นไหวไหม</b> — ⚠️ <b>คำตัดสิน “ไหว/ไม่ไหว” เทียบกำลังรวมเท่านั้น</b>
+  การ์ดนี้บอกว่าห้องต้องมีภาระของตัวเองอย่างน้อยกี่ kW ถึงจะคุมความชื้นอยู่</li>
+<li>คิดที่<b>กรณีหนักสุด คือจ่ายลมเข้าห้องตรง</b> เสมอ · ต่อเข้า chamber จะดีกว่าที่แสดง</li>
+<li>เขียนกลับเข้า <code>room.erv</code></li>
+</ul>
+
+<h3>5.3 · Noise Breakout</h3>
+<p><b>ตอบว่าเสียงที่รั่วออกไปถึงผู้รับเกินเกณฑ์ไหม</b> · รับปริมาณลมของห้องมาเอง ·
+เขียนกลับเข้า <code>room.ac</code></p>
+
+<h2>6 · ขั้นที่ 4 · คิดการคืนทุน</h2>
+
+<p>ปุ่ม <b>คิด ROI</b> บนแถบทางเลือก · หรือเปิด ERV Energy Saving โดยตรง ·
+<b>เป็นของทางเลือก ไม่ใช่ของห้อง</b> จึงไม่อยู่ในตารางห้องเหมือนอีกสามตัว</p>
+
+<table>
+<thead><tr><th style="width:30%">ช่อง</th><th>ต้องรู้อะไร</th></tr></thead>
+<tbody>
+<tr><td><b>ปริมาณลมภายนอก</b></td><td><b>อิงยอดรวมของห้องเสมอ</b> ·
+  พิมพ์ค่าอื่นดูผลได้ แต่เปิดใหม่กลับมาที่ยอดรวมของห้อง</td></tr>
+<tr><td><b>ลมของระบบเดิมที่เอาไปเทียบ</b></td>
+  <td>เว้นว่าง = เท่ากัน · <b>ใส่เมื่อพัดลมเดิมของลูกค้าใหญ่เกินจำเป็น</b> ·
+  ใส่แล้วเงินที่ประหยัดจะถูก<b>แยกเป็นสองก้อน</b> — จากการลดลม กับจากแกน ERV จริง ๆ</td></tr>
+<tr><td><b>ราคา ERV / ราคาพัดลมเดิม</b></td><td>ไม่ใส่ราคา = ไม่มีระยะคืนทุน</td></tr>
+<tr><td><b>ราคาแอร์ต่อ RT</b></td><td>หักค่าแอร์ที่ลดขนาดได้ ·
+  <b>นับได้เฉพาะงานที่ยังไม่สั่งแอร์</b> จึงตั้งต้นเป็นศูนย์</td></tr>
+<tr><td><b>ค่าดูแลรักษาต่อปี</b></td><td>บาท/ครั้ง × ครั้ง/ปี · <b>หักเฉพาะตอนคิดคืนทุน</b>
+  การ์ดประหยัดสุทธิยังเป็นค่าไฟล้วน ๆ</td></tr>
+<tr><td><b>ค่าไฟขึ้นปีละ % · อัตราคิดลด %</b></td>
+  <td>ตั้งต้น 0 ทั้งคู่ · <b>เป็นการเดาอนาคตของผู้กรอกเอง ไม่ใช่ค่าจากมาตรฐานใด</b></td></tr>
+</tbody>
+</table>
+
+<div class="warn">
+<b>มีตัวเลขคืนทุนสามตัวบนหน้าเดียวกัน อย่าสับสน</b><br>
+การ์ด KPI = <b>แบบง่าย</b> ไม่คิดอะไรเลย ·
+จุดตัดบนกราฟ = <b>คิดค่าไฟที่ขึ้น</b> แต่ไม่คิดลด ·
+บรรทัดใต้ช่องอัตราคิดลด = <b>คิดทั้งสองอย่าง</b>
+</div>
+
+<p>มีปุ่ม <b>สร้างแฟ้มตรวจการคำนวณ (.xlsx)</b> ด้วย — เป็นสูตรทั้งแผ่น
+มีคอลัมน์ <b>ต่าง</b> เทียบกับค่าจากเครื่องมือ · <b>ถ้าต่างไม่เป็นศูนย์แม้แถวเดียว
+แปลว่ามีฝ่ายหนึ่งผิด</b> · อ่านกลับเข้าเว็บไม่ได้ เป็นแฟ้มสำหรับตรวจอย่างเดียว</p>
+
+<h2>7 · ขั้นที่ 5 · ออกรายงาน</h2>
+
+<p>ปุ่ม <b>รายงาน</b> มีสามที่ — มุมขวาบนของ Hub · แถบทางเลือกในหน้าโปรเจค ·
+แต่ละแถวในทะเบียน · <b>รายงานอ่านอย่างเดียว เขียนทับงานไม่ได้</b></p>
+
+<table>
+<thead><tr><th style="width:36%">ตัวเลือก</th><th>ได้อะไรเพิ่ม</th></tr></thead>
+<tbody>
+<tr><td>ทุกทางเลือกของโปรเจคนี้</td><td>ตารางเทียบทางเลือก + ขึ้นหน้าใหม่ต่อทางเลือก</td></tr>
+<tr><td>รายละเอียดรายห้อง + กราฟ CO₂</td><td>หนึ่งห้องหนึ่งหน้า พร้อมกราฟ CO₂ ตลอดช่วงใช้งาน</td></tr>
+<tr><td>การคืนทุน + กราฟเงิน</td><td>ยอดพาดหัว · กราฟกระแสเงินสดสะสม · กราฟประหยัดรายปี ·
+  ตารางแจกแจงค่าไฟและเงินลงทุน</td></tr>
+<tr><td>แนบเงื่อนไขและข้อสมมติ</td><td>บล็อกเงื่อนไข + <b>แผนภูมิไซโครเมตริก</b> + ข้อสมมติ</td></tr>
+<tr><td>ช่องลงชื่อ</td><td>ผู้คำนวณ / ผู้ตรวจสอบ / ผู้อนุมัติ</td></tr>
+</tbody>
+</table>
+
+<p><b>ตั้งกระดาษเป็น A3 แนวตั้ง</b> แล้วเลือกปลายทางเป็น <i>บันทึกเป็น PDF</i> ·
+Chrome ถามโฟลเดอร์ปลายทางให้ทุกครั้งอยู่แล้ว</p>
+
+<div class="warn">
+<b>ห้องที่ขึ้นป้าย <i>คิดไว้ใต้เงื่อนไขเดิม</i></b> คือห้องที่ผลเก่าไม่ตรงกับเงื่อนไขปัจจุบัน ·
+เครื่องมือ<b>ติดป้ายให้ แต่ไม่คิดใหม่ให้เอง</b> · ต้องเปิดเครื่องมือของห้องนั้นคำนวณใหม่
+ก่อนส่งรายงาน
+</div>
+
+<h2>8 · ข้อมูลเก็บที่ไหน สำรองยังไง</h2>
+
+<table>
+<thead><tr><th style="width:26%">ปุ่ม</th><th>เก็บอะไร</th><th style="width:26%">ใช้ตอนไหน</th></tr></thead>
+<tbody>
+<tr class="hi"><td><b>เชื่อมโฟลเดอร์ทีม</b></td><td>ทุกอย่าง · หนึ่งโปรเจคหนึ่งไฟล์ · เขียนอัตโนมัติ</td>
+  <td><b>วิธีหลัก</b> ทีมเห็นชุดเดียวกัน</td></tr>
+<tr><td>ไฟล์เดียวจบ</td><td>ทุกอย่างในไฟล์เดียว · เขียนอัตโนมัติ</td><td>ทำงานคนเดียว</td></tr>
+<tr><td>สำรอง / คืนค่า JSON</td><td>ทุกอย่าง · กดเอง</td><td>สำรองเป็นครั้ง ๆ</td></tr>
+<tr><td>ตาราง / อ่าน CSV · Excel</td><td class="red">เฉพาะค่าที่กรอก <b>ไม่มีผลคำนวณ</b></td>
+  <td>กรอกห้องจำนวนมากใน Excel</td></tr>
+</tbody>
+</table>
+
+<p><b>สำรองอัตโนมัติวันละครั้ง</b> ลงโฟลเดอร์ย่อย <code>_backup</code> ข้างไฟล์โปรเจค ·
+เก็บย้อนหลัง 30 วัน · <b>กดซ้ำคือทับไฟล์ของวันนี้ ไม่เพิ่มไฟล์ใหม่</b> ·
+ทำงานเมื่อเชื่อมโฟลเดอร์ทีมแล้วเท่านั้น</p>
+
+<div class="warn">
+<b>สำรองจริงต้องใช้ JSON</b> · CSV และ Excel เก็บแต่ค่าที่กรอก
+<b>เอามาคืนสภาพงานไม่ได้</b>
+</div>
+
+<h2>9 · เครื่องมือตัวที่หก · ERV Project Cost Database</h2>
+
+<p>คนละสายกับห้าตัวข้างบน · <b>ไม่ได้ผูกกับทะเบียนโปรเจค</b> ·
+เก็บต้นทุนจริงของงานที่ผ่านมาเพื่อใช้ประมาณราคางานใหม่</p>
+<ul>
+<li>อัปโหลดไฟล์ BOQ แล้วเพิ่มโปรเจคให้อัตโนมัติ · ตรวจยอดก่อนรับเข้า</li>
+<li>มีปุ่มสร้าง<b>เทมเพลต BOQ เปล่า</b> ที่ไม่มีราคาต่อหน่วยติดไป</li>
+<li class="red"><b>ข้อมูลเข้ารหัสและถามรหัสผ่าน</b> เพราะมีชื่อลูกค้าและราคา ·
+  รหัสอยู่กับทีมเท่านั้น <b>ไม่มีที่ไหนเก็บไว้ กู้ไม่ได้</b></li>
+</ul>
+
+<h2>10 · เช็คลิสต์ก่อนส่งลูกค้า</h2>
+
+<table>
+<thead><tr><th style="width:5%"></th><th>ตรวจอะไร</th><th style="width:34%">ถ้าพลาด</th></tr></thead>
+<tbody>
+<tr><td class="c">☐</td><td><b>ตั้งช่วงเวลาที่ระบบเดินแล้ว</b></td>
+  <td class="red">ค่าเฉลี่ยต่ำเกินจริงราว 2 °C</td></tr>
+<tr><td class="c">☐</td><td><b>ช่องค่าเฉลี่ยไม่ได้ใส่สภาวะออกแบบ</b></td>
+  <td class="red">ประหยัดบวม 49 % — ความผิดที่ใหญ่ที่สุด</td></tr>
+<tr><td class="c">☐</td><td><b>ηt มาจากสเปกรุ่นจริง ที่ลมใช้งานจริง</b></td>
+  <td class="red">ต่าง 5 จุด = ชั่วโมงที่แอร์ไม่ไหวเพิ่ม 18 เท่า</td></tr>
+<tr><td class="c">☐</td><td><b>ติ๊กเกณฑ์ตรงกับที่ตกลงกับลูกค้า</b></td>
+  <td>ขึ้น “ไม่ผ่าน” ในเกณฑ์ที่ลูกค้าไม่ได้ขอ</td></tr>
+<tr><td class="c">☐</td><td><b>ไม่มีห้องไหนขึ้นป้าย <i>คิดไว้ใต้เงื่อนไขเดิม</i></b></td>
+  <td>ตัวเลขในรายงานมาจากเงื่อนไขที่เปลี่ยนไปแล้ว</td></tr>
+<tr><td class="c">☐</td><td><b>ลมสองฝั่งไม่เท่ากัน แยกเงินให้เห็นสองก้อนแล้ว</b></td>
+  <td class="red">เสนอรวมก้อนเดียวแล้วลูกค้าจับได้ เสียเครดิตทั้งใบ</td></tr>
+<tr><td class="c">☐</td><td><b>ดูการ์ดรีดความชื้นแล้ว</b> ว่าห้องมีภาระของตัวเองพอ</td>
+  <td>ห้องเย็นตามตั้งแต่เหนอะ · ประหยัดจริงต่ำกว่าเสนอ 10–20 %</td></tr>
+<tr><td class="c">☐</td><td><b>งานเฉียดเกณฑ์ ตั้งปีอ้างอิงเป็นกลางอายุแล้ว</b></td>
+  <td>ผ่านวันนี้ ไม่ผ่านในอีกสิบปี</td></tr>
+</tbody>
+</table>
+
+<h2>11 · ข้อผิดพลาดที่พบบ่อย</h2>
+
+<table>
+<thead><tr><th style="width:34%">อาการ</th><th>สาเหตุและทางแก้</th></tr></thead>
+<tbody>
+<tr><td>แก้แล้วไม่เห็นเปลี่ยน</td><td>เบราว์เซอร์แคชหน้าเว็บไว้ · กด <b>Ctrl+Shift+R</b></td></tr>
+<tr><td>เปิดในพอร์ทัลแล้วไม่เห็นงาน</td>
+  <td>เบราว์เซอร์แยกที่เก็บข้อมูลคนละถังใน iframe · กด <b>Open full page</b></td></tr>
+<tr><td>ต้องกด <i>อนุญาต</i> ใหม่ทุกวัน</td><td>กด <b>ติดตั้งเป็นแอป</b> ครั้งเดียว</td></tr>
+<tr><td>ค่าเฉลี่ยขึ้น 29.1 ทั้งที่เป็นสำนักงาน</td>
+  <td>ยังไม่ได้ตั้งช่วงเวลาเดิน · ตั้งแล้วจะเด้งเป็น 31.0 เอง</td></tr>
+<tr><td>แก้ลมในหน้า ERV Load แล้วเด้งกลับ</td>
+  <td><b>ถูกต้องแล้ว</b> · ลมอิงจาก CO₂ เสมอ · จะแก้ให้แก้ที่เครื่องมือ CO₂</td></tr>
+<tr><td>ปุ่มลบกดแล้วเงียบ</td><td>เคยเป็นในพอร์ทัล · แก้แล้วตั้งแต่ 17 ก.ย. 2569 · ถ้ายังเจอ ให้แจ้ง</td></tr>
+<tr><td>ROI ไม่ขึ้นในรายงาน</td>
+  <td>ทางเลือกนั้นยังไม่ได้คิด ROI · หรือคิดไว้ก่อน 22 ก.ย. 2569 ซึ่งยังไม่มีข้อมูลรายปีให้วาดกราฟ
+  — <b>เปิดหน้า ERV Energy Saving สักครั้ง ไม่ต้องแก้อะไร</b></td></tr>
+</tbody>
+</table>
+
+<h2>12 · งานบำรุงรักษาประจำปี</h2>
+
+<table>
+<thead><tr><th style="width:24%">เมื่อไร</th><th>ทำอะไร</th></tr></thead>
+<tbody>
+<tr class="hi"><td><b>ต้นปีทุกปี</b></td>
+  <td><b>เช็คประกาศแฟกเตอร์คาร์บอนของ อบก.</b> · ตอนนี้ใช้ <b>0.4750</b> มีผล 1 ม.ค. 2569 ·
+  <b>หน้า ERV Energy Saving จะขึ้นเตือนเองเมื่อเลขเกินหนึ่งปี</b> ·
+  แก้ที่ <code>GRID_EF</code> สามบรรทัดในไฟล์ <code>ervroi/index.html</code><br>
+  <span class="cap">ทำไมถึงต้องตาม — ไฟฟ้าไทยมาจากฟอสซิลราว 70 % และกำลังจะรับโหลด
+  ศูนย์ข้อมูลราว 3 % ของไฟฟ้าประเทศภายในปี 2030 · แฟกเตอร์ขยับ ±0.02
+  ทำให้คาร์บอนที่เรารายงานเปลี่ยน ±4 %</span></td></tr>
+<tr><td><b>ทุก 2–3 ปี</b></td>
+  <td><b>เช็คว่ามีไฟล์อากาศรุ่นใหม่กว่า TMYx 2011–2025 หรือยัง</b>
+  ที่ climate.onebuilding.org · มีแล้วให้รัน <code>_src/wx_build.py</code> สร้างข้อมูลใหม่</td></tr>
+<tr><td><b>เมื่อเปลี่ยนรุ่น ERV</b></td>
+  <td>อัปเดต ηt / ηs ให้ตรงกับรุ่นใหม่ · <b>ตัวเลขประหยัดทั้งหมดขึ้นกับค่านี้โดยตรง</b></td></tr>
+</tbody>
+</table>
+
+<h2>13 · เอกสารและลิงก์</h2>
+
+<table>
+<thead><tr><th style="width:30%">อะไร</th><th>ที่ไหน</th></tr></thead>
+<tbody>
+<tr><td><b>เครื่องมือทั้งหมด</b></td><td>erv-team-portal ของทีม · หรือเปิดหน้าเต็มทีละตัว</td></tr>
+<tr><td><b>คู่มือข้อมูลอากาศ</b></td>
+  <td><code>guide/weather.html</code> · ที่มาของตัวเลขอากาศ ข้อจำกัด และอ้างอิงทั้งหมด
+  <b>อ่านตัวนั้นถ้าจะเถียงเรื่องตัวเลข</b></td></tr>
+<tr><td><b>คู่มือผู้ใช้แบบเว็บ</b></td><td><code>guide/</code> · มีแผนผังการใช้งานพร้อมพิมพ์</td></tr>
+<tr><td><b>เอกสารสำหรับคนดูแลโค้ด</b></td>
+  <td><code>HANDOVER.md</code> ในโฟลเดอร์ <code>Project Data</code> · <b>มีใบเดียว ห้ามทำสำเนา</b></td></tr>
+<tr><td><b>ข้อมูลงานจริง</b></td>
+  <td>ไฟล์ <code>.json</code> ในโฟลเดอร์ <code>Project Data</code> ·
+  <span class="red">ห้ามแก้ด้วยมือ ห้ามลบ ห้ามเปลี่ยนชื่อ</span></td></tr>
+</tbody>
+</table>
+
+<footer>
+Coral Life · คู่มือการใช้งานเครื่องมือ IAQ / ERV ·
+ที่มาของเอกสารคือ <code>guide/manual.html</code> ในคลังโค้ด ·
+<b>แก้ที่นั่นแล้วสั่งพิมพ์ใหม่ อย่าแก้ไฟล์ PDF โดยตรง สองใบจะเพี้ยนกัน</b> ·
+เรื่องที่มาของตัวเลขอากาศอยู่ในคู่มืออีกเล่ม <code>guide/weather.html</code> ·
+จัดทำ 22 กันยายน 2569
+</footer>
+
+</div>
+</body>
+</html>

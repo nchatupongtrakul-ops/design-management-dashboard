@@ -923,6 +923,7 @@ table.dtable td.st{white-space:nowrap}
         <tbody id="ftBody"></tbody>
       </table></div>
       <div class="srcline" id="ftNote"></div>
+      <div class="srcline" id="efAge"></div>
       <div class="srcline"><b>สามอย่างนี้คนละตัวกัน และมักถูกพูดรวมกัน</b><br>
       <b>1 · เงินเฟ้อทั่วไป — ไม่ต้องคิดเพิ่ม มันหักกันไปเองแล้ว</b>
       จุดคืนทุนแบบง่ายคือเงินลงทุน ÷ ประหยัดต่อปี ทั้งเศษและส่วนเป็นเงินวันนี้ทั้งคู่
@@ -2543,6 +2544,7 @@ function render(){
   renderRoomPanel();
   drawBars($('bars')); drawSens($('sens')); drawYears($('years'));
   renderFt();
+  if($('efAge')) $('efAge').innerHTML = efNote();
   renderRhWarn(m);
   renderWxTable(wxSite());
   $('yrPill').textContent = m.pay.g
@@ -2592,8 +2594,32 @@ $('ervpick').addEventListener('change', function(){
 /* ─────────────── the customer slide ─────────────── */
 /* TGO board announcement of 30 Nov 2025, effective 1 Jan 2026:
    0.4750 kgCO2e/kWh covers combustion plus transmission and distribution
-   losses, which is the Scope 2 figure a client reports. */
+   losses, which is the Scope 2 figure a client reports.
+
+   TGO reissues this. Thailand's mix is about 70 % fossil and is about to
+   absorb data-centre load worth roughly 3 % of national electricity by
+   2030 and 5 % by 2037, which will pull the factor one way or the other
+   depending on what supplies it. A stale factor moves the carbon line on
+   a client's document by a few per cent, so the tool carries the date
+   and says when it is old rather than letting it rot quietly.
+
+   TO UPDATE: change these three lines together, nothing else. */
 var GRID_EF = 0.4750;
+var GRID_EF_FROM = '1 ม.ค. 2569';        /* effective date, as TGO writes it */
+var GRID_EF_YEAR = 2026;                 /* CE year that date falls in */
+/* how many years old the figure is · TGO issues roughly annually, so one
+   full year past its effective year is the point to go and look */
+function efAge(){ return new Date().getFullYear() - GRID_EF_YEAR; }
+function efNote(){
+  var a = efAge();
+  var base = 'แฟกเตอร์คาร์บอน <b>' + GRID_EF.toFixed(4) + ' kgCO₂e/หน่วย</b> '
+           + 'ตามประกาศ อบก. มีผล ' + GRID_EF_FROM;
+  if(a < 1) return base + ' · <span style="color:#2E7D32">เป็นฉบับปัจจุบัน</span>';
+  return base + ' · <b style="color:#B03A34">ผ่านมา ' + a + ' ปีแล้ว '
+    + 'ควรเช็คว่า อบก. ออกฉบับใหม่หรือยัง</b> '
+    + '<span class="rp-none">· อบก. ออกใหม่ราวปีละครั้ง และสัดส่วนเชื้อเพลิงของไทย '
+    + 'กำลังถูกโหลดศูนย์ข้อมูลดึง · แก้ที่ GRID_EF ในไฟล์ ervroi</span>';
+}
 var BTU_PER_KW = 3412.142;
 
 function esc(t){
@@ -2697,7 +2723,7 @@ function renderSheet(){
     + 'ใช้งาน ' + fmt(nv('hpd'),1) + ' ชม./วัน ' + fmt(nv('dpy')) + ' วัน/ปี · '
     + 'ค่าไฟ ' + fmt(m.rate,2) + ' บาท/หน่วย · COP ' + fmt(m.cop,2) + '<br>'
     + '** ยังไม่รวมค่าบำรุงรักษาชุดกรองและแกนแลกเปลี่ยน และไม่ได้ตีมูลค่าคุณภาพอากาศที่ดีขึ้น '
-    + 'ซึ่งมักเป็นเหตุผลหลักในการติดตั้ง · ค่าการปล่อยคาร์บอน 0.4750 kgCO₂e ต่อหน่วย ตามประกาศ อบก.';
+    + 'ซึ่งมักเป็นเหตุผลหลักในการติดตั้ง · ' + efNote();
 
   $('slBy').innerHTML = (by ? esc(by) + ' · ' : '')
     + new Date().toLocaleDateString('th-TH', { year:'numeric', month:'long', day:'numeric' })
