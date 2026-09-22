@@ -592,6 +592,25 @@ table.dtable td.st{white-space:nowrap}
 
   <div class="chart-grid g1">
     <div class="card">
+      <div class="card-title-row"><h3>ปีหนึ่งแอร์รับไม่ไหวกี่ชั่วโมง</h3>
+        <span class="pill" id="sfPill"></span></div>
+      <div id="sfBox"></div>
+      <div class="srcline"><b>ตัวเลขข้างบนของหน้านี้ตอบว่า “วันที่หนักที่สุดไหวไหม”</b>
+      ซึ่งเป็นคำถามเรื่อง<b>ขนาดเครื่อง</b> ต้องใช้สภาวะออกแบบเสมอ ·
+      ส่วนตารางนี้ตอบอีกคำถามหนึ่งคือ <b>“แล้วมันไม่ไหวบ่อยแค่ไหน”</b><br>
+      เดินสมการเดียวกันกับข้างบน <b>ทีละชั่วโมง ครบ 8,760 ชั่วโมง</b>
+      ด้วยอากาศจริงของกรุงเทพ แล้วนับว่ากี่ชั่วโมงที่ภาระเกินกำลังที่แอร์เหลืออยู่<br>
+      ⚠️ <b>เป็นของกรุงเทพสถานีเดียว</b> (TMYx 2011–2025 · WMO 484550)
+      งานต่างจังหวัดให้ดูเป็นแนวโน้ม อย่าเอาไปเป็นตัวเลขในเอกสาร ·
+      <b>และถือว่าระบบเดินทั้ง 8,760 ชั่วโมง</b> อาคารที่เดินเฉพาะเวลาทำการ
+      จะเจอน้อยกว่านี้ตามสัดส่วนชั่วโมงที่เปิดจริง<br>
+      ⚠️ <b>กำลังที่แอร์เหลืออยู่ถือว่าคงที่ทั้งปี</b> ของจริงวันที่ร้อนจัดแอร์ก็ทำงานได้น้อยลงด้วย
+      ตัวเลขจริงจึงแย่กว่านี้เล็กน้อย</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
       <h3>สรุปผลกระทบต่อระบบเดิม</h3>
       <div class="tablewrap"><table class="dtable">
         <thead><tr><th>ตัวชี้วัด</th><th class="num">ก่อนเติมลม ERV</th><th class="num">หลังเติม</th><th class="num">เปลี่ยนไป</th><th>เกณฑ์</th></tr></thead>
@@ -2292,6 +2311,143 @@ function model(qOverride){
            Tmix:Tmix,Wmix:Wmix, et:et,es:es };
 }
 
+/* ── Bangkok, all 8760 hours ──
+   Outdoor enthalpy for every hour of a whole year, packed two base64
+   characters per hour. climate.onebuilding.org, TMYx 2011-2025, Bangkok
+   Metropolis WMO 484550. Built by _src/bkk_hours.py.
+
+   value = round((h - 30) * 40)  ->  0..4095, so the step is 0.025 kJ/kg
+   and the worst rounding error over the year is 0.0125 kJ/kg.
+
+   Why the whole year and not the 24 hourly means that ervroi carries:
+   counting how many hours cross a threshold needs the distribution, and a
+   mean throws the distribution away. 17 KB buys an exact answer, and it
+   also makes "which month" and "what time of day" fall out for free
+   because the order is the calendar order. */
+var BKK_H8760_B64 = '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i9jfhogLeUdPcDapaUZ/ZqalbOcEczd0etfVfvgTfHdqcdcNcFb2a1aUZxZxZxZxa0bdckeHfag9gcgIfkfLfAfAfIfLfHeheKdjdsdldtdldtdkemfHf7gmhch+h4idiHhJgKesdncJbFa2a2anagaCZ6awa+bxc8d3eef+g8iYh1iFhiiKiNivhng0f2gJgcgthYhyi4hPgCe3e8faf9gagVgwiNi4jyixichOgsfae2e2emfCfCe7evgTh7jljOitiFiCihidhkgHfNgRgthkhhhuhqg9g9gPgLgYgThsivkbjOiNhihrh9XdiqjakPh6f9eSdlcqb9diflhNgsg4gYhyjgk/iqhMfrhGh+jcjFiui9hZgEfCfthLiZh3hyhthchnhWiOi1jRjvjgkNkSkikciyg4fNf2gihJheh8iDhhhuhNhahmhyi3jxk1lKlfl6muntoVmTkijAifiuiNi6jzkakVkPkJj3jUjfjqkGktkfkSkNk7l6nPm5mzmcmClGlNkZjzjdjMjHjUjJi8iSheg8fvg9ifj5joj0j5jqiyh6hShPgtg+hdiKhJg2gTg9haiDiUi2jHi1idifiaidisijiJihich+hnhJgcf9h1i7ktjRieg8gyg5guh5jQjyjliPh/icjKjohJecUxVhb9cJeOgYiOhjhAgWfzfRevgsimk4lUlklplGkRjujhjPi4h1hRgPgchVhhhAgef9fifGfGgIhOiYixi4jMiyiYh+iKifh8i4jhkaktkNkbkAjmiwhhgLemfGgKgcgwg6g6iHi9kLjRiehrf8eedRdCcmb7brbmbUb5cPczdCeDd/fmgchhh/i1j7i9h4hOhMh1hqhJg4gYgCfdfHd8c9cPc9dWeZe+gTg0hJiTjNilicivjLkAktkJjmjfiOgvfie3eceMfGgOhJhDhLhAgJfgeoexete7emd3dieCeRexeheCdXc9cjcIdMdxeSeve3fIgdiCjZhqf+eSfOfqgFfVezeDeAeWeReCdnc9eKffgchTh0iehohGgwgrgegIgTgagjggfzfXfefefkfXfbe1gLg1iIg4fqehffg8h6h1iMiDg6gDe7evepeIeqfMfvfvgWgqhGhtikiDhuhqiZjAjdifikhtgae3dVdfdpdzdpdIcodpelfPf9hAh+iOiMiYiYh1h1hdhbhNhJhyhthchnhWgvgHffe+eUdzejffgNgnhVhuhoiHh/hLgNgmhNh3iUh4hNfPdbcecndnc0dmfyhqjykkkkk1lGk1lGkTjNh4ihi2jajUjfj0jUi1ihh3hlg7hXhuiOjbkzl0mEmVl9k+jViMivjLjhj8jlj9jsjJi3iJhthAg6gKfvg6hSiei1jkkjkCjViejAjNkIhFevcJcvdnekfMf6gggTf8fkhTihjykCj9jojIivibh4hUhNfdd6cdctctc9d1eefYfogIg9hUZ9WlaaiOh5ich9h/gje3dadTd1dtddc9ctdVeFetfWg4hdiejNkPkAjxjhjvjGjHhNfldwdteHeDdwdsdXdyecfRf7gahOh8iojRjVjZjbiGgkYLfSfvgLgFgWgPgWgLf6fzftfmhHbSk9kZkhkTkCkAjsi/iehnh7ibijicimieinieiniEhyhNhVhLhtiIiNidiNiIhth+ibikidiximhWgZfMfcfOe/fxgahNhyh4ifiejQjPi9iaiIhcg+gNgagzg9g4gjgegJfofRfifygDg9hbh9i+jukNjsi7iaivjckAkmlcl+jLhffGe5ese1eveve+fdfyf9g+hqilh+hagagRfsfifLfOe2e3e3edd1d1dNdddddtfEgChkhth9h1hqhdhOgsgmf/fffbe7fGfigJf4fyf9f9fifigCg+h4h4iqiqjckblAjvivhegyfsfBfLe7fEfff5gTgTgtgtf4fifOgeh6jBjLjQjQjZjujririChYhqhQhHhHgcgcgsgyhThfh8iHieixi6i6jrjrjdjJiSimiMiEhYhYgtfxfHemevenevgJg4ieicisiqifiKhuhDgSfRgAgehlh3h3ihiJibiCh1hmhwiLigjXjcjPjQifh9hriDiljNhWfteWesexfEfEfffffEfVe7fng2hOhdiMiYiYiqiqifh6hehVh4iIiSimivh7gtf6fxfXfOgehhiujcjQjskNkKkriOfqdcdyexfffLeseWehecenfcghhXhLhRhrg9gefugdhUiUhshPg0hficjHhpgTe3eWd1c9ddeNeUfQfXf/g2hciOiujbj2hZe0b+cfdFdneIfSf1eec4b6b0bdbWcbdiezfcfvgphLhLhshOgqgCemdYcbb5bmbDbNbNa+bmcedHdwerfff9gVgngzgrguf+fOeed9dbc6dgeHfHe3fBexeheGd3eAeUedfVgDgef3fCd9e7fogagTf6fyfhfQfYfHfgfPf5f5gjgagegWg6hNhuhXhchYevc0aWaPafaubEbrcBcYcHcHcuc+dmeNfLfugNg5hPhuh+jBiKh+hXhehQhsgefieXdNcFbXbhbqbzdXe2gshsixkijNhmg1h3jIkCiegde+dxdRchcPcIcPckdHdzeDeifVgdhVidisiHiWg+Y4SxTMWWW0XCYOdcc6cib/cYcicid3fMgjgTfsfvf+gthdgugLf9fsfxfHeseYd9d9d9eNe5eke1gkhsjdjJi+jAi/jQjxiuh4hJhtiDijiciUhygke+dadjdTdDd7egfNgIghhaiNjlkajgiUg2hyiVi5iMh7hPhYhYhhfyeedNdzehfSgMhNiYiNiTh/idisiui4jqjmhhfRdXd8e3fteleFc9eRfqgrhqiIiliRixjBhYf+ewfohVighngefnfSfHexd3dHcPdYfAgKhGiCi9jdkzlUi7guerfGfCfbfGeHdXdDckcPcYc6dDdgeCeNfzhqisjCjCjYi4jQi4hXf4e5eKdMcfcbdBc9dIdSd3fPgsiNiaiVjBiRh1hoh+h6iZg9fSd6dodwdcdXdDc9dheNevgoiPkEjXiZiKibi8itiIhNgAevdMb5b5cJcJcCcUcNdFd9eeehebepete+fffPeheSdVcXbacIckdKdTdMdVdFdFc1c1clc9cuc6dGd0eSe/eieRdTc1cmcIcScMcuc4dddndnddddd3eReRemfGfsgOgrhlhJg8gegshAhAhLhLg6hFhFg1gvgogHgHgXf9gjhEhchOg7gkg2gngXgugFf9gJgTgDgNgHf2fvfxfpfpe/e/fMf1f+gNf5gCgIgdgegsgogwf9foe7eqeqeZeId3dmdcdAc0esgThyhhhZhdg+hLgmgPgHfSeteNdQeZe7gGf1f1fkgGgAgjgcgegPgcgthGg7g9gOemcka3btchdsd2dweRepfXfvfvgAgAgCgRgTgwg4hNg9hMg8gfgDfpfpfYfYend1dFdFdNdNb9bWahcFdrfQfcfvfpgdhYh+gceKc9dSeAetd6cebsb1cPcYcJcCbzckdgemeQeiegeceGd8c9ckb5bqbLa8bsb1cNbubPawbHb1ckcsdHdcdXdddwdjdddNc9cdcLbFanZ5aobuccc0ckc7dSdweHe3gDhNh1isjQjgjxkCjUjCinivimiuicicijhVgAe1fGfXfogJgOgWhpiNjhhefOdUfAf1hQhWhshvgXe3didddHcocYcYcJdcepfuf+gOgdgafzfrftfsfnfifof9endicPa5ZvYeZNZlZ9bqdgfAf+gthshJgVgRf+gKgTerdwcncycuc4b7bIaMaGaXaRcPeAf4gcgeg8g7g5g2hbhLhHZ4hGgjgSf5fPeOddcdc0c6dRengOhmhXgugpgpg5g5g+g2hAhWhhh2hUhDghfOdzckcsc1c9dseZfff+gagzgRf+f+e/dic9cTbqbBakavaRZ+Z0Z3aPavbec4eMffgtiMjdhOevchchcScucDbLaiafbFbBbSbIa8a8atatcFdcezdsc9b3cKcsc9dNdFc8dFc9ctc1c1c8cccMbtbWa/aoc3eTgsguheh9gWexVkd6fRgYgSg1gug1g1g7fpeYdIdweYfAfQfsgYhRh4itiuififgtetdbd3eOewfBfkgMf7fpfvfvfvfvgZhPh4gwf8fAfOete6fffyfbeWdsdBcXcXcPb7cFb1bhbcbDbucIcqeSf5iCiChehehYhdhNiIiQjCg0ePcMcTcPcUcFcecPdIdVeKe9f9gugtgpgkfpfeehfAfLfieHdJcMcTcKcPcPb/b/cydrevepe7eseAd6dGdJczckcdcFb9cVcccccUcacRb0btblcodYewewfOfsfPeieheSeBdtePe8e7eteed1dldVdFdNc8dDd3eWffgFgahchbhnhkgZfYeHe1e7fpf7f7gMfpfYfMe2ekeOfEfygygYfce/fQfAfOeteMdrerfygrgkgcf6fQeVdsc8blagcAdCehevfagFgkhWiYhshuhbfVd7cPcYcYcJcScbckcUcdcNc1dieHfNfpgtg5hLhNgofyexfHfcfvf5fXfgeNdFbocEcPcqdievffgJgcg4hLhMhdgPe7d8d8eleld8dkc8dEckcrdEdVdtfLgviDh6hthdhth9iNh+h6hhhNhmhQhLhFhbg5goghgAgJfogTgcg4g4gogKgYf4foflfVe2c9bXZmaKagbDalavaqbRbhcJeWgFhth9h9htiujQkTh8fVdceCecfBe7fffXfgfQe/eFdcckddePe7fPfPf7gNguhbgTfHeHe5fbgPftfEeKdwdPc0dLc6dQeGeRetfAfefnf7gdgufGdwcUdpeYfXekdLcZcZcfc1c6cvc0dSeDePc1bwaGZrZiYyYxY0YvZxaibOcZdAeOdccZbobYajaTbecreGgTiIkbi3hngkfReKdTdFdFdLdCdIcodFdbdheDe7fegTg5hqiGiMifhdg8gcf+fqfffnfdfifcfEe+fHfQe/d1csbNdsg1jQith8g7hDg5hdf9eKc9dyenfcfxfYfmesd6dCdseWfYeadRcXcqdBc8dZeJemekeeeSehe5e/d3dXckcFcHbzcEckc1ddeHe+fvgdhJhThqhugzffetflgoh4gqf4fHekeGdzd6eAeee3fEfif4guhGg2gVgFfcexeDeOfCfifSeWeHeCdsdndHc3cYdgeOfAftg7hohLgMfue+dbcec3dVd8dbdidCdCdSdSc0c8cddNd3ehehfLfCfafuf+gKgCgjfceWdZdVc6c1cvcqc6dFdmeHeOesfGfAfLfrfGfNehe5fMe/eveveed9dNctbua/aCaCZyaIbhdJexevfVfmfXfXfrf2gMgugsf6fYgLgqg5gogogXgRfvfOeAdGcKcScFcGdUeKezfCfSfafff9f4gcgqgogAfoe/e+e7fReZdlc3c/c7csctcdcXcsc4cwdzexfqerdtcwbLZ0YUYqZlZ5aubvckcgcNcQcfdUdielgEhcg+hLhEfleWdYc6cqcMdIeRfHe2eeehf2g2h/ihieiZexbPYJZwbJc1ckcocrcEb0bNbNbdbdcFdCdifVg2h/hwhKg7f1fYehfAfof/gYgTgqg1gTgehDheiDhnhuh6h+iOisiMZuXphbh4iDh9h5hYhHg0hDhRhAgugSgWf+gAgLgOg9hJhygufrXifYfefze1eGdDdMd9eGdldVcdcdcFcFcPcLcWdtfGf+grhNhkhLgkfvfPe/eeeed1dcc8clcFbdbbbIcEcud/f+htjsioiIhGgcf4e/eGc8cCcbcrdDckcdb9bWbWavaqawbFbuc1dbeke+gJfpfvfYfif3gZexdXcPcKcucocxcScbcudCdWeSe+gagdhOhrg4gHfPendzdHcececPcJcCb8bkakaMbQcZdleCdveKeDeOeme6fvgjepdCbPa8aOZ4ZbZXY6ZcaMatbucpdheKeDerfmhGiDhYgugffifHeZdndccqc6dcdseTe2fHgZh7jxjQjNiuiOh9hZgCe7d8dsdsdheZeqfke1d2dIdZdZdSeDePewfAfOfafpgpg5hrixjmhffRdLcPb5a+bjcJcvdLdVdwemfigogtgtgphLhsivgtfYdVdwebe2exfHfBeadKckb8bdbOcedtfAfegKgkg/haiYhogef4ezdccUcocrdVc8ckcLbzbzbbcKcqc1ewf+h8hcgtgtgthGh3gefyeaeOeUd9dsdbdLc6dAcvdSdteAd7eKeReAd8dwd6eKeUeUeUeUeNeNeFeNeUebeie5fAeYd2dmeee7f3f3gHgHe0d8c6dceCe7eIdbc+cecObubnbhbEblcFcqczdVd0fLhJixhhgvfiehdRcSbsbGaKaZaCaPaWacaicdexgog6g9guhOhdh9hMgwgkgNgHfvfxfhf5feeseReAdwdIedfrgtgtgagRgXgKftfff6fifWfXfEe+e/e3eWd1c9clcNb1dIecfvgrhDh5iNiRilh9gtgTftfxfNftfifpfefSfHfHfHfHfHW/W/f5gziMhJgngFgrheh8iDh7hqfpdbbObTbpbucUc1dce5gChyiPiIjAjQkBkRlumyoCkchVeke2fMfeekeCdLdsdneIe9fygyfgd9dCdweHe1e7eqewewewewekeTeIdmdVc0c0c0c0dheifHgLhDiDiLi5jPighYgpfpe7eNdrdJcncnc4c4dJdadre7gZhhhXhKhWhFhAgogegcgFfGevdsd1d1didweNeDdWcZbYcOdVd3fHYUhRhQhKhmhlhHgufVdscsccckcrdwekfpeweOdseIekfXgKhGiDh3iDiKhkgsgCgDgAf6fpfXesepd9dhdQc6cqeNfog6hAg0hVhNhUhnhkhUhRhNhahVgogDfbfKfKe5e5epfAeue/e7f4gohhhZh9iOhng0gRfyfee1e1fMfke7e7eTeZefekfYg0htiOivjxifh6hAg6hXhXgqf+fpfXfGe1eqeZeOd9d9dse3gThNh+iOjAjAiuitiIhhhVg/gtgjgIfVe5e5eieKdzdLcceAffhcifjQkSjyjhi/iIg6gDfsf2gAgJgcgDfYfPeue/fGe1fRfYfthMjglGkkkTjyi+iWh3hthhhvhehehNhGg+gcfYeNcxdjerfOgtifkkiZg+WkdycqbObzcHcrdfeTfee2efd4d4efe2f5hNiliGhthdheiOiNhkhQgye3crauakaUaKaPaTaYbNbtcjdLeKezgoiOkCjQivifhZgLfReNddcocuckcqcZcJb5b5cfc1elgTiJiMh4hth+h9iMhphnhggKfeeKd9dcc0cjcjcScScjcjc4dFdsexgHhNgFfaevfIfrgZf2e/eWeNd8dzeAeNeZdsdmdPd9e+f4fif8fufufOfOfOfCfHfRfLe7e0eteNeOeOeNedfGfXgCgkg9hLhdh1g7fveweve7fVfLfMe7ffgCgLgLf6f6f6gLgLfdfGeSfOg2hug9f7fneHdScPcScsctcdcdcNcFcUcKchcRcoeOe8gjhMhdiYieiOiMh4hyhahhhLhQg/gvgegHflfOfHfYfpgAgOgwiIjxlKkUj8jHhlghfEgCgThPg+g+gsgbgjgSgAgAfXfvf3gKg6h8itiNhthOhJgfgOg/hehyhphQhHg2g2gkfpe/eGe0ftgPgagugrgtgNfuftf1fngJgohGg1gtgcfxeddaetfogkgvgjhAhZhdhtheg+gOfae7d3eOeKeOeIeZeTeDeDdyeIeOekfig0hphhgwgsfVdscPc3dRdheNeOe3eWd8dzeAeNeZdsdPcheFfdgmgsgugrgcgMf9exd9cndyfLgtfGdscScScScScScXcXcOcqc1dAdheDcvbeajaYaMaBZtZdZJYuYjX1YEYAX8X8X4X4YeZhaoZ6ZzZcZcZrZrZzaIaNZuZ0ZqZbZbZLY8YtYyZqaTa4bzckdVeDeGexf9gvhhg/gafyfYeueUeReHdsdbdLc6dQd4eke/figMf+f+gNgug9hbg2gPfnfdfifvfXevevemfGe9eze5eYfpgyhyhJgtgCgKgeg8g4hXh1hRhGg7fpfAdweNeDefdmcab1c3evgMguh+ichtguf+e7dlcZcZcqcqcvc1c6c1c1cvdQdLdsedfHgDfnfGegeedwdtc6cucPcYcrc0dddZd4dFchbtbdbdbNb1ckdVeMfAfuewdkcoc4dedgdMc4c9bhaeZcZ6awbNafZxZDaIavcIdWetgNfzeoeNdGcqbebabIaoaVaRZ+aDZuZaZFY+YpZbZiaRbfcgeSecezfaehdWcacZcIbrbIaVZvZrZlZgY0YfX0ZSaRbgbfb/cHczdqePcobvaMaMaLaKZ5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';
+var BKK_H8760 = null;
+function bkkHours(){
+  if(BKK_H8760) return BKK_H8760;
+  var A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  var idx = {}, i;
+  for(i = 0; i < 64; i++) idx[A.charAt(i)] = i;
+  var out = new Float64Array(8760);
+  for(i = 0; i < 8760; i++){
+    var v = (idx[BKK_H8760_B64.charAt(i*2)] << 6) | idx[BKK_H8760_B64.charAt(i*2 + 1)];
+    out[i] = v/40 + 30;
+  }
+  BKK_H8760 = out;
+  return out;
+}
+var MDAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+var MONTH_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+                'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+/* How many hours of the year does the load beat what the AC has left?
+
+   The load an hour puts on the coil is  rho * Ls * (h_sa - h_r)  and
+   h_sa - h_r = (h_oa - h_r)(1 - et), so the whole thing is linear in the
+   outdoor enthalpy and the question becomes one threshold:
+
+       fails when   h_oa  >  h_r + spare / (rho * Ls * (1 - et))
+
+   Everything on the right is already on the page. */
+function shortfall(m){
+  if(!(m.Ql > 0)) return { na:'ยังไม่ได้ใส่ปริมาณลม' };
+  if(!(m.capW > 0)) return { na:'ยังไม่ได้ใส่ขนาดแอร์เดิม' };
+  var k = m.rho*m.Ql*(1 - m.et);
+  if(k <= 1e-9) return { na:'แกนดึงคืนได้ 100 % ภาระจึงเป็นศูนย์ทุกชั่วโมง' };
+  if(m.spareW <= 0)
+    return { all:true, thr:-Infinity, n:8760, byM:MDAYS.map(function(d){ return d*24; }),
+             byH:new Array(24).fill(365) };
+  var thr = m.hr + m.spareW/k;
+  var H = bkkHours();
+  var byM = new Array(12).fill(0), byH = new Array(24).fill(0);
+  var n = 0, i = 0, worstH = -Infinity;
+  for(var mo = 0; mo < 12; mo++){
+    for(var d = 0; d < MDAYS[mo]; d++){
+      for(var hh = 0; hh < 24; hh++, i++){
+        if(H[i] > thr){ n++; byM[mo]++; byH[hh]++; }
+        if(H[i] > worstH) worstH = H[i];
+      }
+    }
+  }
+  return { thr:thr, n:n, byM:byM, byH:byH, k:k, worstH:worstH,
+           worstW: k*(worstH - m.hr) };
+}
+
+/* the answer, as a sentence first and a breakdown second */
+function renderShortfall(m){
+  var box = $('sfBox'), pill = $('sfPill');
+  if(!box) return;
+  var r = shortfall(m);
+  if(r.na){
+    pill.textContent = '—';
+    box.innerHTML = '<div class="hint">' + r.na + '</div>';
+    return;
+  }
+  var pct = r.n/8760*100;
+  var cls = r.n === 0 ? 'ok' : (pct < 1 ? 'warn' : 'bad');
+  pill.textContent = r.n === 0 ? 'ไหวทั้งปี' : fmt(r.n) + ' ชั่วโมง/ปี';
+
+  var head, why;
+  if(r.all){
+    head = '<b>แอร์รับไม่ไหวตลอดเวลา</b>';
+    why = 'กำลังที่เหลืออยู่เป็นศูนย์หรือติดลบตั้งแต่ก่อนเติมลม ERV แล้ว';
+  } else if(r.n === 0){
+    head = '<b>ไหวครบทั้ง 8,760 ชั่วโมง</b>';
+    why = 'ชั่วโมงที่อากาศนอกหนักที่สุดของปีอยู่ที่ ' + fmt(r.worstH,1)
+        + ' kJ/kg ให้ภาระ ' + fmt(r.worstW/RTW,2) + ' RT '
+        + 'ซึ่งยังน้อยกว่ากำลังที่เหลือ ' + fmt(m.spareW/RTW,2) + ' RT';
+  } else {
+    head = '<b>แอร์รับไม่ไหว ' + fmt(r.n) + ' ชั่วโมงต่อปี</b> '
+         + '<span class="rp-none">(' + fmt(pct,1) + ' % ของทั้งปี)</span>';
+    why = 'เริ่มไม่ไหวเมื่ออากาศนอกเกิน <b>' + fmt(r.thr,1) + ' kJ/kg</b> · '
+        + 'หนักสุดของปี ' + fmt(r.worstH,1) + ' kJ/kg = ภาระ '
+        + fmt(r.worstW/RTW,2) + ' RT เทียบกับกำลังที่เหลือ '
+        + fmt(m.spareW/RTW,2) + ' RT';
+  }
+
+  var mx = Math.max.apply(null, r.byM) || 1;
+  var bars = r.byM.map(function(v, i){
+    var hgt = Math.round(v/mx*46);
+    return '<div style="flex:1;text-align:center">'
+      + '<div style="height:48px;display:flex;align-items:flex-end;justify-content:center">'
+      + (v ? '<div title="' + v + ' ชั่วโมง" style="width:70%;height:' + Math.max(2, hgt)
+             + 'px;background:' + (v ? '#C2703C' : '#D8DCE0') + ';border-radius:2px 2px 0 0"></div>'
+          : '<div style="width:70%;height:2px;background:#E6E4DF"></div>')
+      + '</div>'
+      + '<div style="font-size:10.5px;color:var(--text-secondary,#6B7280);margin-top:3px">'
+      + MONTH_TH[i] + '</div>'
+      + '<div style="font-size:10.5px;font-weight:600">' + (v ? fmt(v) : '–') + '</div>'
+      + '</div>';
+  }).join('');
+
+  var hh = [], i;
+  for(i = 0; i < 24; i++) if(r.byH[i]) hh.push(i);
+  var span = hh.length
+    ? (hh[0] === 0 && hh[hh.length-1] === 23 && hh.length === 24
+        ? 'ทุกชั่วโมง'
+        : ('ช่วง ' + (hh[0] < 10 ? '0' : '') + hh[0] + ':00–'
+           + (hh[hh.length-1]+1 < 10 ? '0' : '') + (hh[hh.length-1]+1) + ':00'))
+    : '—';
+  var peakH = 0;
+  for(i = 1; i < 24; i++) if(r.byH[i] > r.byH[peakH]) peakH = i;
+  var peakM = 0;
+  for(i = 1; i < 12; i++) if(r.byM[i] > r.byM[peakM]) peakM = i;
+
+  box.innerHTML =
+      '<div class="verdict ' + cls + '" style="margin:0 0 10px">'
+    + '<div class="vh">' + head + '</div><div class="vb">' + why + '</div></div>'
+    + (r.n ? '<div style="display:flex;gap:4px;align-items:flex-end;margin:4px 0 2px">'
+             + bars + '</div>'
+             + '<div class="hint">กระจุกที่ <b>' + MONTH_TH[peakM] + '</b> · '
+             + span + ' · หนาแน่นที่สุดเวลา <b>'
+             + (peakH < 10 ? '0' : '') + peakH + ':00–'
+             + (peakH+1 < 10 ? '0' : '') + (peakH+1) + ':00</b></div>'
+           : '');
+}
+
 /* ─────────────── canvas plumbing ─────────────── */
 function prep(cv){
   var r = window.devicePixelRatio || 1, b = cv.getBoundingClientRect();
@@ -2948,6 +3104,7 @@ function render(){
       + '</td><td class="num"><span class="'+cls+'">'+r[3]+'</span></td><td>'+r[4]+'</td></tr>';
   }).join('');
 
+  renderShortfall(m);
   $('sensPill').textContent = 'จ่ายเข้าห้องตรง';
 
   drawPsy($('psy'), m);
