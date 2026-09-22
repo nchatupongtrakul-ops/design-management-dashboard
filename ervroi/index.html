@@ -4301,16 +4301,30 @@ function tplBuild(){
       s:S.n1 }, 'ปี', 'ที่ค่าไฟปีแรก ยังไม่คิดค่าไฟที่จะขึ้น');
   srow('bevY', 'ปีที่เงินกลับมาครบ',
     { f:'IFERROR(MATCH(TRUE,INDEX($E$' + (first+1) + ':$E$' + last + '>=0,0),0),"ยังไม่คืนใน '
-      + TPL_YEARS + ' ปี")', s:S.n0 }, 'ปีที่', 'อ่านจากคอลัมน์สะสม · คิดค่าไฟที่ขึ้นแล้ว');
+      + TPL_YEARS + ' ปี")', s:S.n0 }, 'ปีที่', 'อ่านจากคอลัมน์สะสม · คิดค่าไฟที่ขึ้นแล้ว แต่ไม่ได้คิดลด');
   srow('c5', 'ประหยัดสะสม 5 ปี', { f:'E' + (first+5), s:S.acc }, 'บาท', '');
   srow('c10', 'ประหยัดสะสม 10 ปี', { f:'E' + (first+10), s:S.acc }, 'บาท', '');
   srow('c20', 'ประหยัดสะสม ' + TPL_YEARS + ' ปี', { f:'E' + last, s:S.acc }, 'บาท',
     'สุทธิหลังหักเงินลงทุนแล้ว');
-  srow('disc', 'อัตราคิดลด', { v:7, s:S.input }, '%',
-    'ต้นทุนเงินของลูกค้า · ใส่ 0 ถ้าไม่ต้องการคิด');
+  srow('disc', 'อัตราคิดลด', { v:pb.d*100, s:S.input }, '%',
+    'มาจากช่องเดียวกันบนหน้าเว็บ · ต้นทุนเงินของลูกค้า · ใส่ 0 ถ้าไม่ต้องการคิด');
   srow('npv', 'NPV',
     { f:'NPV(C' + Y.disc + '/100,D' + (first+1) + ':D' + last + ')+D' + first, s:S.acc },
     'บาท', 'บวก = คุ้มกว่าเอาเงินไปลงทุนที่อัตรานี้');
+  /* the same closed form the page uses · k = (1+g)/(1+d)
+     k = 1 is the removable singularity, and arg <= 0 means the discounted
+     savings converge below the cost, i.e. it never pays back */
+  var _g = IN + 'B' + R.ft + '/100', _d = 'C' + Y.disc + '/100';
+  var _k = '(1+' + _g + ')/(1+' + _d + ')';
+  var _C = IN + 'B' + R.inv, _S = IN + 'B' + R.net1;
+  var _arg = '1-' + _C + '*(1+' + _d + ')*(1-' + _k + ')/' + _S;
+  var DISC_F = 'IF(' + _S + '<=0,"",'
+    + 'IF(AND(' + _g + '=0,' + _d + '=0),' + _C + '/' + _S + ','
+    + 'IF(ABS(' + _k + '-1)<1E-9,' + _C + '*(1+' + _d + ')/' + _S + ','
+    + 'IF(' + _arg + '<=0,"ไม่คืนทุนเมื่อคิดลด",'
+    + 'LOG(' + _arg + ')/LOG(' + _k + ')))))';
+  srow('dbev', 'คืนทุนแบบคิดลด', { f:DISC_F, s:S.n1 }, 'ปี',
+    'สูตรเดียวกับที่หน้าเว็บใช้ · คิดทั้งค่าไฟที่ขึ้นและต้นทุนเงิน');
   srow('irr', 'IRR', { f:'IFERROR(IRR(D' + first + ':D' + last + '),"")', s:S.pct }, '',
     'ผลตอบแทนที่แท้จริงของเงินก้อนนี้ · ว่าง = ไม่คืนทุนใน ' + TPL_YEARS + ' ปี');
   srow('carb', 'แฟกเตอร์คาร์บอน', { v:0.475, s:S.in4 }, 'kgCO₂e/kWh',
@@ -4401,6 +4415,18 @@ function tplBuild(){
     'ตรงกับตัวเลขบนหน้าเว็บ', S.n0);
   astep('เงินลงทุนส่วนต่าง บาท', 'ERV − พัดลม − (RT × ราคาแอร์/RT)', IN + 'B' + R.inv,
     pb.extra, '', S.n0);
+  /* the twelve rows above only prove the energy chain · the money on top of
+     it was never checked against the page, which is where the two could
+     drift apart without anyone noticing */
+  if(pb.years !== null && isFinite(pb.years))
+    astep('คืนทุนแบบง่าย ปี', 'เงินลงทุน ÷ ค่าไฟที่ประหยัดปีแรก',
+      IN + 'B' + R.inv + '/' + IN + 'B' + R.savB, pb.years,
+      'หน้าเว็บไม่มีช่องค่าดูแลรักษา แถวนี้จึงไม่หักมันออก');
+  if(pb.discOn && pb.disc !== null && isFinite(pb.disc))
+    astep('คืนทุนแบบคิดลด ปี', 'k = (1+Ft)/(1+คิดลด) · ln(arg)/ln(k)',
+      "'รายปี'!C" + Y.dbev, pb.disc,
+      'ค่าไฟขึ้น ' + (pb.g*100).toFixed(1) + ' % · คิดลด ' + (pb.d*100).toFixed(1) + ' % · '
+      + 'ต่างได้ถ้ากรอกค่าดูแลรักษา เพราะหน้าเว็บไม่มีช่องนั้น');
   var sAud = { name:'ตรวจการคำนวณ', w:[30, 40, 18, 18, 12, 40], rows:aRows,
     freeze:3, grid:false, merges:['A1:F1', 'A2:F2'], heights:{ 1:22, 2:14 },
     page:{ land:true } };
@@ -4559,7 +4585,9 @@ function tplBuild(){
   line('เหลือสุทธิ ปีแรก', IN + 'B' + R.net1, 'บาท/ปี', S.acc, 'ตัวนี้คือตัวที่คืนทุน');
   line('คืนทุนโดยประมาณ', YR + 'C' + Y.bev, 'ปี', S.n1, 'ที่ค่าไฟปีแรก ยังไม่คิดค่าไฟที่จะขึ้น');
   line('ปีที่เงินกลับมาครบ', 'IFERROR(' + YR + 'C' + Y.bevY + ',"")', 'ปีที่', S.n0,
-    'คิดค่าไฟที่ขึ้นแล้ว · ดูชีต รายปี');
+    'คิดค่าไฟที่ขึ้นแล้ว แต่ไม่ได้คิดลด · ดูชีต รายปี');
+  line('คืนทุนแบบคิดลด', YR + 'C' + Y.dbev, 'ปี', S.n1,
+    'คิดทั้งค่าไฟที่ขึ้นและต้นทุนเงิน · ตรงกับตัวเลขบนหน้าเว็บ');
   line('ประหยัดสะสม 5 ปี', YR + 'C' + Y.c5, 'บาท', S.acc, '');
   line('ประหยัดสะสม 10 ปี', YR + 'C' + Y.c10, 'บาท', S.acc, '');
   line('ประหยัดสะสม ' + TPL_YEARS + ' ปี', YR + 'C' + Y.c20, 'บาท', S.acc,
