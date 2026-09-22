@@ -991,7 +991,7 @@ function csNewScenario(name){
   return {
     id: csUid(), name: name || 'ทางเลือกที่ 1', note: '', off: false,
     city: '',
-    oaPk: { t:35, rh:60 },     /* design · sizing */
+    oaPk: { t:33.5, rh:68.5 },  /* design · sizing · = CS_SITE_PEAK.bkk */
     co2:  { oa:400 },          /* outdoor CO2 ppm · the floor indoor CO2 decays to */
     /* ── which criteria this job is actually held to ──
        A room is not failing LEED when nobody is chasing LEED. Judging
@@ -1008,6 +1008,7 @@ function csNewScenario(name){
        Saving and ERV Load cannot end up quoting different provinces for
        the same building. */
     site: 'bkk',
+    /* the sizing pair below is bkk's, kept in step with CS_SITE_PEAK */
     /* Bangkok Metropolis TMYx 2011-2025 (WMO 484550), the 08:00-17:00
        hours: mean enthalpy 77.42 kJ/kg. 31 C / 63.6 % reproduces it.
        The old default of 31 C / 70 % is 82.21 kJ/kg, which against a
@@ -1060,7 +1061,7 @@ function csVolume(rm){ return csArea(rm) * csNum(rm.h); }
 
 function csCond(scn, rm){
   var c = {
-    oaPkT: csNum(scn.oaPk.t,35), oaPkRh: csNum(scn.oaPk.rh,60),
+    oaPkT: csNum(scn.oaPk.t,33.5), oaPkRh: csNum(scn.oaPk.rh,68.5),
     oaAvT: csNum(scn.oaAv.t,31), oaAvRh: csNum(scn.oaAv.rh,63),
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
@@ -1101,6 +1102,30 @@ var CS_SITES = {
   hkt: ['ภูเก็ต',     'ภาคใต้',       'Phuket',              '485640',   4]
 };
 var CS_SITE_ORDER = ['bkk', 'cnx', 'kkc', 'ray', 'kan', 'hkt'];
+/* ── the sizing condition of each station ──
+   Straight out of the DESIGN CONDITIONS header of the same EPW files,
+   which carries the 2025 ASHRAE Handbook Fundamentals ch.14 figures. The
+   pair used is the 0.4 % ENTHALPY design condition and its mean coincident
+   dry bulb, because an outdoor-air load is driven by enthalpy - picking
+   the 0.4 % dry bulb instead would size for a hot dry hour that costs the
+   coil less than a slightly cooler soaking one.
+
+   Stored as dry bulb + the relative humidity that puts that dry bulb at
+   the design enthalpy, because that is the pair the tools ask for.
+
+   For reference, the enthalpy these reproduce:
+     bkk 91.5 · cnx 87.0 · kkc 88.4 · ray 93.0 · kan 88.0 · hkt 88.2 kJ/kg
+   The hand-set 35 C / 60 % this replaces is 90.24, and the 38 C / 60 %
+   that ERV Load opened with on its own is 103.6, about 13 % heavy. */
+var CS_SITE_PEAK = {
+  bkk: { t:33.5, rh:68.5 },
+  cnx: { t:32.2, rh:69.8 },
+  kkc: { t:32.9, rh:67.9 },
+  ray: { t:33.3, rh:71.2 },
+  kan: { t:34.3, rh:60.7 },
+  hkt: { t:32.8, rh:68.1 }
+};
+function csSitePeak(k){ return CS_SITE_PEAK[k] || CS_SITE_PEAK.bkk; }
 function csSiteLabel(k){
   var s2 = CS_SITES[k] || CS_SITES.bkk;
   return s2[0] + ' · ' + s2[1];
@@ -2215,6 +2240,25 @@ function renderScnCard(s){
      Energy Saving works it out from the hours the system runs, and writes
      it back here - so typing over it there would be thrown away on the next
      load, and saying nothing about that would be a trap. */
+  function csSiteLabelKey(sc){ return CS_SITES[sc.site] ? sc.site : 'bkk'; }
+  /* The sizing pair has a right answer per station - ASHRAE ch.14, carried
+     in the weather file - but a job may have its own, so it is offered
+     rather than forced. Silently overwriting a number somebody typed is
+     how a tool stops being trusted. */
+  function pkNote(sc){
+    var k = csSiteLabelKey(sc), pk = csSitePeak(k);
+    var same = Math.abs(csNum(sc.oaPk.t) - pk.t) < 0.05
+            && Math.abs(csNum(sc.oaPk.rh) - pk.rh) < 0.05;
+    return 'ใช้คิด<b>ขนาดเครื่อง</b> และดูว่า<b>แอร์ไหวไหมตอน peak</b> · '
+      + (same
+          ? '<b style="color:#2E7D32">ตรงกับค่าออกแบบของ ' + esc(CS_SITES[k][0]) + ' แล้ว</b>'
+          : 'ค่าออกแบบของ <b>' + esc(CS_SITES[k][0]) + '</b> คือ <b>' + pk.t + ' °C / '
+            + pk.rh + ' %</b> '
+            + '<button type="button" class="btn ghost" id="sc_pkUse" '
+            + 'style="padding:1px 7px;font-size:11px;margin-left:4px">ใช้ค่านี้</button>')
+      + '<br><span class="no">ASHRAE Fundamentals ch.14 · เอนทัลปีออกแบบ 0.4 % '
+      + 'กับอุณหภูมิที่เกิดร่วม · มาจากหัวไฟล์อากาศของสถานีนั้นเอง</span>';
+  }
   function avNote(sc){
     var r = sc.roi || {};
     var a = csNum(r.oh_a, NaN), b = csNum(r.oh_b, NaN);
@@ -2239,7 +2283,14 @@ function renderScnCard(s){
       '<div class="card"><div class="card-title-row"><h3>เงื่อนไขของทางเลือกนี้</h3>'
     + '<div class="hint" style="margin:0">ห้องทุกห้องใช้ค่าชุดนี้ เว้นห้องที่ตั้งค่าเองไว้</div></div>'
     + '<div class="sgrid">'
-    + grp('อากาศภายนอก · สภาวะออกแบบ', 'ใช้คิด<b>ขนาดเครื่อง</b>',
+    + grp('อากาศของจังหวัดไหน', 'ใช้เป็นฐานของสองกล่องถัดไป',
+        '<div class="sfld" style="grid-column:1/-1">'
+        + '<select class="rin" id="sc_site">'
+        + CS_SITE_ORDER.map(function(k){
+            return '<option value="' + k + '"' + (k === csSiteLabelKey(s) ? ' selected' : '')
+              + '>' + esc(csSiteLabel(k)) + '</option>'; }).join('')
+        + '</select></div>')
+    + grp('อากาศภายนอก · สภาวะออกแบบ', pkNote(s),
         fld('sc_pkT','อุณหภูมิ', s.oaPk.t, '0.1', '°C')
       + fld('sc_pkR','ความชื้นสัมพัทธ์', s.oaPk.rh, '1', '%'))
     + grp('อากาศภายนอก · ค่าเฉลี่ยทั้งปี', avNote(s),
@@ -2285,6 +2336,18 @@ function renderScnCard(s){
     + 'และไม่ถูกเอาไปเป็นตัวบังคับปริมาณลม · '
     + 'LEED / WELL ไม่ได้ติ๊กมาให้ เพราะเป็นข้อตกลงเฉพาะโครงการที่ทำ certification</div>'
     + '</div>';
+  var selSite = $('sc_site');
+  if(selSite) selSite.addEventListener('change', function(){
+    s.site = CS_SITES[selSite.value] ? selSite.value : 'bkk';
+    csTouch(curP()); saveDB();
+    renderDetail();          /* the note under the sizing pair changes with it */
+  });
+  var pkUse = $('sc_pkUse');
+  if(pkUse) pkUse.addEventListener('click', function(){
+    var pk = csSitePeak(csSiteLabelKey(s));
+    s.oaPk.t = pk.t; s.oaPk.rh = pk.rh;
+    csTouch(curP()); saveDB(); renderDetail();
+  });
   [['sc_pkT',s.oaPk,'t'],['sc_pkR',s.oaPk,'rh'],['sc_avT',s.oaAv,'t'],['sc_avR',s.oaAv,'rh'],
    ['sc_co',s.co2,'oa'],
    ['sc_rT',s.room,'t'],['sc_rR',s.room,'rh'],['sc_et',s.erv,'et'],['sc_es',s.erv,'es'],

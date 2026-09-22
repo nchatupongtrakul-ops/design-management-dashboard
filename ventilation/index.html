@@ -883,7 +883,7 @@ function csNewScenario(name){
   return {
     id: csUid(), name: name || 'ทางเลือกที่ 1', note: '', off: false,
     city: '',
-    oaPk: { t:35, rh:60 },     /* design · sizing */
+    oaPk: { t:33.5, rh:68.5 },  /* design · sizing · = CS_SITE_PEAK.bkk */
     co2:  { oa:400 },          /* outdoor CO2 ppm · the floor indoor CO2 decays to */
     /* ── which criteria this job is actually held to ──
        A room is not failing LEED when nobody is chasing LEED. Judging
@@ -900,6 +900,7 @@ function csNewScenario(name){
        Saving and ERV Load cannot end up quoting different provinces for
        the same building. */
     site: 'bkk',
+    /* the sizing pair below is bkk's, kept in step with CS_SITE_PEAK */
     /* Bangkok Metropolis TMYx 2011-2025 (WMO 484550), the 08:00-17:00
        hours: mean enthalpy 77.42 kJ/kg. 31 C / 63.6 % reproduces it.
        The old default of 31 C / 70 % is 82.21 kJ/kg, which against a
@@ -952,7 +953,7 @@ function csVolume(rm){ return csArea(rm) * csNum(rm.h); }
 
 function csCond(scn, rm){
   var c = {
-    oaPkT: csNum(scn.oaPk.t,35), oaPkRh: csNum(scn.oaPk.rh,60),
+    oaPkT: csNum(scn.oaPk.t,33.5), oaPkRh: csNum(scn.oaPk.rh,68.5),
     oaAvT: csNum(scn.oaAv.t,31), oaAvRh: csNum(scn.oaAv.rh,63),
     rT: csNum(scn.room.t,25),    rRh: csNum(scn.room.rh,50),
     et: csNum(scn.erv.et,67),    es: csNum(scn.erv.es,70),
@@ -993,6 +994,30 @@ var CS_SITES = {
   hkt: ['ภูเก็ต',     'ภาคใต้',       'Phuket',              '485640',   4]
 };
 var CS_SITE_ORDER = ['bkk', 'cnx', 'kkc', 'ray', 'kan', 'hkt'];
+/* ── the sizing condition of each station ──
+   Straight out of the DESIGN CONDITIONS header of the same EPW files,
+   which carries the 2025 ASHRAE Handbook Fundamentals ch.14 figures. The
+   pair used is the 0.4 % ENTHALPY design condition and its mean coincident
+   dry bulb, because an outdoor-air load is driven by enthalpy - picking
+   the 0.4 % dry bulb instead would size for a hot dry hour that costs the
+   coil less than a slightly cooler soaking one.
+
+   Stored as dry bulb + the relative humidity that puts that dry bulb at
+   the design enthalpy, because that is the pair the tools ask for.
+
+   For reference, the enthalpy these reproduce:
+     bkk 91.5 · cnx 87.0 · kkc 88.4 · ray 93.0 · kan 88.0 · hkt 88.2 kJ/kg
+   The hand-set 35 C / 60 % this replaces is 90.24, and the 38 C / 60 %
+   that ERV Load opened with on its own is 103.6, about 13 % heavy. */
+var CS_SITE_PEAK = {
+  bkk: { t:33.5, rh:68.5 },
+  cnx: { t:32.2, rh:69.8 },
+  kkc: { t:32.9, rh:67.9 },
+  ray: { t:33.3, rh:71.2 },
+  kan: { t:34.3, rh:60.7 },
+  hkt: { t:32.8, rh:68.1 }
+};
+function csSitePeak(k){ return CS_SITE_PEAK[k] || CS_SITE_PEAK.bkk; }
 function csSiteLabel(k){
   var s2 = CS_SITES[k] || CS_SITES.bkk;
   return s2[0] + ' · ' + s2[1];
