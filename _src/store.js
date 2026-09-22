@@ -121,52 +121,103 @@ function csCond(scn, rm){
   }
   return c;
 }
-/* ── the weather stations the tools carry data for ──
-   All climate.onebuilding.org, TMYx 2011-2025, downloaded 22 Sep 2026.
-   One per region, which is as far as six files can honestly stretch: a job
-   is being told the weather of the nearest of six stations, not its own.
-   [ชื่อที่แสดง, ภาค, สถานี, WMO, ความสูง m]
-   ⚠ kan is Thong Pha Phum, which is in Kanchanaburi province but up the
-   valley, not the town. Nothing closer exists in the archive, and being a
-   remote station its record leans on ERA5 reanalysis rather than on
-   instruments - it has by far the widest spread of the six (median 73.8
-   kJ/kg but 101 hours a year above 100, and a peak of 120). Treat its
-   extremes as indicative.
-   hkt also has a long tail, 124 hours above 100, which for a humid island
-   is believable. */
+/* ══════════════════════════════════════════════════════════════════
+   WEATHER STATIONS
+
+   All six from climate.onebuilding.org, TMYx 2011-2025, downloaded
+   22 Sep 2026. One per region, which is as far as six files can honestly
+   stretch: a job is being told the weather of the nearest of six stations,
+   not its own. Both tools say so on screen.
+
+   pk   the SIZING pair. Straight out of the DESIGN CONDITIONS header of
+        the same EPW file, which carries the 2025 ASHRAE Handbook
+        Fundamentals ch.14 figures. It is the 0.4 % ENTHALPY design
+        condition paired with its mean coincident dry bulb - not the 0.4 %
+        dry bulb, because an outdoor-air load is driven by enthalpy and
+        picking the hot dry hour would size for something that costs the
+        coil less than a cooler soaking one. Stored as dry bulb plus the
+        relative humidity that puts it at the design enthalpy, because
+        that is the pair the tools ask for.
+   hAvg the mean enthalpy over all 8760 hours. Energy, not sizing.
+   hMin
+   hMax the extremes of the year, kept so the table can show that a mild
+        average and a mild peak are different questions: cnx has the
+        lightest average of the six and a heavier peak than bkk.
+
+   ⚠ kan is Thong Pha Phum, in Kanchanaburi province but up the valley,
+   not the town. Nothing closer exists in the archive, and being remote its
+   record leans on ERA5 reanalysis rather than instruments - it has by far
+   the widest spread of the six. Treat its extremes as indicative.
+   hkt also has a long tail, which for a humid island is believable.
+   ══════════════════════════════════════════════════════════════════ */
 var CS_SITES = {
-  bkk: ['กรุงเทพฯ',   'ภาคกลาง',      'Bangkok Metropolis',  '484550',   4],
-  cnx: ['เชียงใหม่',  'ภาคเหนือ',     'Chiang Mai Intl AP',  '483270', 316],
-  kkc: ['ขอนแก่น',    'ภาคอีสาน',     'Khon Kaen AP',        '483810', 204],
-  ray: ['ระยอง',      'ภาคตะวันออก',  'Rayong',              '484780',   5],
-  kan: ['กาญจนบุรี',  'ภาคตะวันตก',   'Thong Pha Phum',      '484210',  99],
-  hkt: ['ภูเก็ต',     'ภาคใต้',       'Phuket',              '485640',   4]
+  bkk: { th:'กรุงเทพฯ',  reg:'ภาคกลาง',     st:'Bangkok Metropolis', wmo:'484550', el:4,
+         pk:{ t:33.5, rh:68.5, h:91.5 }, hAvg:76.23, hMin:43.66, hMax:95.05 },
+  cnx: { th:'เชียงใหม่', reg:'ภาคเหนือ',    st:'Chiang Mai Intl AP', wmo:'483270', el:316,
+         pk:{ t:32.2, rh:69.8, h:87.0 }, hAvg:64.93, hMin:27.83, hMax:101.76 },
+  kkc: { th:'ขอนแก่น',   reg:'ภาคอีสาน',    st:'Khon Kaen AP',       wmo:'483810', el:204,
+         pk:{ t:32.9, rh:67.9, h:88.4 }, hAvg:69.14, hMin:36.96, hMax:100.58 },
+  ray: { th:'ระยอง',     reg:'ภาคตะวันออก', st:'Rayong',             wmo:'484780', el:5,
+         pk:{ t:33.3, rh:71.2, h:93.0 }, hAvg:77.18, hMin:42.17, hMax:98.00 },
+  kan: { th:'กาญจนบุรี', reg:'ภาคตะวันตก',  st:'Thong Pha Phum',     wmo:'484210', el:99,
+         pk:{ t:34.3, rh:60.7, h:88.0 }, hAvg:72.39, hMin:30.80, hMax:120.07 },
+  hkt: { th:'ภูเก็ต',    reg:'ภาคใต้',      st:'Phuket',             wmo:'485640', el:4,
+         pk:{ t:32.8, rh:68.1, h:88.2 }, hAvg:78.42, hMin:59.58, hMax:109.15 }
 };
 var CS_SITE_ORDER = ['bkk', 'cnx', 'kkc', 'ray', 'kan', 'hkt'];
-/* ── the sizing condition of each station ──
-   Straight out of the DESIGN CONDITIONS header of the same EPW files,
-   which carries the 2025 ASHRAE Handbook Fundamentals ch.14 figures. The
-   pair used is the 0.4 % ENTHALPY design condition and its mean coincident
-   dry bulb, because an outdoor-air load is driven by enthalpy - picking
-   the 0.4 % dry bulb instead would size for a hot dry hour that costs the
-   coil less than a slightly cooler soaking one.
+function csSite(k){ return CS_SITES[k] || CS_SITES.bkk; }
+function csSiteLabel(k){ var x = csSite(k); return x.th + ' · ' + x.reg; }
+function csSitePeak(k){ return csSite(k).pk; }
 
-   Stored as dry bulb + the relative humidity that puts that dry bulb at
-   the design enthalpy, because that is the pair the tools ask for.
-
-   For reference, the enthalpy these reproduce:
-     bkk 91.5 · cnx 87.0 · kkc 88.4 · ray 93.0 · kan 88.0 · hkt 88.2 kJ/kg
-   The hand-set 35 C / 60 % this replaces is 90.24, and the 38 C / 60 %
-   that ERV Load opened with on its own is 103.6, about 13 % heavy. */
-var CS_SITE_PEAK = {
-  bkk: { t:33.5, rh:68.5 },
-  cnx: { t:32.2, rh:69.8 },
-  kkc: { t:32.9, rh:67.9 },
-  ray: { t:33.3, rh:71.2 },
-  kan: { t:34.3, rh:60.7 },
-  hkt: { t:32.8, rh:68.1 }
-};
-function csSitePeak(k){ return CS_SITE_PEAK[k] || CS_SITE_PEAK.bkk; }
+/* The provenance table, rendered once here and shown in all three tools,
+   so no page carries a hand-typed copy that can drift from the data the
+   calculations actually use. `now` highlights the row in use. */
+function csSiteTable(now){
+  var head = '<div class="tablewrap"><table class="dtable"><thead><tr>'
+    + '<th>ภาค</th><th>จังหวัด</th><th>สถานี · WMO</th><th class="num">สูง</th>'
+    + '<th class="num">สภาวะออกแบบ</th><th class="num">h ออกแบบ</th>'
+    + '<th class="num">h เฉลี่ยทั้งปี</th><th class="num">h ต่ำสุด–สูงสุด</th>'
+    + '</tr></thead><tbody>';
+  var body = CS_SITE_ORDER.map(function(k){
+    var x = CS_SITES[k], on = (k === now);
+    return '<tr' + (on ? ' style="background:#EFF6EF"' : '') + '>'
+      + '<td>' + x.reg + '</td>'
+      + '<td>' + (on ? '<b>' + x.th + '</b> ← ที่ใช้อยู่' : x.th) + '</td>'
+      + '<td>' + x.st + ' · ' + x.wmo + '</td>'
+      + '<td class="num">' + x.el + ' m</td>'
+      + '<td class="num">' + x.pk.t + ' °C / ' + x.pk.rh + ' %</td>'
+      + '<td class="num">' + x.pk.h.toFixed(1) + '</td>'
+      + '<td class="num">' + x.hAvg.toFixed(2) + '</td>'
+      + '<td class="num">' + x.hMin.toFixed(1) + ' – ' + x.hMax.toFixed(1) + '</td>'
+      + '</tr>';
+  }).join('');
+  return head + body + '</tbody></table></div>';
+}
+/* the paragraph that has to travel with the table wherever it is shown */
+function csSiteNote(){
+  return '<b>ที่มา</b> climate.onebuilding.org · <b>TMYx 2011–2025</b> · '
+    + 'โหลด 22 ก.ย. 2569 · หน่วยเอนทัลปี kJ/kg อากาศแห้ง<br>'
+    + '<b>สภาวะออกแบบ</b> มาจากหัว <code>DESIGN CONDITIONS</code> ของไฟล์อากาศเอง '
+    + 'ซึ่งบรรจุตัวเลข <b>ASHRAE Handbook Fundamentals 2025 บทที่ 14</b> · '
+    + 'ใช้ <b>เอนทัลปีออกแบบ 0.4 % กับอุณหภูมิที่เกิดร่วม</b> '
+    + 'ไม่ใช่กระเปาะแห้ง 0.4 % <b>เพราะภาระอากาศนอกขับด้วยเอนทัลปี</b> — '
+    + 'ชั่วโมงร้อนแห้งไม่ได้หนักเท่าชั่วโมงที่เย็นกว่าแต่ชื้นกว่า '
+    + '(กาญจนบุรีกระเปาะแห้งสูงสุด 38.6 °C แต่ h ออกแบบ 88.0 · '
+    + 'ระยองแค่ 35.0 °C แต่ h ออกแบบ 93.0)<br>'
+    + '<b>h เฉลี่ยทั้งปี</b> ใช้คิดค่าไฟ ไม่ใช่คิดขนาดเครื่อง · '
+    + 'ERV Energy Saving หยิบเฉพาะชั่วโมงที่ระบบเดินจริงมาเฉลี่ยอีกที<br>'
+    + '⚠️ <b>เชียงใหม่เฉลี่ยเบาที่สุด (64.93) แต่ยอดสูงกว่ากรุงเทพ (101.8 เทียบ 95.1)</b> — '
+    + 'ค่าเฉลี่ยกับค่าสุดขีดเป็นคนละเรื่อง งานที่ดูแต่ค่าเฉลี่ยจะพลาดตรงนี้<br>'
+    + '⚠️ <b>กาญจนบุรีใช้สถานี Thong Pha Phum</b> ซึ่งอยู่ในจังหวัดจริงแต่เป็นในหุบ '
+    + 'ไม่ใช่ตัวเมือง · เป็นสถานีห่างไกลที่ข้อมูลพึ่ง ERA5 reanalysis มากกว่าเครื่องวัด '
+    + 'และหางกว้างที่สุดในหกสถานี · <b>ใช้ดูแนวโน้มได้ อย่ายกค่าสุดขีดไปใส่เอกสาร</b><br>'
+    + '⚠️ <b>หกสถานีแทนทั้งประเทศเป็นการยืด</b> งานหนึ่งกำลังถูกบอกอากาศของสถานี'
+    + 'ที่ใกล้ที่สุดในหกแห่ง ไม่ใช่ของที่ตั้งจริง · '
+    + '<b>งานที่ต้องการความแม่นควรโหลดไฟล์ของสถานีที่ใกล้จริงมาคิดเอง</b> '
+    + '(สคริปต์ <code>_src/wx_build.py</code> รับไฟล์ไหนก็ได้)<br>'
+    + '<b>TMYx เป็นปีตัวแทน</b> ประกอบจากเดือนที่ปกติที่สุดของ 15 ปีจริงมาต่อกัน · '
+    + 'ใช้ทำนายค่าเฉลี่ยระยะยาวได้ <b>ใช้ทำนายบิลของเดือนใดเดือนหนึ่งไม่ได้</b>';
+}
 function csSiteLabel(k){
   var s2 = CS_SITES[k] || CS_SITES.bkk;
   return s2[0] + ' · ' + s2[1];
