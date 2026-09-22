@@ -3748,10 +3748,10 @@ function moneyStep(span, want){
 function moneyTick(v){
   var a = Math.abs(v);
   /* one decimal only when it says something · a tick every 5,000 printed
-     itself as "5.0 พ." down the whole axis */
+     itself as "5.0K" down the whole axis */
   function t(x){ return String(Math.round(x*10)/10); }
-  if(a >= 1e6) return t(v/1e6) + ' ล.';
-  if(a >= 1000) return t(v/1000) + ' พ.';
+  if(a >= 1e6) return t(v/1e6) + 'M';
+  if(a >= 1000) return t(v/1000) + 'K';
   return fmt(Math.round(v));
 }
 function roiFrame(W, H, L, R, T, B){
