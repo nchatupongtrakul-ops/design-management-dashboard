@@ -2754,7 +2754,11 @@ function csNewScenario(name){
     oaAv: { t:31, rh:63 },     /* annual average · energy */
     room: { t:25, rh:50 },     /* indoor */
     erv:  { et:67, es:70 },    /* core effectiveness, total and sensible, % */
-    bill: { rate:4.15, hpd:10, dpy:300, cop:3.2 },
+    /* ohA/ohB are the clock hours the system runs, e.g. 8 and 17. Blank
+       means nobody said, and then hpd is typed by hand and the outdoor
+       average has to be too. They sit beside hpd because the window is
+       what hpd is derived from once it is filled in. */
+    bill: { rate:4.15, hpd:10, dpy:300, cop:3.2, ohA:null, ohB:null },
     roi:  {},                  /* the rest of ERV Energy Saving's own inputs */
     rooms: [ csNewRoom('ห้องที่ 1') ]
   };
@@ -2864,6 +2868,52 @@ var CS_SITE_ORDER = ['bkk', 'cnx', 'kkc', 'ray', 'kan', 'hkt'];
 function csSite(k){ return CS_SITES[k] || CS_SITES.bkk; }
 function csSiteLabel(k){ var x = csSite(k); return x.th + ' · ' + x.reg; }
 function csSitePeak(k){ return csSite(k).pk; }
+
+/* ── hour of day, per station ──
+   Mean enthalpy and mean dry bulb for each of the 24 hours of the day over
+   a whole year. Index 0 is EPW hour 1, the clock period 00:00-01:00, so a
+   window from clock A to clock B is indices A .. B-1, B-A of them.
+
+   Every bucket holds exactly 365 samples, so the mean over a window is the
+   plain average of the buckets in it - exact, not a weighting. And because
+   the load is linear in enthalpy, one calculation at that mean gives the
+   same annual figure as 8760 separate ones. Built by _src/wx_build.py. */
+var WX_DAY = {
+  bkk:{ h:[75.55, 75.26, 74.772, 74.439, 74.029, 73.838, 73.626, 73.452, 74.606, 75.518, 76.688, 77.483, 77.995, 78.805, 78.696, 78.613, 78.419, 78.763, 77.67, 76.7, 76.35, 76.368, 76.151, 75.804],
+       t:[27.639, 27.408, 27.184, 26.966, 26.748, 26.642, 26.521, 26.413, 27.655, 28.898, 30.141, 30.94, 31.735, 32.534, 32.493, 32.448, 32.407, 31.425, 30.42, 29.447, 28.996, 28.548, 28.098, 27.87] },
+  cnx:{ h:[62.258, 63.695, 60.716, 60.244, 61.979, 59.235, 59.027, 61.114, 61.597, 62.591, 67.241, 67.414, 65.543, 69.943, 67.9, 67.546, 70.058, 75.666, 70.681, 68.754, 63.409, 63.775, 65.595, 62.262],
+       t:[24.414, 24.435, 23.507, 23.12, 23.227, 22.393, 22.177, 22.612, 23.783, 25.668, 27.673, 28.655, 29.921, 31.508, 31.476, 31.827, 32.385, 31.104, 29.85, 28.876, 27.022, 26.216, 25.991, 25.06] },
+  kkc:{ h:[67.482, 67.145, 65.896, 65.359, 65.162, 64.466, 64.087, 64.821, 67.527, 69.053, 70.408, 72.896, 73.299, 72.84, 73.585, 73.177, 71.709, 72.897, 71.214, 70.738, 69.009, 69.283, 69.285, 67.904],
+       t:[25.188, 25.06, 24.342, 24.002, 23.944, 23.42, 23.183, 23.725, 25.13, 27.135, 28.686, 30.063, 31.126, 31.803, 31.957, 32.023, 31.71, 30.556, 29.099, 28.364, 27.103, 26.578, 26.433, 25.586] },
+  ray:{ h:[76.266, 75.889, 75.228, 74.609, 74.138, 73.712, 73.418, 73.359, 75.054, 76.707, 78.507, 79.055, 79.724, 80.735, 80.326, 80.165, 80.277, 79.433, 78.67, 78.128, 77.678, 77.396, 77.138, 76.641],
+       t:[27.309, 27.141, 26.933, 26.729, 26.559, 26.441, 26.331, 26.3, 27.513, 28.705, 29.893, 30.29, 30.682, 31.121, 30.892, 30.685, 30.529, 29.841, 29.175, 28.565, 28.228, 27.937, 27.667, 27.488] },
+  kan:{ h:[69.464, 68.606, 67.993, 67.37, 66.749, 66.419, 66.023, 65.678, 68.36, 71.093, 74.391, 75.769, 75.972, 77.725, 78.006, 78.33, 79.525, 80.029, 77.83, 74.894, 73.13, 72.301, 71.499, 70.3],
+       t:[24.911, 24.455, 24.156, 23.845, 23.539, 23.407, 23.241, 23.092, 24.825, 26.754, 28.581, 29.859, 31.241, 32.474, 32.43, 32.308, 32.165, 29.797, 29.373, 28.08, 27.331, 26.526, 25.816, 25.363] },
+  hkt:{ h:[76.278, 76.275, 75.589, 75.287, 75.326, 74.928, 74.893, 75.154, 76.167, 77.479, 79.705, 80.799, 82.02, 84.399, 83.695, 84.089, 83.861, 80.237, 78.55, 78.316, 77.624, 77.307, 77.345, 76.687],
+       t:[27.416, 27.225, 26.965, 26.761, 26.592, 26.498, 26.427, 26.406, 27.556, 28.835, 30.026, 30.615, 31.146, 31.558, 31.563, 31.638, 31.559, 30.804, 29.852, 29.035, 28.633, 28.276, 27.941, 27.658] }
+};
+
+/* What the outdoor air averages over the hours this scenario actually
+   runs. Returns null when no window is set - there is no single right
+   answer then, and guessing one would be worse than saying nothing. */
+function csWindow(scn){
+  var b = scn.bill || {}, site = csSite(scn.site) ? (CS_SITES[scn.site] ? scn.site : 'bkk') : 'bkk';
+  var a = csNum(b.ohA, NaN), z = csNum(b.ohB, NaN);
+  if(!isFinite(a) || !isFinite(z)) return null;
+  a = Math.round(a); z = Math.round(z);
+  if(a < 0 || a > 24 || z < 0 || z > 24) return null;
+  a = a % 24;
+  var n = (z - a + 24) % 24; if(n === 0) n = 24;
+  var D = WX_DAY[site], sh = 0, st = 0;
+  for(var k = 0; k < n; k++){ var i = (a + k) % 24; sh += D.h[i]; st += D.t[i]; }
+  var h = sh/n, t = st/n;
+  /* the dry bulb is rounded here, and the caller solves the humidity AT
+     that rounded value with its own psychrometrics - rounding both ends
+     separately threw away 1.7 % of the load when this was first written.
+     The store deliberately carries no psychrometrics of its own; two of
+     the five pages that share this block have no use for them. */
+  return { a:a, b:z % 24, n:n, h:h, t:Math.round(t*10)/10, site:site };
+}
 
 /* The provenance table, rendered once here and shown in all three tools,
    so no page carries a hand-typed copy that can drift from the data the
@@ -3767,7 +3817,10 @@ var SCNMAP = { tpk:['oaPk','t'], rpk:['oaPk','rh'], tav:['oaAv','t'], rav:['oaAv
                /* site sits directly on the scenario, handled beside SCNMAP */
                tr:['room','t'],  rr:['room','rh'],  et:['erv','et'],
                rate:['bill','rate'], cop:['bill','cop'],
-               hpd:['bill','hpd'],   dpy:['bill','dpy'] };
+               hpd:['bill','hpd'],   dpy:['bill','dpy'],
+               /* the operating window moved onto the scenario so the hub
+                  can work the outdoor average out too · blank stays blank */
+               oh_a:['bill','ohA'],  oh_b:['bill','ohB'] };
 function loadProjects(){
   DB = csRead();
   if(!DB.projects.length) DB.projects.push(csNewProject('โปรเจคที่ 1'));
@@ -3781,8 +3834,14 @@ function loadProjects(){
       if(sc.roi) Object.keys(sc.roi).forEach(function(k){ v[k] = sc.roi[k]; });
       /* the scenario is the authority on these, always */
       Object.keys(SCNMAP).forEach(function(k){
-        var m = SCNMAP[k]; v[k] = sc[m[0]][m[1]];
+        var m = SCNMAP[k], val = sc[m[0]][m[1]];
+        v[k] = (val === null || val === undefined) ? '' : val;
       });
+      /* written before the window moved onto the scenario */
+      if(v.oh_a === '' && sc.roi && sc.roi.oh_a !== undefined && sc.roi.oh_a !== '')
+        v.oh_a = sc.roi.oh_a;
+      if(v.oh_b === '' && sc.roi && sc.roi.oh_b !== undefined && sc.roi.oh_b !== '')
+        v.oh_b = sc.roi.oh_b;
       v.wx_site = CS_SITES[sc.site] ? sc.site : 'bkk';
       var rs = roomSum(sc);
       /* the rooms own the airflow, the same rule ERV Load already follows ·
@@ -3842,6 +3901,10 @@ function saveProjects(){
     if(!hit) return;
     hit.p.off = !!pr.off;
     if(CS_SITES[pr.v.wx_site]) hit.s.site = pr.v.wx_site;
+    ['oh_a','oh_b'].forEach(function(k){
+      var t = SCNMAP[k], raw0 = String(pr.v[k] == null ? '' : pr.v[k]).trim();
+      hit.s[t[0]][t[1]] = (raw0 === '' ? null : csNum(raw0));
+    });
     hit.s.roi = pr.v;
     /* the shared conditions belong to the scenario, so write them there too */
     Object.keys(SCNMAP).forEach(function(k){
