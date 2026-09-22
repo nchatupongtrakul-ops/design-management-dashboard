@@ -599,6 +599,15 @@ table.dtable td.st{white-space:nowrap}
 
   <div class="chart-grid g1">
     <div class="card">
+      <div class="card-title-row"><h3>แอร์รีดความชื้นไหวไหม</h3>
+        <span class="pill" id="dhPill"></span></div>
+      <div id="dhBody"></div>
+      <div class="srcline" id="dhNote"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
       <div class="card-title-row"><h3>ปีหนึ่งแอร์รับไม่ไหวกี่ชั่วโมง</h3>
         <span class="pill" id="sfPill"></span></div>
       <div class="field" style="max-width:340px;margin-bottom:10px">
@@ -2434,6 +2443,87 @@ function hubInit(){
   csKeepAudit(LOAD_KEEP, LOAD_SKIP, 'ERV Load Impact');
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   THE QUESTION THE VERDICT ABOVE DOES NOT ASK
+
+   "แอร์ไหวไหม" on this page is total against total: the outdoor-air load
+   in RT against the RT the machine has left. A coil also has to deliver
+   the right SHARE of that as moisture, and here it cannot, on its own.
+
+   Outdoor air in Bangkok carries an SHR near 0.2 - four fifths of it is
+   latent. A comfort DX coil runs at 0.6 to 0.8. What closes the gap is
+   the room's OWN load, which is nearly all sensible: mix enough of it in
+   and the coil sees a ratio it can actually deliver.
+
+   This page does not know the room's own load, so it cannot judge. What
+   it CAN do is turn the question round and say how much room sensible
+   load would be needed - a number the engineer already knows, or can get
+   in a minute - and let them make the call.
+
+       SHR_mix = (qs_oa + Qroom) / (qt_oa + Qroom)
+       Qroom   = (SHR_target*qt_oa - qs_oa) / (1 - SHR_target)
+
+   Nothing here changes any figure above it. It is a warning with
+   arithmetic attached.
+   ══════════════════════════════════════════════════════════════════ */
+var DH_TARGET = 0.65;      /* what a comfort DX coil can be asked for */
+
+function dhNeed(qs, qt, tgt){
+  if(!(qt > 0)) return 0;
+  return Math.max(0, (tgt*qt - qs)/(1 - tgt));
+}
+function renderDehum(m){
+  var body = $('dhBody'), pill = $('dhPill'), note = $('dhNote');
+  if(!body) return;
+  var shr = m.qt > 0 ? m.qs/m.qt : 0;
+  var shrRaw = m.qtRaw > 0 ? m.qsRaw/m.qtRaw : 0;
+  var need    = dhNeed(m.qs,    m.qt,    DH_TARGET)/1000;      /* kW */
+  var needRaw = dhNeed(m.qsRaw, m.qtRaw, DH_TARGET)/1000;
+
+  pill.textContent = 'SHR ' + fmt(shr,2);
+  pill.className = 'pill ' + (shr < 0.35 ? 'bad' : '');
+
+  body.innerHTML =
+      '<p style="margin:0 0 9px"><b>คำตัดสิน “แอร์ไหว/ไม่ไหว” ด้านบนเทียบกำลังรวมเท่านั้น '
+    + 'ไม่ได้บอกว่าคอยล์รีดความชื้นไหว</b> · เป็นคนละคำถาม และข้อนี้เครื่องมือตอบให้ไม่ได้ '
+    + 'เพราะไม่รู้ภาระความร้อนของตัวห้องเอง</p>'
+    + '<div class="tablewrap"><table class="dtable"><thead><tr>'
+    + '<th>รายการ</th><th class="num">ไม่มี ERV</th><th class="num">มี ERV</th>'
+    + '</tr></thead><tbody>'
+    + '<tr><td>ภาระสัมผัสจากอากาศนอก</td>'
+      + '<td class="num">' + fmt(m.qsRaw/1000,2) + ' kW</td>'
+      + '<td class="num">' + fmt(m.qs/1000,2) + ' kW</td></tr>'
+    + '<tr><td>ภาระแฝงจากอากาศนอก</td>'
+      + '<td class="num">' + fmt((m.qtRaw-m.qsRaw)/1000,2) + ' kW</td>'
+      + '<td class="num">' + fmt(m.ql/1000,2) + ' kW</td></tr>'
+    + '<tr><td><b>SHR ของภาระอากาศนอก</b></td>'
+      + '<td class="num"><b>' + fmt(shrRaw,3) + '</b></td>'
+      + '<td class="num"><b>' + fmt(shr,3) + '</b></td></tr>'
+    + '<tr><td>ต้องมีภาระห้อง (สัมผัส) อย่างน้อย<br>'
+      + '<span class="rp-none">เพื่อเจือให้ SHR รวมขึ้นถึง ' + DH_TARGET.toFixed(2)
+      + ' ที่คอยล์ทั่วไปทำได้</span></td>'
+      + '<td class="num">' + fmt(needRaw,1) + ' kW</td>'
+      + '<td class="num"><b>' + fmt(need,1) + ' kW</b></td></tr>'
+    + '</tbody></table></div>'
+    + '<p style="margin:9px 0 0"><b>ถ้าห้องนี้มีภาระของตัวเองน้อยกว่า '
+      + fmt(need,1) + ' kW</b> — ห้องเล็ก คนน้อย ไม่โดนแดด หรือเดินตอนกลางคืน — '
+      + '<b>เทอร์โมสตัทจะสั่งหยุดคอมก่อนที่ความชื้นจะถูกรีดออกหมด</b> '
+      + 'ห้องจะเย็นตามตั้ง แต่ลอยขึ้นไปชื้นกว่าที่ออกแบบ</p>';
+
+  note.innerHTML =
+      '<b>ทำไมถึงเป็นแบบนั้น</b> เทอร์โมสตัทวัดแต่กระเปาะแห้ง คอมจึงวิ่งตาม<b>ภาระสัมผัส</b> '
+    + 'ซึ่งที่นี่เป็นแค่ ' + fmt(shrRaw*100,0) + ' % ของภาระอากาศนอก · '
+    + 'พอถึงอุณหภูมิที่ตั้ง คอมตัด และการรีดความชื้นหยุดตาม<br>'
+    + '<b>ERV ช่วยตรงนี้โดยตรง</b> แกนรีดความชื้นทิ้งก่อนถึงคอยล์ โดยไม่ต้องรอให้คอมวิ่ง · '
+    + 'ภาระห้องที่ต้องมีจึงลดจาก ' + fmt(needRaw,1) + ' เหลือ ' + fmt(need,1) + ' kW'
+    + (needRaw > 0 ? ' คือง่ายขึ้น ' + fmt(needRaw/Math.max(need,0.01),1) + ' เท่า' : '') + '<br>'
+    + '⚠️ <b>ถือคอยล์ทำ SHR ได้ถึง ' + DH_TARGET.toFixed(2) + '</b> ซึ่งเป็นค่ากลางของแอร์ comfort · '
+    + 'ของจริงขยับตามลมที่เข้าคอยล์ · และ<b>ถือว่าภาระห้องเป็นสัมผัสล้วน</b> '
+    + 'ห้องที่มีคนแน่นจะมีภาระแฝงของตัวเองอีก ทำให้ต้องการภาระสัมผัสมากกว่านี้<br>'
+    + '<b>ตัวเลขนี้เป็นเครื่องเตือน ไม่ใช่คำตัดสิน</b> · '
+    + 'ไม่มีผลกับ RT ค่าประหยัด หรือคำตัดสินใด ๆ ด้านบน';
+}
+
 /* Anything typed over a scenario condition is kept as a room override and
    said out loud, because a room quietly running at a different outdoor
    temperature from its own project is not something a summary would show. */
@@ -3370,6 +3460,8 @@ function render(){
     + '<br>ตรวจภาระแฝงอีกทางด้วยสมการ (10) ได้ ' + fmt(m.qlChk/RTW,3)
     + ' RT ต่างจากวิธีเอนทัลปี ' + fmt(m.ql!==0 ? Math.abs(m.qlChk-m.ql)/Math.abs(m.ql)*100 : 0,1)
     + '% ซึ่งเป็นระยะที่คาดไว้จากค่าประมาณความร้อนแฝง 2500 kJ/kg';
+
+  renderDehum(m);
 
   /* impact table */
   var m2ac  = m.cap>0 ? nv('area')/m.cap : 0;

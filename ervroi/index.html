@@ -726,6 +726,7 @@ table.dtable td.st{white-space:nowrap}
       <div class="field"><label class="flabel">ประสิทธิภาพเอนทัลปีของแกน ηt %</label>
         <input type="number" id="et" value="67" step="1"></div>
       <div class="srcline"><b>ต้องเป็นค่าที่อัตราลมใช้งานจริง ตาม AHRI 1060</b> ไม่ใช่ค่าสูงสุดในโบรชัวร์</div>
+      <div class="srcline" id="rhWarn"></div>
     </div>
   </div>
 
@@ -1938,6 +1939,42 @@ function renderWxTable(now){
   if(n) n.innerHTML = csSiteNote();
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   THE ROOM BOX IS AN ASSUMPTION, NOT A MEASUREMENT
+
+   Every baht on this page comes from (h_outdoor - h_room), so the room
+   humidity typed above is load bearing. It is what the air conditioning
+   is SUPPOSED to hold, and in a climate where four fifths of the
+   outdoor-air load is moisture, a thermostat watching dry bulb often
+   stops the compressor before the moisture is gone. The room then sits
+   higher, h_room rises, the gap narrows, and the saving is smaller than
+   this page says.
+
+   The correction is worth a tenth of the answer, so it is said out loud
+   rather than folded in silently - the page cannot know whether this
+   particular room holds its setpoint. ERV Load Impact has the card that
+   works out whether it will.
+   ══════════════════════════════════════════════════════════════════ */
+function renderRhWarn(m){
+  var el = $('rhWarn'); if(!el) return;
+  var Tr = nv('tr'), rr = nv('rr');
+  var hr = hof(Tr, Wof(Tr, rr/100));
+  var base = m.hav - hr;
+  if(!(base > 0)){ el.innerHTML = ''; return; }
+  function at(x){
+    var h2 = hof(Tr, Wof(Tr, x/100));
+    return Math.round((m.hav - h2)/base*100);
+  }
+  var a = Math.min(95, rr + 5), b = Math.min(95, rr + 10);
+  el.innerHTML = '⚠️ <b>ตัวเลขทั้งหน้าถือว่าแอร์กดห้องอยู่ที่ ' + fmt(rr,0)
+    + ' %RH ได้จริง</b> · ภาระอากาศนอกบ้านเราเป็นความชื้นราว 80 % '
+    + 'แต่เทอร์โมสตัทวัดแต่อุณหภูมิ ห้องจึงมักลอยขึ้นไปชื้นกว่าที่ตั้ง<br>'
+    + 'ถ้าจริง ๆ ห้องอยู่ที่ <b>' + fmt(a,0) + ' %</b> ค่าประหยัดเหลือ <b>' + at(a)
+    + ' %</b> · ที่ <b>' + fmt(b,0) + ' %</b> เหลือ <b>' + at(b) + ' %</b> ของที่แสดงอยู่<br>'
+    + 'เช็คว่าห้องนี้จะคุมความชื้นอยู่ไหมได้ในการ์ด <b>แอร์รีดความชื้นไหวไหม</b> '
+    + 'ของหน้า ERV Load Impact';
+}
+
 /* ─────────────── canvas plumbing ─────────────── */
 function prep(cv){
   var r = window.devicePixelRatio || 1, b = cv.getBoundingClientRect();
@@ -2506,6 +2543,7 @@ function render(){
   renderRoomPanel();
   drawBars($('bars')); drawSens($('sens')); drawYears($('years'));
   renderFt();
+  renderRhWarn(m);
   renderWxTable(wxSite());
   $('yrPill').textContent = m.pay.g
     ? 'ค่าไฟขึ้นปีละ ' + fmt(m.pay.g*100,1) + ' %'
