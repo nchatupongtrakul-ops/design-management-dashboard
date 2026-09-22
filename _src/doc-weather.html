@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>สภาวะอากาศเฉลี่ยมาจากไหน · ERV Energy Saving</title>
+<style>
+  @page { size: A4 portrait; margin: 16mm 15mm; }
+  :root{
+    --ink:#2A2A28; --soft:#6B7280; --line:#D8DCE0; --navy:#31506B;
+    --green:#2E7D32; --red:#B03A34; --wash:#F4F7FA; --warn:#FFF6E5;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; color:var(--ink); background:#fff;
+    font:13px/1.65 "Sarabun","Leelawadee UI","Segoe UI",Tahoma,sans-serif;
+  }
+  .page{ max-width:180mm; margin:0 auto; padding:10mm 0; }
+  header{ display:flex; align-items:flex-start; gap:14px;
+          border-bottom:2px solid var(--navy); padding-bottom:10px; margin-bottom:20px; }
+  header img{ height:44px; }
+  h1{ font-size:21px; margin:0 0 3px; color:var(--navy); letter-spacing:-.2px; }
+  .sub{ color:var(--soft); font-size:12px; }
+  h2{ font-size:15.5px; color:var(--navy); margin:26px 0 8px;
+      border-left:4px solid var(--navy); padding-left:9px; }
+  h3{ font-size:13.5px; margin:16px 0 5px; }
+  p{ margin:0 0 9px; }
+  .lead{ font-size:14px; background:var(--wash); border:1px solid var(--line);
+         border-radius:6px; padding:12px 14px; margin-bottom:6px; }
+  table{ width:100%; border-collapse:collapse; margin:10px 0 12px; font-size:12px; }
+  th,td{ border:1px solid var(--line); padding:5px 8px; text-align:left; vertical-align:top; }
+  th{ background:var(--wash); font-weight:600; }
+  td.n,th.n{ text-align:right; white-space:nowrap; }
+  code,.mono{ font-family:Consolas,"Courier New",monospace; font-size:11.5px; }
+  pre{ background:var(--wash); border:1px solid var(--line); border-radius:5px;
+       padding:9px 11px; margin:9px 0; overflow:hidden;
+       font-family:Consolas,"Courier New",monospace; font-size:11px; line-height:1.55; }
+  .warn{ background:var(--warn); border:1px solid #E8D4A0; border-radius:5px;
+         padding:9px 12px; margin:10px 0; }
+  .ok{ background:#EFF6EF; border:1px solid #CADFCA; border-radius:5px;
+       padding:9px 12px; margin:10px 0; }
+  .big{ font-size:17px; font-weight:700; color:var(--navy); }
+  .red{ color:var(--red); font-weight:700; }
+  .grn{ color:var(--green); font-weight:700; }
+  .cap{ color:var(--soft); font-size:11px; margin-top:-4px; }
+  ul,ol{ margin:0 0 10px; padding-left:20px; }
+  li{ margin-bottom:4px; }
+  .brk{ break-before:page; }
+  svg{ display:block; margin:10px auto 4px; }
+  footer{ margin-top:26px; border-top:1px solid var(--line); padding-top:8px;
+          color:var(--soft); font-size:10.5px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <img src="../hub/logo.png" alt="Coral Life">
+  <div>
+    <h1>สภาวะอากาศเฉลี่ยมาจากไหน</h1>
+    <div class="sub">เครื่องมือ ERV Energy Saving · เอกสารอธิบายที่มาของตัวเลข
+    · ฉบับ 22 กันยายน 2569</div>
+  </div>
+</header>
+
+<div class="lead">
+เครื่องมือคิดค่าไฟที่ประหยัดได้จาก <b>สภาวะอากาศภายนอกเฉลี่ย</b> ช่องเดียว ·
+เอกสารนี้อธิบายว่า<b>ตัวเลขนั้นมาจากไหน</b> · <b>เชื่อได้แค่ไหน</b> ·
+และ<b>ทำไมการเฉลี่ยก่อนคำนวณถึงไม่ใช่การมักง่าย</b>
+</div>
+
+<h2>1 · ทำไมเรื่องนี้สำคัญ</h2>
+
+<p>ภาระอากาศนอกที่ตกกับแอร์คิดจากสมการเดียว —
+<span class="mono">ภาระ = 1.2 × ปริมาณลม × (เอนทัลปีอากาศนอก − เอนทัลปีอากาศในห้อง)</span></p>
+
+<p><b>ค่าประหยัดแปรผันตรงกับส่วนต่างเอนทัลปีนั้น</b>
+ใส่สภาวะอากาศผิด ตัวเลขที่เสนอลูกค้าก็ผิดตามทันที ในสัดส่วนเดียวกัน</p>
+
+<p>เทียบกับห้องที่ 25 °C / 50 % (เอนทัลปี 50.33 kJ/kg) ·
+งานตัวอย่างลม 120 CMH เดิน 08:00–17:00</p>
+
+<table>
+<thead><tr><th>ใส่สภาวะอากาศนอกเป็น</th><th class="n">เอนทัลปี</th>
+<th class="n">ส่วนต่าง</th><th class="n">ค่าไฟที่บอกว่าประหยัด</th><th class="n">ผิดไป</th></tr></thead>
+<tbody>
+<tr><td><b>35 °C / 60 %</b> — สภาวะออกแบบ (เคยใส่กันมา)</td>
+    <td class="n">90.24</td><td class="n">39.91</td><td class="n">3,999 บาท/ปี</td>
+    <td class="n red">+49 %</td></tr>
+<tr><td><b>31 °C / 70 %</b> — ค่าตั้งต้นเก่าของเครื่องมือ</td>
+    <td class="n">82.21</td><td class="n">31.88</td><td class="n">3,194 บาท/ปี</td>
+    <td class="n red">+19 %</td></tr>
+<tr><td><b>31 °C / 64 %</b> — จากข้อมูลอากาศจริง</td>
+    <td class="n">77.42</td><td class="n">27.09</td><td class="n">2,676 บาท/ปี</td>
+    <td class="n grn">ถูกต้อง</td></tr>
+</tbody>
+</table>
+
+<div class="warn">
+<b>สภาวะออกแบบ 35 °C / 60 % ไม่ใช่ค่าเฉลี่ย</b> มันคือวันที่ร้อนที่สุดของปี ·
+จากข้อมูลจริง ชั่วโมงที่ร้อนขนาดนั้น<b>มีแค่ 0.6 % ของชั่วโมงทำงานทั้งปี</b>
+แต่ถูกเอาไปใช้แทนทั้งปี
+</div>
+
+<h2>2 · ข้อมูลมาจากไหน</h2>
+
+<p>ไฟล์เดียว เปิดสาธารณะ ไม่ต้องล็อกอิน</p>
+
+<pre>climate.onebuilding.org
+  └ WMO Region 2 Asia  →  Thailand  →  CRG_Central
+      └ THA_CRG_Bangkok.Metropolis.484550_TMYx.2011-2025.zip</pre>
+
+<ul>
+<li>สถานี <b>กรุงเทพมหานคร</b> รหัสองค์การอุตุนิยมวิทยาโลก <b>484550</b> · พิกัด 13.726 / 100.560</li>
+<li>ข้างในมีไฟล์ <code>.epw</code> ซึ่งเป็นรูปแบบมาตรฐานของงานจำลองอาคารทั่วโลก</li>
+<li><b>8,760 บรรทัด = 365 วัน × 24 ชั่วโมง</b> บรรทัดละหนึ่งชั่วโมง</li>
+</ul>
+
+<h3>หน้าตาของข้อมูลหนึ่งบรรทัด</h3>
+<pre>2013, 1, 1, 9, 30, ......, <b>23.90</b>, 16.30, <b>62</b>, 101317, 0, 0, ...
+  ปี เดือน วัน ชม. นาที        อุณหภูมิ  น้ำค้าง  RH   ความดัน</pre>
+<p class="cap">หนึ่งบรรทัดมี 35 ช่อง (แดด ลม ฝน เมฆ ฯลฯ) ·
+<b>เราใช้แค่ 3 ช่อง — ชั่วโมง · อุณหภูมิกระเปาะแห้ง · ความชื้นสัมพัทธ์</b></p>
+
+<div class="warn">
+<b>TMYx คือ “ปีตัวแทน” ไม่ใช่ปีจริงปีใดปีหนึ่ง</b> ·
+ไฟล์นี้ประกอบจากข้อมูลจริง 15 ปี (2011–2025) โดยเลือก<b>เดือนที่ปกติที่สุด</b>
+ของแต่ละเดือนมาต่อกัน — มกราคมเอาของปี 2013 · กุมภาพันธ์ของปี 2023 ·
+มีนาคมของปี 2021 · ไล่ไปจนครบ 12 เดือน ·
+<b>เป็นวิธีมาตรฐานของวงการจำลองอาคาร</b> เพื่อไม่ให้ผลลัพธ์ผูกกับปีที่บังเอิญร้อนหรือเย็นผิดปกติ
+</div>
+
+<h2 class="brk">3 · ยุบ 8,760 บรรทัด เหลือ 48 ตัวเลข</h2>
+
+<p>ทำครั้งเดียว <b>นอกเครื่องมือ</b> ด้วยสคริปต์ แล้วเอาผลไปฝังไว้ในหน้าเว็บ</p>
+
+<svg viewBox="0 0 520 250" width="520" height="250" role="img">
+  <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3"
+    orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#6B7280"/></marker></defs>
+  <rect x="10" y="10" width="150" height="48" rx="5" fill="#F4F7FA" stroke="#D8DCE0"/>
+  <text x="85" y="30" font-size="12" text-anchor="middle" fill="#2A2A28" font-weight="700">8,760 บรรทัด</text>
+  <text x="85" y="46" font-size="10.5" text-anchor="middle" fill="#6B7280">365 วัน × 24 ชั่วโมง</text>
+
+  <line x1="85" y1="60" x2="85" y2="86" stroke="#6B7280" stroke-width="1.4" marker-end="url(#ar)"/>
+  <text x="95" y="78" font-size="10.5" fill="#6B7280">คำนวณเอนทัลปีของทุกบรรทัด</text>
+
+  <rect x="10" y="88" width="150" height="48" rx="5" fill="#F4F7FA" stroke="#D8DCE0"/>
+  <text x="85" y="108" font-size="12" text-anchor="middle" font-weight="700">จัดลงถัง 24 ถัง</text>
+  <text x="85" y="124" font-size="10.5" text-anchor="middle" fill="#6B7280">ตามชั่วโมงของวัน</text>
+
+  <line x1="85" y1="138" x2="85" y2="164" stroke="#6B7280" stroke-width="1.4" marker-end="url(#ar)"/>
+  <text x="95" y="156" font-size="10.5" fill="#6B7280">เฉลี่ยในแต่ละถัง</text>
+
+  <rect x="10" y="166" width="150" height="48" rx="5" fill="#EFF6EF" stroke="#CADFCA"/>
+  <text x="85" y="186" font-size="12" text-anchor="middle" font-weight="700" fill="#2E7D32">48 ตัวเลข</text>
+  <text x="85" y="202" font-size="10.5" text-anchor="middle" fill="#2E7D32">h 24 ตัว + T 24 ตัว</text>
+
+  <line x1="164" y1="112" x2="196" y2="112" stroke="#6B7280" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="200" y="20" width="310" height="192" rx="5" fill="#fff" stroke="#D8DCE0"/>
+  <text x="212" y="40" font-size="11" font-weight="700">ถังหนึ่งใบ = ชั่วโมงหนึ่งของวัน</text>
+  <text x="212" y="58" font-size="10.5" fill="#6B7280">ถัง “08:00–09:00” เก็บค่าของชั่วโมงนั้น</text>
+  <text x="212" y="73" font-size="10.5" fill="#6B7280">จากทุกวันในปี = <tspan font-weight="700" fill="#2A2A28">365 ตัวอย่าง</tspan></text>
+  <g font-size="9.5" fill="#31506B">
+    <rect x="212" y="86" width="40" height="17" rx="3" fill="#F4F7FA" stroke="#D8DCE0"/>
+    <text x="232" y="98" text-anchor="middle">1 ม.ค.</text>
+    <rect x="256" y="86" width="40" height="17" rx="3" fill="#F4F7FA" stroke="#D8DCE0"/>
+    <text x="276" y="98" text-anchor="middle">2 ม.ค.</text>
+    <rect x="300" y="86" width="40" height="17" rx="3" fill="#F4F7FA" stroke="#D8DCE0"/>
+    <text x="320" y="98" text-anchor="middle">3 ม.ค.</text>
+    <text x="352" y="98" fill="#6B7280">· · ·</text>
+    <rect x="378" y="86" width="46" height="17" rx="3" fill="#F4F7FA" stroke="#D8DCE0"/>
+    <text x="401" y="98" text-anchor="middle">31 ธ.ค.</text>
+  </g>
+  <line x1="212" y1="116" x2="424" y2="116" stroke="#D8DCE0"/>
+  <text x="212" y="136" font-size="11" font-weight="700">เฉลี่ยออกมาได้สองค่า</text>
+  <text x="212" y="155" font-size="11" fill="#2E7D32" font-weight="700">เอนทัลปีเฉลี่ย 74.61 kJ/kg</text>
+  <text x="212" y="172" font-size="11" fill="#2E7D32" font-weight="700">อุณหภูมิเฉลี่ย 27.66 °C</text>
+  <text x="212" y="194" font-size="10" fill="#6B7280">ทำแบบนี้ครบทั้ง 24 ชั่วโมง = 48 ตัวเลข</text>
+</svg>
+
+<div class="ok">
+<b>48 ตัวเลขนี้คือสิ่งเดียวที่ฝังอยู่ในหน้าเว็บ</b> ·
+ไฟล์ต้นทาง 1.6 MB ไม่ได้ขึ้นไปด้วย · หน้าเว็บจึงเบาเท่าเดิม
+</div>
+
+<h2>4 · ตอนใช้งานจริง เกิดอะไรขึ้น</h2>
+
+<p>ในการ์ด <b>ชั่วโมงใช้งานและค่าไฟ</b> ใส่ช่วงเวลาที่ระบบเดิน เช่น
+<b>ตั้งแต่ 8 ถึง 17</b></p>
+
+<h3>ขั้นที่ 1 · เลือกถัง</h3>
+<p>ช่วง 08:00 ถึง 17:00 กินเวลา <b>9 ชั่วโมง</b> จึงหยิบถัง 9 ใบ</p>
+
+<table>
+<thead><tr><th>ถัง</th>
+<th class="n">08–09</th><th class="n">09–10</th><th class="n">10–11</th>
+<th class="n">11–12</th><th class="n">12–13</th><th class="n">13–14</th>
+<th class="n">14–15</th><th class="n">15–16</th><th class="n">16–17</th>
+<th class="n">เฉลี่ย</th></tr></thead>
+<tbody>
+<tr><td>เอนทัลปี</td>
+<td class="n">74.61</td><td class="n">75.52</td><td class="n">76.69</td>
+<td class="n">77.48</td><td class="n">78.00</td><td class="n">78.81</td>
+<td class="n">78.70</td><td class="n">78.61</td><td class="n">78.42</td>
+<td class="n"><b>77.42</b></td></tr>
+<tr><td>อุณหภูมิ</td>
+<td class="n">27.66</td><td class="n">28.90</td><td class="n">30.14</td>
+<td class="n">30.94</td><td class="n">31.74</td><td class="n">32.53</td>
+<td class="n">32.49</td><td class="n">32.45</td><td class="n">32.41</td>
+<td class="n"><b>31.03</b></td></tr>
+</tbody>
+</table>
+
+<h3>ขั้นที่ 2 · หาความชื้นที่เข้าคู่กัน</h3>
+<p>ตรึงอุณหภูมิไว้ที่ <b>31.0 °C</b> แล้วไล่หาความชื้นที่ทำให้เอนทัลปีออกมาเท่ากับ
+<b>77.42</b> พอดี · ได้ <b>63.6 %</b></p>
+
+<h3>ขั้นที่ 3 · เขียนลงสามช่อง แล้วล็อกไว้</h3>
+<pre>ชั่วโมงต่อวัน     9
+อุณหภูมิเฉลี่ย    31.0 °C
+ความชื้นเฉลี่ย    63.6 %</pre>
+<p><b>ลบช่วงเวลาให้ว่างเมื่อไร สามช่องนี้ปลดล็อก กลับไปกรอกเองได้ทันที</b></p>
+
+<h3>ตัวอย่างช่วงเวลาอื่น</h3>
+<table>
+<thead><tr><th>ใส่</th><th>ประเภทอาคาร</th><th class="n">ชั่วโมง/วัน</th>
+<th class="n">อุณหภูมิ</th><th class="n">ความชื้น</th></tr></thead>
+<tbody>
+<tr><td>0 → 24</td><td>โรงแรม โรงพยาบาล</td><td class="n">24</td><td class="n">29.1 °C</td><td class="n">72.1 %</td></tr>
+<tr><td>18 → 8</td><td>ที่พัก กลางคืน</td><td class="n">14</td><td class="n">27.8 °C</td><td class="n">78.4 %</td></tr>
+<tr><td>6 → 18</td><td>โรงงานกะเดียว</td><td class="n">12</td><td class="n">30.3 °C</td><td class="n">66.5 %</td></tr>
+<tr><td>8 → 17</td><td>สำนักงาน</td><td class="n">9</td><td class="n">31.0 °C</td><td class="n">63.6 %</td></tr>
+<tr><td>10 → 21</td><td>ร้านค้า ห้าง</td><td class="n">11</td><td class="n">31.2 °C</td><td class="n">63.2 %</td></tr>
+</tbody>
+</table>
+
+<div class="ok">
+<b>ช่วงเวลาเดินแทบไม่มีผล</b> · ทุกช่วงที่เจอในงานจริงให้เอนทัลปีระหว่าง
+75.3 ถึง 77.9 kJ/kg คือ<b>ต่างกัน 3.5 %</b> ·
+เทียบกับการเผลอใส่สภาวะออกแบบซึ่งผิด <b>49 %</b> แล้วเป็นเศษเสี้ยว<br>
+<b>ที่สำคัญคืออย่าใส่สภาวะออกแบบ</b> ส่วนจะเลือกช่วงเวลาไหนเป็นเรื่องรอง
+</div>
+
+<h2 class="brk">5 · สองคำถามที่ควรถาม</h2>
+
+<h3>เฉลี่ยก่อนคำนวณ กับคำนวณทีละชั่วโมงแล้วบวกกัน ให้คำตอบเท่ากันไหม</h3>
+
+<p><b>เท่ากันเป๊ะ และไม่ใช่เรื่องบังเอิญ</b> เพราะภาระเป็นสัดส่วนตรงกับเอนทัลปี
+สมการจึงกระจายเข้าไปในผลบวกได้</p>
+
+<pre>ผลรวมรายชั่วโมง  =  1.2 × ลม × [ (h₁−h_ห้อง) + (h₂−h_ห้อง) + ... + (h_N−h_ห้อง) ]
+                 =  1.2 × ลม × N × ( h เฉลี่ย − h_ห้อง )
+                 =  คิดครั้งเดียวที่ h เฉลี่ย</pre>
+
+<p>วัดจริงกับงานตัวอย่าง 2,690 ชั่วโมง</p>
+<table>
+<thead><tr><th>วิธี</th><th class="n">ผลลัพธ์</th></tr></thead>
+<tbody>
+<tr><td>คิดทีละชั่วโมง บวกกัน 2,690 รอบ</td><td class="n">898.10 kWh/ปี</td></tr>
+<tr><td>เฉลี่ยเอนทัลปีก่อน คิดรอบเดียว</td><td class="n">898.10 kWh/ปี</td></tr>
+<tr><td>ต่างกัน</td><td class="n">0.00000000000004 %</td></tr>
+</tbody>
+</table>
+
+<div class="warn">
+<b>จะเลิกเท่ากันทันทีถ้ามีอะไรที่ไม่เป็นเส้นตรงเข้ามา</b> เช่น
+ประสิทธิภาพแอร์ที่เปลี่ยนตามอุณหภูมินอก · แกน ERV ที่ bypass ตอนอากาศเย็น ·
+หรือแอร์ที่กำลังไม่พอในบางช่วง ·
+<b>ทั้งสามอย่างนี้เครื่องมือยังไม่ได้คิด</b> วันที่จะคิดต้องเปลี่ยนไปคำนวณรายชั่วโมงจริง
+</div>
+
+<h3>เฉลี่ยจากถัง 24 ใบ แทนที่จะเฉลี่ยจาก 8,760 บรรทัด จะเพี้ยนไหม</h3>
+
+<p><b>ไม่เพี้ยน</b> เพราะทุกถังมีจำนวนตัวอย่างเท่ากันเป๊ะคือ 365 ใบ
+(365 วัน วันละหนึ่งครั้ง) น้ำหนักจึงเท่ากันโดยธรรมชาติ ไม่ต้องถ่วง</p>
+
+<p>ตรวจกับชั่วโมงดิบแล้ว <b>ต่างกัน 0.0001 kJ/kg</b> ซึ่งเป็นเศษการปัดทศนิยม
+ของ 48 ตัวเลขที่เก็บไว้ ไม่ใช่ความผิดของวิธี</p>
+
+<h2>6 · ข้อจำกัด — อ่านก่อนใช้กับงานจริง</h2>
+
+<table>
+<thead><tr><th>เรื่อง</th><th>ต้องระวัง</th></tr></thead>
+<tbody>
+<tr><td><b>สถานีเดียว</b></td>
+<td>เป็นของกรุงเทพเท่านั้น · งานเชียงใหม่ ภูเก็ต ระยอง ต้องโหลดไฟล์ของที่นั่นเอง
+หรือ<b>เว้นช่องเวลาไว้ว่างแล้วกรอกสภาวะเอง</b></td></tr>
+<tr><td><b>ไม่รู้วันหยุด</b></td>
+<td>ไฟล์อากาศไม่รู้ว่าอาคารหยุดวันไหน · <b>ช่องวันต่อปีจึงต้องกรอกเองเสมอ</b></td></tr>
+<tr><td><b>ไม่มีวันในสัปดาห์</b></td>
+<td>ปีตัวแทนไม่มีวันจันทร์วันอาทิตย์จริง · แต่วัดแล้ว<b>ไม่มีผล</b> ต่างกัน 0.02 kJ/kg
+เพราะอากาศไม่สนใจว่าวันนั้นเป็นวันอะไร</td></tr>
+<tr><td><b>เฉลี่ยทั้งปี</b></td>
+<td>ไม่ได้แยกฤดู · ถ้าอยากได้รายเดือนต้องขยายจาก 24 ถัง เป็น 12 × 24 ถัง</td></tr>
+<tr><td><b>ปีตัวแทน</b></td>
+<td>ไม่ใช่ปีใดปีหนึ่งจริง ๆ · ใช้ทำนายค่าเฉลี่ยระยะยาวได้
+<b>ใช้ทำนายบิลค่าไฟของเดือนใดเดือนหนึ่งไม่ได้</b></td></tr>
+</tbody>
+</table>
+
+<h2>7 · ทำซ้ำเองได้</h2>
+<ol>
+<li>โหลดไฟล์ <code>.zip</code> จาก climate.onebuilding.org (ไฟล์ของเมืองไหนก็ได้)</li>
+<li>วางไว้โฟลเดอร์เดียวกับสคริปต์ <code>_src/bkk_windows.py</code></li>
+<li>รัน <code>python bkk_windows.py</code> · จะได้ตาราง 24 ถัง และชุดตัวเลข 48 ตัว
+พร้อมเอาไปแทนในหน้าเว็บ</li>
+</ol>
+<p>สคริปต์ใช้<b>สมการชุดเดียวกับที่เครื่องมือบนเว็บใช้</b> —
+ASHRAE Handbook Fundamentals 2021 บทที่ 1 สมการ (21) และ (32)
+กับ IAPWS-IF97 สำหรับความดันไออิ่มตัว — ถอดมาเป็น Python บรรทัดต่อบรรทัด
+ตัวเลขทั้งสองฝั่งจึงตรงกันโดยโครงสร้าง ไม่ใช่โดยบังเอิญ</p>
+
+<footer>
+Coral Life · เอกสารประกอบเครื่องมือ ERV Energy Saving ·
+ข้อมูลอากาศ climate.onebuilding.org TMYx 2011–2025 สถานีกรุงเทพมหานคร WMO 484550 ·
+สคริปต์ <code>_src/bkk_windows.py</code> และ <code>_src/bkk_enthalpy.py</code> ·
+จัดทำ 22 กันยายน 2569
+</footer>
+
+</div>
+</body>
+</html>
