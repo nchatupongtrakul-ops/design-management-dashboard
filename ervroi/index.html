@@ -641,7 +641,19 @@ table.dtable td.st{white-space:nowrap}
         <input type="range" id="oa" min="0" max="20000" step="1" value="3000">
         <div class="ticks"><span>0</span><span id="tk1"></span><span id="tk2"></span><span id="tk3"></span><span id="tkm"></span></div>
       </div>
-      <div class="hint">ทั้งสองทางเลือกเติมลมเท่ากัน ต่างกันที่วิธี</div>
+      <div class="flowmeta" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+        <label class="flabel" style="margin:0" for="oa_b">ลมของระบบเดิมที่เอาไปเทียบ</label>
+        <span class="numwrap"><input type="number" id="oa_b" class="numbox" min="0" step="50"
+          placeholder="เท่ากัน"><span class="u">CMH</span></span>
+        <span class="chip" id="oaBChip"></span>
+      </div>
+      <div class="hint" id="oaBHint"></div>
+      <div class="srcline"><b>เว้นว่างไว้ = ทั้งสองทางเลือกเติมลมเท่ากัน</b>
+      ต่างกันแค่วิธี ซึ่งเป็นการเทียบที่ตรงไปตรงมาที่สุด<br>
+      ใส่ตัวเลขเมื่อ<b>ไปเทียบกับพัดลมที่ลูกค้ามีอยู่แล้ว และมันเติมลมไม่เท่าที่เราเสนอ</b>
+      เช่นพัดลมเดิมใหญ่เกินความจำเป็น · ⚠️ <b>ส่วนที่ประหยัดได้จะถูกแยกให้เห็นสองก้อน</b>
+      เพราะก้อนที่มาจากการลดลมลูกค้าได้จากการหรี่พัดลมเดิมเฉย ๆ ก็ได้
+      <b>ไม่ได้มาจากแกน ERV</b> · เอาไปเสนอรวมเป็นก้อนเดียวแล้วลูกค้าจับได้จะเสียเครดิต</div>
       <div id="roomPanel" class="roompanel"></div>
     </div>
   </div>
@@ -1531,35 +1543,53 @@ function model(etOverride){
   var et = (etOverride === undefined ? nv('et')/100 : etOverride);
   var Tr = nv('tr'), Wr = Wof(Tr, nv('rr')/100), hr = hof(Tr, Wr);
 
+  /* The thing being compared against does not have to move the same air.
+     Going up against a fan the customer already owns, that fan is often
+     oversized, so the honest baseline is whatever it actually moves.
+     Blank means "the same", which is the old behaviour exactly. */
+  var QbRaw = raw('oa_b');
+  var flowSplit = (QbRaw !== null && isFinite(QbRaw) && QbRaw > 0
+                   && Math.abs(QbRaw - Q) > 1e-9);
+  var Qb = flowSplit ? QbRaw : Q, Qbl = Qb/3.6;
+
   /* design condition drives equipment size only */
   var Wpk = Wof(nv('tpk'), nv('rpk')/100), hpk = hof(nv('tpk'), Wpk);
-  var qBasePk = CT*Ql*(hpk - hr);
-  var rtSaved = qBasePk*et/RTW;
+  var qBasePk = CT*Qbl*(hpk - hr);
+  var qErvPk  = CT*Ql*(hpk - hr)*(1 - et);
+  var rtSaved = (qBasePk - qErvPk)/RTW;
 
   /* the condition the system actually runs in drives the bill */
   var Wav = Wof(nv('tav'), nv('rav')/100), hav = hof(nv('tav'), Wav);
-  var qBaseAv = CT*Ql*(hav - hr);
-  var qSavedAv = qBaseAv*et;
+  var qBaseAv = CT*Qbl*(hav - hr);
+  var qErvAv  = CT*Ql*(hav - hr)*(1 - et);
+  var qSavedAv = qBaseAv - qErvAv;
+  /* and where that saving comes from · the first part is free to anyone who
+     simply turns the old fan down, the second is what the core is worth */
+  var qFromFlow = CT*(Qbl - Ql)*(hav - hr);
+  var qFromCore = CT*Ql*(hav - hr)*et;
 
   var hours = Math.max(0, nv('hpd'))*Math.max(0, nv('dpy'));
   var cop = Math.max(0.5, nv('cop')), rate = nv('rate');
 
   var kwhCoolBase = qBaseAv/1000/cop*hours;
-  var kwhCoolErv  = qBaseAv*(1-et)/1000/cop*hours;
+  var kwhCoolErv  = qErvAv/1000/cop*hours;
   var kwhCoolSaved = kwhCoolBase - kwhCoolErv;
+  var kwhFromFlow = qFromFlow/1000/cop*hours;
+  var kwhFromCore = qFromCore/1000/cop*hours;
 
   /* W = Q x dp / eta, verified against Kruger's own worked example */
-  function fanW(dpId, etaId, nId, wId){
+  function fanW(dpId, etaId, nId, wId, Lps){
     var manual = raw(wId), n = Math.max(1, Math.round(nv(nId)));
     if(manual !== null && isFinite(manual)){
       /* the ERV box asks for the whole machine, the other for one fan */
       return { W: (wId === 'w_e') ? manual : manual*n, manual:true, n:n };
     }
     var eta = Math.max(0.05, nv(etaId)/100);
-    return { W: (Ql/1000)*nv(dpId)/eta*n, manual:false, n:n };
+    return { W: (Lps/1000)*nv(dpId)/eta*n, manual:false, n:n };
   }
-  var fb = fanW('dp_b','eta_b','nf_b','w_b');
-  var fe = fanW('dp_e','eta_e','nf_e','w_e');
+  /* the old fan is sized for the air it actually moves, not for ours */
+  var fb = fanW('dp_b','eta_b','nf_b','w_b', Qbl);
+  var fe = fanW('dp_e','eta_e','nf_e','w_e', Ql);
   var kwhFanBase = fb.W/1000*hours, kwhFanErv = fe.W/1000*hours;
 
   var bahtCoolSaved = kwhCoolSaved*rate;
@@ -1573,8 +1603,12 @@ function model(etOverride){
   var svcYr = svcT*svcN;
   var netAfterSvc = net - svcYr;
 
-  return { Q:Q, Ql:Ql, et:et, hr:hr, hpk:hpk, hav:hav, Tr:Tr,
-           qBasePk:qBasePk, rtSaved:rtSaved, qBaseAv:qBaseAv, qSavedAv:qSavedAv,
+  return { Q:Q, Ql:Ql, Qb:Qb, Qbl:Qbl, flowSplit:flowSplit,
+           et:et, hr:hr, hpk:hpk, hav:hav, Tr:Tr,
+           qBasePk:qBasePk, qErvPk:qErvPk, qErvAv:qErvAv,
+           qFromFlow:qFromFlow, qFromCore:qFromCore,
+           kwhFromFlow:kwhFromFlow, kwhFromCore:kwhFromCore,
+           rtSaved:rtSaved, qBaseAv:qBaseAv, qSavedAv:qSavedAv,
            hours:hours, cop:cop, rate:rate,
            kwhCoolBase:kwhCoolBase, kwhCoolErv:kwhCoolErv, kwhCoolSaved:kwhCoolSaved,
            fb:fb, fe:fe, kwhFanBase:kwhFanBase, kwhFanErv:kwhFanErv,
@@ -1922,7 +1956,7 @@ function drawBars(cv){
             ['Δh','ส่วนต่างเอนทัลปีที่สภาวะเฉลี่ย', fmt(m.hav-m.hr,2)+' kJ/kg'],
             ['COP','ประสิทธิภาพระบบทำความเย็น', fmt(m.cop,2)],
             ['ชั่วโมง','ชั่วโมงใช้งานต่อปี', fmt(m.hours)+' ชม.']],
-      rows:[['ภาระอากาศนอก', fmt((c.x?m.qBaseAv*(1-m.et):m.qBaseAv)/1000,2)+' kW'],
+      rows:[['ภาระอากาศนอก', fmt((c.x?m.qErvAv:m.qBaseAv)/1000,2)+' kW'],
             ['พลังงานต่อปี', fmt(c.x?m.kwhCoolErv:m.kwhCoolBase)+' kWh'],
             ['ค่าไฟต่อปี', baht(c.cool)+' บาท']],
       mean: c.x ? 'ฝั่ง ERV เตี้ยกว่าเพราะแกนดึงพลังงานคืนได้ <b>'+fmt(m.et*100,0)+'%</b> ก่อนลมถึงห้อง'
@@ -2150,6 +2184,17 @@ function render(){
   $('fanEhint').textContent = m.fe.manual
     ? 'ใช้ค่าที่พิมพ์ · รวม ' + fmt(m.fe.W) + ' W'
     : 'คำนวณได้ ' + fmt(m.fe.W) + ' W รวมทุกตัว';
+  var bc = $('oaBChip'), bh = $('oaBHint');
+  if(bc) bc.textContent = m.flowSplit ? fmt(m.Qbl,1) + ' L/s' : 'เท่ากับที่เสนอ';
+  if(bh) bh.innerHTML = !m.flowSplit
+    ? 'ทั้งสองทางเลือกเติมลมเท่ากัน ต่างกันที่วิธี'
+    : (m.Qb > m.Q
+        ? 'ระบบเดิมเติมลมมากกว่าที่เราเสนอ <b>' + fmt(m.Qb - m.Q) + ' CMH</b> · '
+          + 'ส่วนต่างนี้กลายเป็นเงินที่ประหยัดได้ด้วย <b>แต่ไม่ใช่ผลงานของ ERV</b> '
+          + 'ดูสองบรรทัดล่างสุดของตารางเทียบ'
+        : 'ระบบเดิมเติมลมน้อยกว่าที่เราเสนอ <b>' + fmt(m.Q - m.Qb) + ' CMH</b> · '
+          + 'เรากำลังเสนอให้เติมลมมากขึ้น ตัวเลขประหยัดจึงต่ำลงหรือติดลบได้ '
+          + '<b>ซึ่งถูกต้องแล้ว</b> เพราะได้อากาศดีขึ้นมาแลก');
   $('basePill').textContent = BASE_LABEL[BASE];
   $('colBase').textContent = BASE_LABEL[BASE];
 
@@ -2230,10 +2275,19 @@ function render(){
   } else {
     var yr = m.bahtCoolSaved > 0 ? m.bahtFanExtra/m.bahtCoolSaved*100 : 0;
     v.className='verdict ok'; head='ประหยัดได้ ' + baht(m.net) + ' บาทต่อปี';
-    body='เทียบกับ<b>'+BASE_LABEL[BASE]+'</b> ที่ลมเท่ากัน '+fmt(m.Q)+' CMH · '
+    body='เทียบกับ<b>'+BASE_LABEL[BASE]+'</b> '
+      + (m.flowSplit
+          ? 'ที่เติมลม <b>'+fmt(m.Qb)+' CMH</b> ส่วนที่เราเสนอเติม <b>'+fmt(m.Q)+' CMH</b>'
+          : 'ที่ลมเท่ากัน '+fmt(m.Q)+' CMH') + ' · '
       +'ความเย็นที่ลดได้ <b>'+baht(m.bahtCoolSaved)+' บาท/ปี</b> '
       +'หักค่าไฟพัดลมที่เพิ่ม <b>'+baht(m.bahtFanExtra)+' บาท/ปี</b> '
       +'ซึ่งคิดเป็น '+fmt(yr,0)+'% ของที่ประหยัดได้<br>'
+      + (m.flowSplit
+          ? '⚠️ <b>ในค่าความเย็นที่ลดได้นั้น มาจากการลดปริมาณลม '
+            + baht(m.kwhFromFlow*m.rate) + ' บาท/ปี</b> ซึ่งลูกค้าหรี่พัดลมเดิมเองก็ได้ '
+            + 'ไม่ต้องมี ERV · <b>ส่วนที่เป็นผลงานของแกนจริง ๆ คือ '
+            + baht(m.kwhFromCore*m.rate) + ' บาท/ปี</b><br>'
+          : '')
       +'และถ้ายังไม่ได้ซื้อแอร์ ยังลดขนาดลงได้อีก <b>'+fmt(m.rtSaved,2)+' RT</b> '
       +'ซึ่งเป็นเงินก้อนครั้งเดียว ไม่ใช่ทุกปี'
       + (nv('baht_rt') > 0 ? ' คิดเป็น <b>'+baht(m.capex)+' บาท</b>' : '');
@@ -2241,9 +2295,11 @@ function render(){
   v.innerHTML = '<div class="vh">'+head+'</div><div class="vb">'+body+'</div>';
 
   var rows = [
-    ['ปริมาณลมภายนอก', fmt(m.Q)+' CMH', fmt(m.Q)+' CMH', 'เท่ากัน'],
+    ['ปริมาณลมภายนอก', fmt(m.Qb)+' CMH', fmt(m.Q)+' CMH',
+      m.flowSplit ? (m.Q >= m.Qb ? '+' : '−') + fmt(Math.abs(m.Q - m.Qb)) + ' CMH'
+                  : 'เท่ากัน'],
     ['ภาระอากาศนอกที่ตกกับแอร์  ที่สภาวะเฉลี่ย',
-      fmt(m.qBaseAv/1000,2)+' kW', fmt(m.qBaseAv*(1-m.et)/1000,2)+' kW',
+      fmt(m.qBaseAv/1000,2)+' kW', fmt(m.qErvAv/1000,2)+' kW',
       '−'+fmt(m.qSavedAv/1000,2)+' kW'],
     ['พลังงานทำความเย็นต่อปี', fmt(m.kwhCoolBase)+' kWh', fmt(m.kwhCoolErv)+' kWh',
       '−'+fmt(m.kwhCoolSaved)+' kWh'],
@@ -2259,6 +2315,14 @@ function render(){
     ['<b>ค่าไฟรวมต่อปี</b>', '<b>'+baht(m.bahtBase)+' บาท</b>', '<b>'+baht(m.bahtErv)+' บาท</b>',
       '<b>'+(m.net>=0?'−':'+')+baht(Math.abs(m.net))+' บาท</b>']
   ];
+  if(m.flowSplit){
+    rows.push(['<span class="rp-warn">มาจากการลดปริมาณลม</span> '
+      + '<span class="rp-none">หรี่พัดลมเดิมก็ได้ ไม่ต้องมี ERV</span>', '', '',
+      (m.kwhFromFlow >= 0 ? '−' : '+') + baht(Math.abs(m.kwhFromFlow*m.rate)) + ' บาท']);
+    rows.push(['<b>มาจากแกน ERV</b> '
+      + '<span class="rp-none">ส่วนที่เป็นผลงานของเครื่องจริง ๆ</span>', '', '',
+      '<b>−' + baht(m.kwhFromCore*m.rate) + ' บาท</b>']);
+  }
   $('cmpBody').innerHTML = rows.map(function(r,i){
     return '<tr'+(i===rows.length-1?' class="gov"':'')+'><td>'+r[0]+'</td>'
       + '<td class="num">'+r[1]+'</td><td class="num">'+r[2]+'</td>'
@@ -2272,8 +2336,14 @@ function render(){
     ? 'จะได้ ' + baht(m.capex) + ' บาท ที่ ' + fmt(m.rtSaved,2) + ' RT'
     : 'ยังไม่ได้ใส่ราคา · ตารางล่างจะแสดงเฉพาะจำนวน RT';
   $('capBody').innerHTML =
-      '<tr><td>ภาระอากาศนอกที่สภาวะออกแบบ</td><td class="num">'+fmt(m.qBasePk/RTW,2)+' RT</td></tr>'
-    + '<tr><td>ส่วนที่แกน ERV ตัดออกไปได้</td><td class="num">'+fmt(m.rtSaved,2)+' RT</td></tr>'
+      '<tr><td>ภาระอากาศนอกที่สภาวะออกแบบ · ระบบเดิม</td>'
+    + '<td class="num">'+fmt(m.qBasePk/RTW,2)+' RT</td></tr>'
+    + (m.flowSplit
+        ? '<tr><td>ภาระอากาศนอกที่สภาวะออกแบบ · หลังติด ERV</td>'
+          + '<td class="num">'+fmt(m.qErvPk/RTW,2)+' RT</td></tr>' : '')
+    + '<tr><td>' + (m.flowSplit ? 'ส่วนที่ตัดออกไปได้ · รวมผลของลมที่ลดลงด้วย'
+                                : 'ส่วนที่แกน ERV ตัดออกไปได้')
+    + '</td><td class="num">'+fmt(m.rtSaved,2)+' RT</td></tr>'
     + '<tr class="gov"><td><b>ประหยัดค่าเครื่องได้ครั้งเดียว</b></td>'
     + '<td class="num"><b>' + (nv('baht_rt') > 0 ? baht(m.capex)+' บาท'
         : 'ใส่ราคาต่อ RT เพื่อคิดเป็นเงิน') + '</b></td></tr>';
@@ -2377,7 +2447,7 @@ function renderSheet(){
   $('slRightS').textContent = 'ระบบดึงพลังงานกลับ ประสิทธิภาพแกน ' + fmt(m.et*100,0) + '%';
 
   /* cooling load carried by the outdoor air, at the condition used for energy */
-  var kwBase = m.qBaseAv/1000, kwErv = m.qBaseAv*(1-m.et)/1000;
+  var kwBase = m.qBaseAv/1000, kwErv = m.qErvAv/1000;
   var btuBase = kwBase*BTU_PER_KW, btuErv = kwErv*BTU_PER_KW;
   var pctLoad = kwBase > 0 ? kwErv/kwBase*100 : 0;
 
@@ -2426,7 +2496,11 @@ function renderSheet(){
   $('slNotes').innerHTML =
       'ตัวเลขทั้งหมดเป็นเฉพาะส่วนของ<b>อากาศภายนอกที่เติมเข้าอาคาร</b> '
     + 'ไม่ได้รวมภาระจากผนัง หลังคา กระจก คน และแสงสว่าง<br>'
-    + '* คิดที่ลมภายนอก ' + fmt(m.Q) + ' CMH · สภาวะนอกอาคาร ' + fmt(nv('tav'),1) + ' °C '
+    + '* คิดที่ลมภายนอก ' + fmt(m.Q) + ' CMH'
+    + (m.flowSplit ? ' เทียบกับระบบเดิมที่เติม ' + fmt(m.Qb) + ' CMH · '
+        + 'ส่วนที่ประหยัดได้จากการลดลม ' + baht(m.kwhFromFlow*m.rate) + ' บาท/ปี '
+        + 'ไม่ได้มาจากแกน ERV' : '')
+    + ' · สภาวะนอกอาคาร ' + fmt(nv('tav'),1) + ' °C '
     + fmt(nv('rav'),0) + '% · ในห้อง ' + fmt(m.Tr,1) + ' °C ' + fmt(nv('rr'),0) + '% · '
     + 'ใช้งาน ' + fmt(nv('hpd'),1) + ' ชม./วัน ' + fmt(nv('dpy')) + ' วัน/ปี · '
     + 'ค่าไฟ ' + fmt(m.rate,2) + ' บาท/หน่วย · COP ' + fmt(m.cop,2) + '<br>'
@@ -3382,7 +3456,7 @@ var DB = null;   /* the whole registry, held open while this page is up */
 var FIELDS = ['pjName','pjArea','pjBy','oa','et','ervpick','tpk','rpk','tav','rav','tr','rr',
               'hpd','dpy','rate','cop','baht_rt','dp_b','eta_b','nf_b','w_b',
               'dp_e','eta_e','nf_e','w_e','cap_erv','cap_fan','esc','disc',
-              'svc_t','svc_n'];
+              'svc_t','svc_n','oa_b'];
 var FIELD_TH = {
   pjName:'ชื่อโครงการ', pjArea:'พื้นที่ปรับอากาศ ตร.ม.', pjBy:'ผู้จัดทำ',
   oa:'ลมภายนอก CMH', et:'ประสิทธิภาพแกน %', ervpick:'รุ่น ERV ที่เลือก',
@@ -3397,7 +3471,8 @@ var FIELD_TH = {
   nf_e:'จำนวนพัดลม ERV', w_e:'กำลังไฟ ERV W',
   cap_erv:'ราคา ERV ติดตั้ง', cap_fan:'ราคาพัดลม ติดตั้ง',
   esc:'ค่าไฟขึ้นปีละ %', disc:'อัตราคิดลด %',
-  svc_t:'ค่าดูแลรักษา บาท/ครั้ง', svc_n:'เข้าดูแลปีละ ครั้ง'
+  svc_t:'ค่าดูแลรักษา บาท/ครั้ง', svc_n:'เข้าดูแลปีละ ครั้ง',
+  oa_b:'ลมของระบบเดิม CMH'
 };
 var PROJECTS = [], CUR = 0, LOADING = false;
 
@@ -4415,13 +4490,18 @@ function tplBuild(){
   say('ช่องพื้นเหลืองแก้ได้ · ช่องอื่นเป็นสูตรที่คิดต่อจากช่องเหลือง');
   put(null, []);
   sect('อากาศและการใช้งาน');
-  inp('q',    'ปริมาณลมภายนอก Q', m.Q, 'CMH', 'มาจากเครื่องมือ CO₂ ของแต่ละห้องรวมกัน');
+  inp('q',    'ปริมาณลมภายนอก Q · ที่เราเสนอ', m.Q, 'CMH',
+      'มาจากเครื่องมือ CO₂ ของแต่ละห้องรวมกัน');
+  inp('qb',   'ปริมาณลมของระบบเดิม Qb', m.Qb, 'CMH',
+      m.flowSplit ? 'พัดลมเดิมของลูกค้าเติมลมไม่เท่าที่เราเสนอ'
+                  : 'เท่ากับที่เราเสนอ · เว้นไว้แบบนี้คือเทียบที่ลมเท่ากัน');
   inp('et',   'ประสิทธิภาพแกน ηt', m.et*100, '%', 'ที่อัตราลมใช้งานจริง ไม่ใช่เลขสูงสุดในโบรชัวร์');
   inp('hpd',  'ชั่วโมงต่อวัน', nv('hpd'), 'ชม.', '');
   inp('dpy',  'วันต่อปี', nv('dpy'), 'วัน', '');
   inp('cop',  'COP ของระบบทำความเย็น', m.cop, '', '');
   inp('wb',   'กำลังไฟพัดลมเดิม · รวม', m.fb.W, 'W',
-      m.fb.manual ? 'กรอกเอง × ' + m.fb.n + ' ตัว' : 'Q/1000 × Δp / η × ' + m.fb.n + ' ตัว');
+      m.fb.manual ? 'กรอกเอง × ' + m.fb.n + ' ตัว'
+                  : 'Qb/1000 × Δp / η × ' + m.fb.n + ' ตัว · คิดที่ลมของระบบเดิม');
   inp('we',   'กำลังไฟพัดลม ERV · รวม', m.fe.W, 'W',
       m.fe.manual ? 'กรอกเองทั้งเครื่อง' : 'Q/1000 × Δp / η × ' + m.fe.n + ' ตัว');
   inp('rate', 'ค่าไฟ', m.rate, 'บาท/หน่วย', '4.15 คือค่าเฉลี่ยรวม Ft ม.ค.–เม.ย. 2568');
@@ -4448,8 +4528,10 @@ function tplBuild(){
       'ลูกค้าต้องมีระบบเติมอากาศอยู่แล้ว จึงคิดเฉพาะส่วนต่าง');
   inp('bRt',  'ราคาแอร์ต่อ RT', nv('baht_rt'), 'บาท/RT', 'ใช้ได้เมื่อยังไม่ได้สั่งแอร์ · เว้นศูนย์ได้');
   calc('rtSaved', 'ลดขนาดแอร์ได้',
-    '1.2*B' + R.q + '/3.6*(E' + R.airPk + '-E' + R.airRm + ')*B' + R.et + '/100/3517',
-    'RT', 'ASHRAE ch.18 eq (7) ที่สภาวะออกแบบ · 1 RT = 3517 W', S.n2);
+    '1.2*(E' + R.airPk + '-E' + R.airRm + ')/3.6*(B' + R.qb
+      + '-B' + R.q + '*(1-B' + R.et + '/100))/3517',
+    'RT', 'ASHRAE ch.18 eq (7) ที่สภาวะออกแบบ · 1 RT = 3517 W · '
+      + 'ภาระของระบบเดิม หักภาระที่เหลือหลังติด ERV', S.n2);
   calc('cAc', 'หัก · ค่าแอร์ที่ลดขนาดได้', 'B' + R.rtSaved + '*B' + R.bRt, 'บาท', '');
   calc('inv', 'เงินลงทุนส่วนต่าง', 'B' + R.cErv + '-B' + R.cFan + '-B' + R.cAc, 'บาท',
     'ตัวนี้คือก้อนที่ต้องคืนทุน');
@@ -4464,13 +4546,15 @@ function tplBuild(){
   put(null, []);
 
   sect('พลังงาน');
-  calc('qav', 'ภาระอากาศนอกที่สภาวะเฉลี่ย',
-    '1.2*B' + R.q + '/3.6*(E' + R.airAv + '-E' + R.airRm + ')', 'W',
+  calc('qav', 'ภาระอากาศนอกที่สภาวะเฉลี่ย · ระบบเดิม',
+    '1.2*B' + R.qb + '/3.6*(E' + R.airAv + '-E' + R.airRm + ')', 'W',
     'สภาวะเฉลี่ยทั้งปีเป็นตัวที่คิดค่าไฟ ไม่ใช่สภาวะออกแบบ');
+  calc('qavE', 'ภาระอากาศนอกที่สภาวะเฉลี่ย · หลังติด ERV',
+    '1.2*B' + R.q + '/3.6*(E' + R.airAv + '-E' + R.airRm + ')*(1-B' + R.et + '/100)', 'W', '');
   calc('kcB', 'ไฟทำความเย็น · ไม่มี ERV',
     'B' + R.qav + '/1000/B' + R.cop + '*B' + R.hours, 'kWh/ปี', '');
   calc('kcE', 'ไฟทำความเย็น · มี ERV',
-    'B' + R.qav + '*(1-B' + R.et + '/100)/1000/B' + R.cop + '*B' + R.hours, 'kWh/ปี', '');
+    'B' + R.qavE + '/1000/B' + R.cop + '*B' + R.hours, 'kWh/ปี', '');
   calc('kfB', 'ไฟพัดลมเดิม', 'B' + R.wb + '/1000*B' + R.hours, 'kWh/ปี', '');
   calc('kfE', 'ไฟพัดลม ERV', 'B' + R.we + '/1000*B' + R.hours, 'kWh/ปี', '');
   calc('savK', 'พลังงานที่ประหยัดได้',
@@ -4622,18 +4706,22 @@ function tplBuild(){
       { v:src, s:S.note }]);
     ar++;
   }
-  astep('ลม L/s', 'Q / 3.6', IN + 'B' + R.q + '/3.6', m.Ql, 'CMH เป็น L/s');
-  astep('ภาระที่สภาวะออกแบบ W', '1.2 × Ls × (h นอก − h ห้อง)',
-    '1.2*C4*(' + IN + 'E' + R.airPk + '-' + IN + 'E' + R.airRm + ')', m.qBasePk,
-    'ASHRAE ch.18 eq (7)');
-  astep('ลดขนาดแอร์ได้ RT', 'ภาระออกแบบ × ηt / 3517', IN + 'B' + R.rtSaved, m.rtSaved,
-    '1 RT = 3517 W');
-  astep('ภาระที่สภาวะเฉลี่ย W', '1.2 × Ls × (h เฉลี่ย − h ห้อง)', IN + 'B' + R.qav, m.qBaseAv,
-    'ตัวนี้คือตัวที่คิดค่าไฟ');
+  astep('ลม L/s · ที่เราเสนอ', 'Q / 3.6', IN + 'B' + R.q + '/3.6', m.Ql, 'CMH เป็น L/s');
+  astep('ลม L/s · ระบบเดิม', 'Qb / 3.6', IN + 'B' + R.qb + '/3.6', m.Qbl,
+    m.flowSplit ? 'พัดลมเดิมเติมลมไม่เท่ากัน' : 'เท่ากับที่เราเสนอ');
+  astep('ภาระที่สภาวะออกแบบ W', '1.2 × Lsb × (h นอก − h ห้อง)',
+    '1.2*C5*(' + IN + 'E' + R.airPk + '-' + IN + 'E' + R.airRm + ')', m.qBasePk,
+    'ASHRAE ch.18 eq (7) · ที่ลมของระบบเดิม');
+  astep('ลดขนาดแอร์ได้ RT', '(ภาระเดิม − ภาระหลังติด ERV) / 3517',
+    IN + 'B' + R.rtSaved, m.rtSaved, '1 RT = 3517 W');
+  astep('ภาระที่สภาวะเฉลี่ย W · ระบบเดิม', '1.2 × Lsb × (h เฉลี่ย − h ห้อง)',
+    IN + 'B' + R.qav, m.qBaseAv, 'ตัวนี้คือตัวที่คิดค่าไฟ');
+  astep('ภาระที่สภาวะเฉลี่ย W · หลังติด ERV', '1.2 × Ls × (h เฉลี่ย − h ห้อง) × (1−ηt)',
+    IN + 'B' + R.qavE, m.qErvAv, '');
   astep('ชั่วโมงใช้งานต่อปี', 'ชม./วัน × วัน/ปี', IN + 'B' + R.hours, m.hours, '', S.n0);
   astep('ไฟทำความเย็น ไม่มี ERV kWh', 'ภาระ / 1000 / COP × ชม.', IN + 'B' + R.kcB,
     m.kwhCoolBase, '', S.n0);
-  astep('ไฟทำความเย็น มี ERV kWh', 'ภาระ × (1−ηt) / 1000 / COP × ชม.', IN + 'B' + R.kcE,
+  astep('ไฟทำความเย็น มี ERV kWh', 'ภาระหลังติด ERV / 1000 / COP × ชม.', IN + 'B' + R.kcE,
     m.kwhCoolErv, '', S.n0);
   astep('ไฟพัดลมเดิม kWh', 'W / 1000 × ชม.', IN + 'B' + R.kfB, m.kwhFanBase, '', S.n0);
   astep('ไฟพัดลม ERV kWh', 'W / 1000 × ชม.', IN + 'B' + R.kfE, m.kwhFanErv, '', S.n0);
@@ -4641,6 +4729,20 @@ function tplBuild(){
     m.kwhCoolSaved - (m.kwhFanErv - m.kwhFanBase), '', S.n0);
   astep('ค่าไฟที่ประหยัด บาท/ปี', 'พลังงานที่ประหยัด × ค่าไฟ', IN + 'B' + R.savB, m.net,
     'ตรงกับตัวเลขบนหน้าเว็บ', S.n0);
+  if(m.flowSplit){
+    astep('ในนั้น · มาจากการลดปริมาณลม บาท/ปี',
+      '1.2 × (Lsb − Ls) × Δh / COP × ชม. × ค่าไฟ',
+      '1.2*(' + IN + 'B' + R.qb + '-' + IN + 'B' + R.q + ')/3.6*('
+        + IN + 'E' + R.airAv + '-' + IN + 'E' + R.airRm + ')/1000/' + IN + 'B' + R.cop
+        + '*' + IN + 'B' + R.hours + '*' + IN + 'B' + R.rate,
+      m.kwhFromFlow*m.rate, '⚠ หรี่พัดลมเดิมก็ได้ ไม่ใช่ผลงานของ ERV', S.n0);
+    astep('ในนั้น · มาจากแกน ERV บาท/ปี',
+      '1.2 × Ls × Δh × ηt / COP × ชม. × ค่าไฟ',
+      '1.2*' + IN + 'B' + R.q + '/3.6*(' + IN + 'E' + R.airAv + '-' + IN + 'E' + R.airRm
+        + ')*' + IN + 'B' + R.et + '/100/1000/' + IN + 'B' + R.cop
+        + '*' + IN + 'B' + R.hours + '*' + IN + 'B' + R.rate,
+      m.kwhFromCore*m.rate, 'ส่วนที่เป็นผลงานของเครื่องจริง ๆ', S.n0);
+  }
   astep('เงินลงทุนส่วนต่าง บาท', 'ERV − พัดลม − (RT × ราคาแอร์/RT)', IN + 'B' + R.inv,
     pb.extra, '', S.n0);
   /* the twelve rows above only prove the energy chain · the money on top of
