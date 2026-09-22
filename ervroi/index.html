@@ -843,7 +843,22 @@ table.dtable td.st{white-space:nowrap}
       <div class="card-title-row"><h3>คืนทุนกี่ปี เทียบกับติดพัดลมธรรมดา</h3>
         <span class="pill" id="pbPill"></span></div>
       <div class="canvas-wrap" style="height:340px"><canvas id="sens"></canvas></div>
-      <div class="zoomhint">เส้นคือเงินสดสะสม เริ่มติดลบเท่ากับส่วนต่างค่าลงทุน แล้วไต่ขึ้นปีละเท่ากับที่ประหยัดได้ · จุดที่ตัดเส้นศูนย์คือปีที่คืนทุน</div>
+      <div class="zoomhint">เส้นคือเงินสดสะสม เริ่มติดลบเท่ากับส่วนต่างค่าลงทุน
+      แล้วไต่ขึ้นปีละเท่ากับที่ประหยัดได้ · จุดที่ตัดเส้นศูนย์คือปีที่คืนทุน ·
+      <b>ถ้าตั้งค่าไฟขึ้นปีละ % ไว้ เส้นจะโค้งขึ้นและคืนทุนเร็วกว่า</b>
+      ตรงกับคอลัมน์สะสมในชีต รายปี ของแฟ้ม Excel</div>
+    </div>
+  </div>
+
+  <div class="chart-grid g1">
+    <div class="card">
+      <button class="card-expand-btn" data-chart="years" type="button" title="ขยายเต็มจอ">⤢</button>
+      <div class="card-title-row"><h3>แต่ละปีประหยัดเท่าไร</h3>
+        <span class="pill" id="yrPill"></span></div>
+      <div class="canvas-wrap" style="height:320px"><canvas id="years"></canvas></div>
+      <div class="zoomhint">แท่งคือค่าไฟที่ประหยัดได้ในแต่ละปี · โตขึ้นทุกปีถ้าตั้ง
+      <b>ค่าไฟขึ้นปีละ %</b> ไว้ · เส้นประคือค่าดูแลรักษาที่หักออกไป ·
+      <b>ตัวเลขชุดเดียวกับชีต รายปี ในแฟ้ม Excel</b> · กดที่แท่งเพื่อดูรายละเอียด</div>
     </div>
   </div>
 
@@ -1594,6 +1609,78 @@ function payback(acSaving, net){
            immediate: known && extra <= 0, never: known && net <= 0 && extra > 0 };
 }
 
+/* What y years of an escalating saving add up to.
+   S + S(1+g) + ... + S(1+g)^(y-1) = S((1+g)^y - 1)/g, and S*y when g = 0.
+   Written for a fractional y as well, so a chart can be drawn smoothly and
+   the crossing can be read off it. */
+function escSum(S, g, y){
+  if(!g) return S*y;
+  return S*(Math.pow(1 + g, y) - 1)/g;
+}
+/* first y in [0, span] where f(y) >= 0 · bisection, because the curve is
+   monotonic wherever it matters and this needs no algebra per shape */
+function crossOf(f, span){
+  if(f(0) >= 0) return 0;
+  if(f(span) < 0) return null;
+  var lo = 0, hi = span;
+  for(var i = 0; i < 60; i++){
+    var mid = (lo + hi)/2;
+    if(f(mid) >= 0) hi = mid; else lo = mid;
+  }
+  return (lo + hi)/2;
+}
+
+/* ─────────────── what comes back each year ─────────────── */
+function drawYears(cv){
+  var p = prep(cv), g = p.g, m = model(), pb = m.pay;
+  var L = 74, R = 18, T = 20, B = 36, N = 20;
+  var sv = [], i;
+  for(i = 1; i <= N; i++) sv.push(m.net*Math.pow(1 + pb.g, i - 1));
+  var top = Math.max.apply(null, sv)*1.12;
+  if(!(top > 0)) top = 1;
+  var px = function(i2){ return L + (i2 - 0.5)/N*(p.w - L - R); };
+  var bw = Math.max(4, (p.w - L - R)/N*0.68);
+  var py = function(v){ return p.h - B - v/top*(p.h - B - T); };
+
+  g.strokeStyle = C.grid; g.lineWidth = 1; g.fillStyle = C.txt; g.textAlign = 'right';
+  for(var k = 0; k <= 4; k++){
+    var v = top*k/4, yy = py(v);
+    g.beginPath(); g.moveTo(L, yy); g.lineTo(p.w - R, yy); g.stroke();
+    g.fillText(baht(v), L - 6, yy + 4);
+  }
+  g.textAlign = 'center';
+  for(i = 1; i <= N; i++) if(i === 1 || i % 5 === 0) g.fillText(i, px(i), p.h - B + 15);
+  g.fillText('ปีที่', (L + p.w - R)/2, p.h - 4);
+  g.textAlign = 'left'; g.fillStyle = C.txt; g.fillText('บาทต่อปี', 4, T - 6);
+
+  for(i = 1; i <= N; i++){
+    var h0 = p.h - B - py(sv[i-1]);
+    g.fillStyle = C.green;
+    g.fillRect(px(i) - bw/2, py(sv[i-1]), bw, h0);
+    cv._hits.push({ kind:'rect', x:px(i) - bw/2, y:py(sv[i-1]), w:bw, h:h0, info:{
+      col:C.green, title:'ปีที่ ' + i,
+      eq:'ประหยัดปีที่ n = ประหยัดปีแรก × (1 + ค่าไฟขึ้นปีละ)^(n−1)',
+      syms:[['ประหยัดปีแรก','ค่าไฟที่ลดได้ หักพัดลมแล้ว', baht(m.net)+' บาท'],
+            ['ค่าไฟขึ้นปีละ','ตั้งในการ์ดราคาลงทุน', fmt(pb.g*100,1)+' %']],
+      rows:[['ค่าไฟที่ประหยัดปีนี้', baht(sv[i-1])+' บาท']]
+        .concat(m.svcYr > 0 ? [['หักค่าดูแลรักษา', baht(m.svcYr)+' บาท'],
+                               ['เหลือสุทธิปีนี้', baht(sv[i-1] - m.svcYr)+' บาท']] : [])
+        .concat([['ประหยัดสะสมถึงปีนี้',
+                  baht(escSum(m.net, pb.g, i) - m.svcYr*i)+' บาท'],
+                 ['ยังไม่หักเงินลงทุน', baht(pb.extra)+' บาท']]),
+      mean:'ตัวเลขชุดเดียวกับชีต <b>รายปี</b> ในแฟ้ม Excel ที่ปุ่มสร้างแฟ้มให้' }});
+  }
+  if(m.svcYr > 0){
+    var sy = py(m.svcYr);
+    g.beginPath(); g.moveTo(L, sy); g.lineTo(p.w - R, sy);
+    g.strokeStyle = C.red; g.lineWidth = 1.5; g.setLineDash([5,4]); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = C.red; g.textAlign = 'left';
+    g.font = '11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
+    g.fillText('ค่าดูแลรักษา ' + baht(m.svcYr), L + 6, sy - 5);
+  }
+}
+
 /* ─────────────── canvas plumbing ─────────────── */
 function prep(cv){
   var r = window.devicePixelRatio || 1, b = cv.getBoundingClientRect();
@@ -1814,8 +1901,14 @@ function drawSens(cv){
 
   var span = pb.years ? Math.max(6, Math.ceil(pb.years*1.7)) : 12;
   span = Math.min(span, 30);
+  /* the line used to climb by a flat amount every year, which drew the
+     SIMPLE payback even when a rate of escalation was set - so the chart
+     said one year and the line under it said another.
+     Same shape the workbook draws: the electricity saving grows at Ft,
+     upkeep does not. */
+  function cumAt(y){ return -pb.extra + escSum(m.net, pb.g, y) - m.svcYr*y; }
   var lo = Math.min(0, -pb.extra)*1.15,
-      hi = Math.max(1, -pb.extra + m.netAfterSvc*span)*1.08;
+      hi = Math.max(1, cumAt(span))*1.08;
   if(hi <= lo) hi = lo + 1;
   var px = function(y){ return L + y/span*(p.w-L-R); };
   var py = function(v){ return p.h-B - (v-lo)/(hi-lo)*(p.h-B-T); };
@@ -1837,13 +1930,18 @@ function drawSens(cv){
   g.strokeStyle=C.gray; g.lineWidth=1.5; g.setLineDash([5,4]); g.stroke(); g.setLineDash([]);
 
   /* the line itself, red while under water and green once it is not */
-  function cash(y){ return -pb.extra + m.netAfterSvc*y; }
-  var cross = pb.years;
+  function cash(y){ return cumAt(y); }
+  var cross = crossOf(cumAt, span);
   if(cross !== null && cross <= span){
-    g.beginPath(); g.moveTo(px(0), py(cash(0))); g.lineTo(px(cross), py(0));
-    g.strokeStyle=C.red; g.lineWidth=2.8; g.stroke();
-    g.beginPath(); g.moveTo(px(cross), py(0)); g.lineTo(px(span), py(cash(span)));
-    g.strokeStyle=C.green; g.lineWidth=2.8; g.stroke();
+    var STEP = 0.25;
+    function seg(a, b, col){
+      g.beginPath(); g.moveTo(px(a), py(cash(a)));
+      for(var t = a + STEP; t < b; t += STEP) g.lineTo(px(t), py(cash(t)));
+      g.lineTo(px(b), py(cash(b)));
+      g.strokeStyle = col; g.lineWidth = 2.8; g.stroke();
+    }
+    seg(0, cross, C.red);
+    seg(cross, span, C.green);
     dot(g, px(cross), y0, C.green);
     g.fillStyle=C.green; g.textAlign='center';
     g.font='600 12px -apple-system, Segoe UI, Helvetica, Arial, sans-serif';
@@ -1857,13 +1955,18 @@ function drawSens(cv){
             ['ส่วนต่างสุทธิ','ที่ต้องคืนทุน', baht(pb.extra)+' บาท'],
             ['ประหยัดต่อปี', m.svcYr > 0 ? 'หักพัดลมและค่าดูแลแล้ว' : 'หักค่าไฟพัดลมแล้ว',
              baht(m.netAfterSvc)+' บาท']],
-      rows:[['คืนทุนภายใน', fmt(cross,1)+' ปี'],
-            ['หรือราว', fmt(cross*12,0)+' เดือน'],
-            ['กำไรสะสมปีที่ 10', baht(cash(10))+' บาท']],
+      rows:[['คืนทุนภายใน', fmt(cross,1)+' ปี']]
+          .concat(pb.g ? [['ที่ค่าไฟขึ้นปีละ', fmt(pb.g*100,1)+' %'],
+                          ['ถ้าค่าไฟไม่ขึ้นเลย', fmt(pb.years,1)+' ปี']] : [])
+          .concat([['หรือราว', fmt(cross*12,0)+' เดือน'],
+            ['กำไรสะสมปีที่ 10', baht(cash(10))+' บาท']]),
       mean:'หลังจุดนี้เงินที่ประหยัดได้เป็นกำไรสุทธิทุกปี · <b>เส้นแดงคือช่วงที่ยังไม่คืนทุน '
-         + 'เส้นเขียวคือหลังคืนทุนแล้ว</b>' }});
+         + 'เส้นเขียวคือหลังคืนทุนแล้ว</b>'
+         + ' · เส้นนี้เป็นเงินตามจริงของแต่ละปี <b>ยังไม่คิดลด</b> '
+         + 'ตัวเลขที่คิดลดแล้วอยู่ใต้ช่องอัตราคิดลด' }});
   } else {
-    g.beginPath(); g.moveTo(px(0), py(cash(0))); g.lineTo(px(span), py(cash(span)));
+    g.beginPath(); g.moveTo(px(0), py(cash(0)));
+    for(var t2 = 0.25; t2 <= span; t2 += 0.25) g.lineTo(px(t2), py(cash(t2)));
     g.strokeStyle = m.netAfterSvc > 0 ? C.orange : C.red; g.lineWidth=2.8; g.stroke();
   }
 
@@ -2107,7 +2210,10 @@ function render(){
   stash(); saveProjects(); renderProjTabs(); renderIndex();
   renderSheet();
   renderRoomPanel();
-  drawBars($('bars')); drawSens($('sens'));
+  drawBars($('bars')); drawSens($('sens')); drawYears($('years'));
+  $('yrPill').textContent = m.pay.g
+    ? 'ค่าไฟขึ้นปีละ ' + fmt(m.pay.g*100,1) + ' %'
+    : 'ค่าไฟคงที่';
   attachChart($('bars')); attachChart($('sens'));
   if(MODAL) drawModal();
 }
@@ -2262,11 +2368,15 @@ function renderSheet(){
 
 /* ─────────────── modal ─────────────── */
 var MODAL = null;
-var MODAL_TITLE = { bars:'ค่าไฟต่อปี · เทียบสองทางเลือก', sens:'คืนทุนกี่ปี เทียบกับติดพัดลมธรรมดา' };
+var MODAL_TITLE = { bars:'ค่าไฟต่อปี · เทียบสองทางเลือก',
+                    sens:'คืนทุนกี่ปี เทียบกับติดพัดลมธรรมดา',
+                    years:'แต่ละปีประหยัดเท่าไร' };
 function drawModal(){
   if(!MODAL) return;
   var cv = $('modalCanvas');
-  if(MODAL === 'bars') drawBars(cv); else drawSens(cv);
+  if(MODAL === 'bars') drawBars(cv);
+  else if(MODAL === 'years') drawYears(cv);
+  else drawSens(cv);
   attachChart(cv);
 }
 function openModal(which){
