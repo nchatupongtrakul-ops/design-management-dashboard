@@ -1041,6 +1041,25 @@ function amountOf(pid, cats){
   });
   return s;
 }
+function partOf(pid, cat, part){
+  var s = 0;
+  DB.boq.forEach(function(b){
+    if(b.pid !== pid || b.cat !== cat || b.part !== part) return;
+    if(b.basis && b.basis !== 'BOQ price') return;
+    s += num(b.amount);
+  });
+  return s;
+}
+/* Estimator lines 1.2-7, same as the Excel Estimator sheet (rows 18-24).
+   cx = the line is multiplied by the complexity factor. */
+var EST_LINES = [
+  { k:'lab', no:'1.2', name:'ค่าแรงติดตั้งเครื่อง', cx:true },
+  { k:'c2',  no:'2',   name:'งานท่อลม', cx:true },
+  { k:'c3',  no:'3',   name:'หัวจ่าย / กริล / Louver / VD', cx:true },
+  { k:'c4',  no:'4',   name:'งานฝ้า', cx:true },
+  { k:'c5',  no:'5',   name:'ระบบไฟฟ้า + คอนโทรล', cx:true },
+  { k:'c6',  no:'6',   name:'Testing & Commissioning', cx:false },
+  { k:'c7',  no:'7',   name:'Shop & As-built drawing', cx:false }];
 function metrics(p){
   var pid = p.Project_ID;
   var equip = amountOf(pid, [1]) || num(p.Equipment_BOQ_THB);
@@ -1049,12 +1068,19 @@ function metrics(p){
   var direct = equip + inst || num(p.Direct_BOQ_THB);
   var area = num(p.Served_Area_sqm), cmh = num(p.Total_Airflow_CMH),
       dsq = num(p.Duct_Area_sqm), pts = num(p.Terminal_Points);
+  var mat = partOf(pid, 1, 'ค่าของ');
+  var per = function(v){ return area > 0 ? v / area : null; };
   return {
+    type: String(p.Building_Type || ''), sys: String(p.System_Type || ''),
     equip: equip, inst: inst, duct: duct, direct: direct,
     total: direct + num(p.Prelim_THB) + num(p.OH_THB),
     area: area, cmh: cmh, dsq: dsq, pts: pts,
     cmhPerSqm:  area > 0 ? cmh / area : null,
-    equipPerCmh: cmh > 0 ? equip / cmh : null,
+    equipPerCmh: cmh > 0 ? mat / cmh : null,       /* material only, as Excel AU */
+    equipPerSqm: per(mat),
+    lab: per(partOf(pid, 1, 'ค่าแรงติดตั้ง')),
+    c2: per(amountOf(pid, [2])), c3: per(amountOf(pid, [3])), c4: per(amountOf(pid, [4])),
+    c5: per(amountOf(pid, [5])), c6: per(amountOf(pid, [6])), c7: per(amountOf(pid, [7])),
     instPerSqm:  area > 0 ? inst / area : null,
     ductPerDsqm: dsq > 0 ? duct / dsq : null,
     directPerSqm: area > 0 ? direct / area : null
@@ -1204,8 +1230,8 @@ function renderRate(){
   var names = Object.keys(by).sort();
   $('rateHead').innerHTML = '<tr><th>ประเภทอาคาร</th><th class="num">n</th>'
     + '<th class="num">CMH/ตร.ม.</th>'
-    + '<th class="num">ค่าเครื่อง<br>บาท/CMH</th>'
-    + '<th class="num">ค่าติดตั้ง<br>บาท/ตร.ม.</th>'
+    + '<th class="num">1.1 ค่าเครื่อง<br>บาท/CMH</th>'
+    + EST_LINES.map(function(l){ return '<th class="num">' + l.no + ' ' + l.name + '<br>บาท/ตร.ม.</th>'; }).join('')
     + '<th class="num">ท่อลม<br>บาท/ตร.ม.ท่อ</th>'
     + '<th class="num">รวมหมวด 1-7<br>บาท/ตร.ม.</th></tr>';
   function cell(st, d){
@@ -1218,26 +1244,32 @@ function renderRate(){
   function line(label, arr, bold){
     var g = { cmh:stat(arr.map(function(m){ return m.cmhPerSqm; })),
               eq:stat(arr.map(function(m){ return m.equipPerCmh; })),
-              ins:stat(arr.map(function(m){ return m.instPerSqm; })),
               duct:stat(arr.map(function(m){ return m.ductPerDsqm; })),
               dir:stat(arr.map(function(m){ return m.directPerSqm; })) };
     return '<tr' + (bold ? ' style="background:var(--surface);font-weight:600"' : '') + '>'
       + '<td>' + esc(label) + '</td><td class="num">' + arr.length + '</td>'
-      + cell(g.cmh, 2) + cell(g.eq, 1) + cell(g.ins, 0) + cell(g.duct, 0) + cell(g.dir, 0) + '</tr>';
+      + cell(g.cmh, 2) + cell(g.eq, 1)
+      + EST_LINES.map(function(l){ return cell(stat(arr.map(function(m){ return m[l.k]; })), 0); }).join('')
+      + cell(g.duct, 0) + cell(g.dir, 0) + '</tr>';
   }
   $('rateBody').innerHTML = (names.map(function(t){ return line(t, by[t], false); }).join(''))
     + (all.length ? line('รวมทุกประเภท', all, true) : '')
-    || '<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:22px">ยังไม่มีข้อมูล</td></tr>';
+    || '<tr><td colspan="13" style="text-align:center;color:var(--gray);padding:22px">ยังไม่มีข้อมูล</td></tr>';
 }
 
-var EST = { type:'', scope:'', area:1000, floors:1, cmh:'', prelim:10, oh:15, cx:1 };
+/* The Estimator mirrors the Excel "Estimator" sheet line for line, so the
+   web and the workbook give the same number for the same inputs. */
+var EST = { type:'', sys:'', scope:'', area:1000, floors:1, cmh:'', prelim:10, oh:10, cx:1,
+            ceil:'patch', thr:100 };
 function renderEstIn(){
   var types = Object.keys(rateGroups(EST.scope)).sort();
-  function sel(id, label, arr, cur){
+  function sel(id, label, arr, cur, blank){
     return '<div class="fld"><label>' + label + '</label><select class="rin" id="' + id + '">'
-      + '<option value="">— ทุกประเภท —</option>'
-      + arr.map(function(v){ return '<option value="' + esc(v) + '"'
-          + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('')
+      + (blank === false ? '' : '<option value="">— ' + (blank || 'ทุกประเภท') + ' —</option>')
+      + arr.map(function(v){
+          var val = Array.isArray(v) ? v[0] : v, txt = Array.isArray(v) ? v[1] : v;
+          return '<option value="' + esc(val) + '"' + (val === cur ? ' selected' : '') + '>'
+            + esc(txt) + '</option>'; }).join('')
       + '</select></div>';
   }
   function n(id, label, val, step, unit){
@@ -1246,52 +1278,71 @@ function renderEstIn(){
   }
   $('estIn').innerHTML =
       sel('eType', 'ประเภทอาคาร', types, EST.type)
+    + sel('eSys', 'ชนิดระบบ', uniq('System_Type'), EST.sys, 'ทุกชนิด')
     + sel('eScope', 'ขอบเขตงาน', uniq('Scope_Package'), EST.scope)
     + n('eArea', 'พื้นที่ที่ให้บริการ', EST.area, '10', 'ตร.ม.')
     + n('eFloors', 'จำนวนชั้น', EST.floors, '1', 'ชั้น')
     + n('eCmh', 'ลมรวม ถ้ารู้แล้ว', EST.cmh, '50', 'CMH')
-    + n('ePre', 'Preliminary', EST.prelim, '1', '%')
-    + n('eOh', 'Overhead', EST.oh, '1', '%')
+    + sel('eCeil', 'งานฝ้า', [['none','ไม่มี (ลูกค้าทำเอง)'], ['patch','เปิด-ซ่อมฝ้าเฉพาะจุด'],
+        ['full','ทำฝ้าใหม่ทั้งพื้นที่']], EST.ceil, false)
+    + n('eThr', 'เส้นแบ่งฝ้าซ่อมจุด / ทำใหม่', EST.thr, '10', 'บาท/ตร.ม.')
+    + n('ePre', 'Preliminary', EST.prelim, '1', '% ของหมวด 1.2-7')
+    + n('eOh', 'Overhead', EST.oh, '1', '% ของหมวด 1.2-7')
     + n('eCx', 'Complexity factor', EST.cx, '0.05', '1.0 ปกติ · 1.15 retrofit · 1.3 อาคารเปิดใช้งาน');
-  ['eType','eScope','eArea','eFloors','eCmh','ePre','eOh','eCx'].forEach(function(id){
+  ['eType','eSys','eScope','eArea','eFloors','eCmh','eCeil','eThr','ePre','eOh','eCx'].forEach(function(id){
     $(id).addEventListener('input', function(){
-      EST.type = $('eType').value; EST.scope = $('eScope').value;
+      EST.type = $('eType').value; EST.sys = $('eSys').value; EST.scope = $('eScope').value;
       EST.area = num($('eArea').value); EST.floors = num($('eFloors').value);
-      EST.cmh = $('eCmh').value; EST.prelim = num($('ePre').value);
-      EST.oh = num($('eOh').value); EST.cx = num($('eCx').value, 1);
+      EST.cmh = $('eCmh').value; EST.ceil = $('eCeil').value; EST.thr = num($('eThr').value);
+      EST.prelim = num($('ePre').value); EST.oh = num($('eOh').value); EST.cx = num($('eCx').value, 1);
       renderEstOut();
     });
   });
 }
-function pickStat(by, type, key, minN){
-  var arr = type && by[type] ? by[type] : null;
-  var src = 'ตารางรวมทุกประเภท';
-  if(arr){
-    var s = stat(arr.map(function(m){ return m[key]; }));
-    if(s && s.n >= (minN || 3)) return { s:s, src:'กลุ่ม ' + type + ' (n=' + s.n + ')' };
-  }
-  var all = [];
-  Object.keys(by).forEach(function(k){ all = all.concat(by[k]); });
-  var s2 = stat(all.map(function(m){ return m[key]; }));
-  return { s:s2, src:src + (s2 ? ' (n=' + s2.n + ')' : '') };
+function avgOf(arr, key, keep){
+  var s = stat(arr.map(function(m){ var v = m[key]; return keep && !keep(v) ? null : v; }));
+  return s ? s.avg : null;
 }
 function renderEstOut(){
-  var by = rateGroups(EST.scope);
-  var cmhRate = pickStat(by, EST.type, 'cmhPerSqm');
-  var eqRate  = pickStat(by, EST.type, 'equipPerCmh');
-  var insRate = pickStat(by, EST.type, 'instPerSqm');
-  if(!eqRate.s || !insRate.s){
+  var by = rateGroups(EST.scope), all = [];
+  Object.keys(by).forEach(function(k){ all = all.concat(by[k]); });
+  if(!all.length){
     $('estOut').innerHTML = '<tr><td style="padding:18px;color:var(--gray)">'
       + 'ยังไม่มีข้อมูลพอจะประมาณราคา ต้องมีโปรเจคที่กรอกพื้นที่และลมอย่างน้อย 1 รายการ</td></tr>';
     $('estSrc').textContent = '';
     return;
   }
-  var cmh = num(EST.cmh, 0) || (EST.area * (cmhRate.s ? cmhRate.s.avg : 0));
-  var equip = cmh * eqRate.s.avg;
-  var inst = EST.area * insRate.s.avg * (EST.cx || 1);
-  var direct = equip + inst;
-  var pre = direct * EST.prelim / 100;
-  var oh = (direct + pre) * EST.oh / 100;
+  /* CMH and equipment: building x system (n>=3) -> system (n>=2) -> all.
+     n counts projects that have an equipment price, as RateCard does. */
+  var hasEq = function(m){ return m.equipPerSqm > 0; };
+  var cross = all.filter(function(m){ return m.type === EST.type && m.sys === EST.sys; });
+  var sysA  = all.filter(function(m){ return m.sys === EST.sys; });
+  function tier(key){
+    var nC = cross.filter(hasEq).length, nS = sysA.filter(hasEq).length, v;
+    if(EST.type && EST.sys && nC >= 3 && (v = avgOf(cross, key)))
+      return { v:v, src:'กลุ่ม ' + EST.type + ' + ' + EST.sys + ' (n=' + nC + ')' };
+    if(EST.sys && nS >= 2 && (v = avgOf(sysA, key)))
+      return { v:v, src:'ชนิดระบบ ' + EST.sys + ' (n=' + nS + ')' };
+    return { v:avgOf(all, key) || 0, src:'รวมทุกงาน (n=' + all.length + ')' };
+  }
+  /* install lines: building type (n>=3) -> all */
+  var grp = EST.type && by[EST.type] && by[EST.type].length >= 3 ? by[EST.type] : null;
+  function rate(key){ return (grp && avgOf(grp, key)) || avgOf(all, key) || 0; }
+  var ceilPatch = avgOf(all, 'c4', function(v){ return v < EST.thr; }) || 0;
+  var ceilFull  = avgOf(all, 'c4', function(v){ return v >= EST.thr; }) || 0;
+
+  var cmhR = tier('cmhPerSqm'), eqR = tier('equipPerCmh');
+  var cmh = num(EST.cmh, 0) || EST.area * cmhR.v;
+  var mat = cmh * eqR.v;
+  var lines = EST_LINES.map(function(l){
+    var r = l.k === 'c4' ? (EST.ceil === 'full' ? ceilFull : EST.ceil === 'none' ? 0 : ceilPatch)
+                         : rate(l.k);
+    return { l:l, v:EST.area * r * (l.cx ? (EST.cx || 1) : 1) };
+  });
+  var inst = lines.reduce(function(a, x){ return a + x.v; }, 0);
+  var direct = mat + inst;
+  var pre = inst * EST.prelim / 100;
+  var oh = inst * EST.oh / 100;
   var total = direct + pre + oh;
   function row(a, b, c, bold){
     return '<tr><td' + (bold ? ' style="font-weight:700"' : '') + '>' + a + '</td>'
@@ -1301,16 +1352,20 @@ function renderEstOut(){
   var per = function(v){ return EST.area > 0 ? baht(v / EST.area) + ' บาท/ตร.ม.' : '—'; };
   $('estOut').innerHTML =
       row('ลมรวมที่ประมาณได้', fmt(cmh) + ' CMH',
-          EST.cmh ? 'ใส่เอง' : fmt(cmhRate.s ? cmhRate.s.avg : 0, 2) + ' CMH/ตร.ม.')
-    + row('1 · ค่าเครื่อง', baht(equip) + ' บาท', per(equip))
-    + row('2-7 · ค่าติดตั้งทั้งหมด', baht(inst) + ' บาท', per(inst))
-    + row('รวมหมวด 1-7', baht(direct) + ' บาท', per(direct), true)
+          EST.cmh ? 'ใส่เอง' : fmt(cmhR.v, 2) + ' CMH/ตร.ม.')
+    + row('1.1 · ค่าเครื่อง (ของ)', baht(mat) + ' บาท', per(mat))
+    + lines.map(function(x){
+        return row(x.l.no + ' · ' + x.l.name, baht(x.v) + ' บาท', per(x.v)); }).join('')
+    + row('รวม BOQ หมวด 1-7', baht(direct) + ' บาท', per(direct), true)
     + row('8 · Preliminary ' + EST.prelim + '%', baht(pre) + ' บาท', per(pre))
     + row('9 · Overhead ' + EST.oh + '%', baht(oh) + ' บาท', per(oh))
     + row('ต้นทุน BOQ รวม', baht(total) + ' บาท', per(total), true);
-  $('estSrc').innerHTML = 'อัตราที่ใช้ · ค่าเครื่อง ' + fmt(eqRate.s.avg, 1) + ' บาท/CMH จาก '
-    + esc(eqRate.src) + ' · ค่าติดตั้ง ' + baht(insRate.s.avg) + ' บาท/ตร.ม. จาก '
-    + esc(insRate.src) + (EST.cx !== 1 ? ' · คูณ complexity ' + EST.cx : '')
+  $('estSrc').innerHTML = 'อัตราที่ใช้ · ค่าเครื่อง ' + fmt(eqR.v, 1) + ' บาท/CMH จาก ' + esc(eqR.src)
+    + ' · ค่าติดตั้งหมวด 1.2-7 จาก '
+    + (grp ? 'กลุ่ม ' + esc(EST.type) + ' (n=' + grp.length + ')' : 'รวมทุกประเภท (n=' + all.length + ')')
+    + ' · ฝ้าซ่อมจุด ' + fmt(ceilPatch, 1) + ' / ทำใหม่ ' + fmt(ceilFull, 1) + ' บาท/ตร.ม. จากทุกงาน'
+    + (EST.cx !== 1 ? ' · คูณ complexity ' + EST.cx + ' ที่หมวด 1.2-5' : '')
+    + '<br>Preliminary และ Overhead คิดจากหมวด 1.2-7 ไม่รวมค่าเครื่อง · เหมือนชีท Estimator ใน Excel'
     + '<br><b>จบที่ต้นทุน BOQ ยังไม่รวมกำไรของเรา</b>';
 }
 
